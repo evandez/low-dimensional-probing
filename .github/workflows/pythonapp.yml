@@ -32,6 +32,10 @@ jobs:
       run: |
         pip install pydocstyle
         pydocstyle
+    - name: Type check
+      run: |
+        pip install mypy
+        mypy -p lodimp
     - name: Test with pytest
       run: |
         pip install pytest pytest-mock
