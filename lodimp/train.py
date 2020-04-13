@@ -55,9 +55,9 @@ def collate_seq(samples: List[List[torch.Tensor]]) -> List[torch.Tensor]:
 
 
 parser = argparse.ArgumentParser(description='Train a POS tagger.')
-parser.add_argument('task', choices=['real', 'control'], help='Task variant.')
 parser.add_argument('data', type=pathlib.Path, help='Data directory.')
-parser.add_argument('--layer', type=int, default=2, help='ELMo layer to use.')
+parser.add_argument('task', choices=['real', 'control'], help='Task variant.')
+parser.add_argument('--elmo', type=int, default=2, help='ELMo layer to use.')
 parser.add_argument('--batch-size',
                     type=int,
                     default=64,
@@ -71,13 +71,20 @@ parser.add_argument('--cuda', action='store_true', help='Use CUDA device.')
 parser.add_argument('--log-dir',
                     default='/tmp/lodimp/train',
                     help='Path to write TensorBoard logs.')
+
+subparsers = parser.add_subparsers(dest='probe')
+mlp_parser = subparsers.add_parser('mlp', help='Use an MLP probe.')
+mlp_parser.add_argument('--layers', type=int, default=2, help='MLP layers.')
+mlp_parser.add_argument('--hidden', type=int, default=1024, help='Hidden dim.')
+proj_parser = subparsers.add_parser('proj', help='Use a projection probe.')
+proj_parser.add_argument('dim', type=int, help='Projection dimensionality.')
 options = parser.parse_args()
 
 ptbs, elmos = {}, {}
 for split in ('train', 'dev', 'test'):
     ptbs[split] = ptb.load(options.data / f'ptb3-wsj-{split}.conllx')
     elmos[split] = datasets.ELMoRepresentationsDataset(
-        options.data / f'raw.{split}.elmo-layers.hdf5', options.layer)
+        options.data / f'raw.{split}.elmo-layers.hdf5', options.elmo)
     assert len(ptbs[split]) == len(elmos[split]), 'mismatched datasets?'
 
 task: Optional[tasks.Task] = None
@@ -98,8 +105,18 @@ for split in elmos.keys():
                                      collate_fn=collate_seq,
                                      shuffle=True)
 
+probe: Optional[nn.Module] = None
+if options.probe == 'mlp':
+    probe = probes.MLP(elmos['train'].dimension,
+                       classes,
+                       hidden_dimension=options.hidden,
+                       hidden_layers=options.layers)
+else:
+    probe = probes.Projection(elmos['train'].dimension, options.dim, classes)
+assert probe is not None, 'unitialized probe?'
+
 device = torch.device('cuda') if options.cuda else torch.device('cpu')
-probe = probes.MLP(elmos['train'].dimension, classes).to(device)
+probe.to(device)
 criterion = nn.CrossEntropyLoss().to(device)
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
 writer = tensorboard.SummaryWriter(log_dir=options.log_dir)
@@ -131,13 +148,13 @@ for reps, tags in loaders['test']:
     predictions = probe(reps).argmax(dim=1)
     correct += predictions.eq(tags).sum().item()
     total += len(reps)
-writer.add_hparams(
-    {
-        'probe': 'mlp',
-        'task': options.task,
-    },
-    {
-        'hparam/accuracy': correct / total,
-    },
-)
+
+hparams = {'probe': options.probe, 'task': options.task}
+if options.probe == 'mlp':
+    hparams['probe'] += f'-{options.layers}'
+    hparams['hidden'] = options.hidden
+else:
+    hparams['hidden'] = options.dim
+metrics = {'hparam/accuracy': correct / total}
+writer.add_hparams(hparams, metrics)
 writer.close()

@@ -9,7 +9,7 @@ class MLP(nn.Sequential):
     def __init__(self,
                  input_dimension: int,
                  classes: int,
-                 hidden_dimension: int = 1000,
+                 hidden_dimension: int = 1024,
                  hidden_layers: int = 2):
         """Initialize the architecture.
 
@@ -17,7 +17,7 @@ class MLP(nn.Sequential):
             input_dimension (int): Dimensionality of input vectors.
             classes (int): Number of classes to predict for each word.
             hidden_dimension (int, optional): Dimensionality of hidden layers.
-                Defaults to 1000.
+                Defaults to 1024.
             hidden_layers (int, optional): Number of hidden layers.
                 Defaults to 2.
 
@@ -34,13 +34,30 @@ class MLP(nn.Sequential):
                 nn.Linear(hidden_dimension, hidden_dimension),
                 nn.ReLU(),
             ]
-        architecture += [
-            nn.Linear(hidden_dimension, classes),
-            nn.ReLU(),
-        ]
+        architecture.append(nn.Linear(hidden_dimension, classes))
 
         super(MLP, self).__init__(*architecture)
         self.input_dimension = input_dimension
         self.hidden_dimension = hidden_dimension
         self.classes = classes
         self.hidden_layers = hidden_layers
+
+
+class Projection(nn.Sequential):
+    """Probe for low-dimensional subspace of representation."""
+
+    def __init__(self, input_dimension: int, hidden_dimension: int,
+                 classes: int):
+        """Initilize the architecture.
+
+        Args:
+            input_dimension (int): Dimensionality of input vectors.
+            hidden_dimension (int): Dimensionality of projected space.
+            classes (int): Number of classes to predict for each vector.
+
+        """
+        super(Projection, self).__init__(
+            nn.Linear(input_dimension, hidden_dimension),
+            nn.Linear(hidden_dimension, classes),
+            # Softmax is implicit in loss functions.
+        )
