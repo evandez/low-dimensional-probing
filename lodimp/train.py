@@ -111,13 +111,15 @@ if options.probe == 'mlp':
                        classes,
                        hidden_dimension=options.hidden,
                        hidden_layers=options.layers)
+    label = f'MLP-{options.layers}-{options.task}'
 else:
     probe = probes.Projection(elmos['train'].dimension, options.dim, classes)
+    label = f'Proj-{options.task}-{options.dim}'
 assert probe is not None, 'unitialized probe?'
 
 device = torch.device('cuda') if options.cuda else torch.device('cpu')
 probe.to(device)
-criterion = nn.CrossEntropyLoss().to(device)
+criterion = nn.CrossEntropyLoss(reduction='sum').to(device)
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
 writer = tensorboard.SummaryWriter(log_dir=options.log_dir)
 
@@ -126,11 +128,11 @@ for epoch in range(options.epochs):
     for batch, (reps, tags) in enumerate(loaders['train']):
         reps, tags = reps.to(device), tags.to(device)
         predictions = probe(reps)
-        loss = criterion(predictions, tags)
+        loss = criterion(predictions, tags) / len(reps)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-        writer.add_scalar('Loss/train', loss.item(),
+        writer.add_scalar(f'Train-Loss/{label}', loss.item(),
                           epoch * len(loaders['train']) + batch)
 
     probe.eval()
@@ -140,7 +142,7 @@ for epoch in range(options.epochs):
         predictions = probe(reps)
         dev_loss += criterion(predictions, tags).item()
         dev_size += len(reps)
-    writer.add_scalar('Loss/dev', dev_loss / dev_size, epoch)
+    writer.add_scalar(f'Dev-Loss/{label}', dev_loss / dev_size, epoch)
 
 correct, total = 0., 0
 for reps, tags in loaders['test']:
@@ -149,12 +151,7 @@ for reps, tags in loaders['test']:
     correct += predictions.eq(tags).sum().item()
     total += len(reps)
 
-hparams = {'probe': options.probe, 'task': options.task}
-if options.probe == 'mlp':
-    hparams['probe'] += f'-{options.layers}'
-    hparams['hidden'] = options.hidden
-else:
-    hparams['hidden'] = options.dim
+hparams = {'probe': label, 'task': options.task}
 metrics = {'hparam/accuracy': correct / total}
 writer.add_hparams(hparams, metrics)
 writer.close()
