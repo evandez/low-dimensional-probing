@@ -68,7 +68,9 @@ parser.add_argument('--epochs',
                     help='Passes to make through dataset during training.')
 parser.add_argument('--lr', default=1e-3, type=float, help='Learning rate.')
 parser.add_argument('--cuda', action='store_true', help='Use CUDA device.')
-parser.add_argument('--log-dir', help='Path to write TensorBoard summaries.')
+parser.add_argument('--log-dir',
+                    default='/tmp/lodimp/train',
+                    help='Path to write TensorBoard logs.')
 options = parser.parse_args()
 
 ptbs, elmos = {}, {}
