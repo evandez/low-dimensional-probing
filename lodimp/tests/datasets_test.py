@@ -3,11 +3,11 @@
 import pathlib
 import tempfile
 
+from lodimp import datasets
+
 import h5py
 import numpy as np
 import pytest
-
-from lodimp import datasets
 
 ELMO_LAYERS = 3
 ELMO_DIMENSION = 1024

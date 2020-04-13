@@ -3,9 +3,9 @@
 import pathlib
 import tempfile
 
-import pytest
-
 from lodimp import ptb
+
+import pytest
 
 CONLLX = '''\
 1       The     _       DET     DT      _       2       det     _       _

@@ -1,8 +1,8 @@
 """Unit tests for the tasks module."""
 
-import torch
-
 from lodimp import ptb, tasks
+
+import torch
 
 SAMPLES = [
     ptb.Sample(['foo', 'bar', 'baz'], ['A', 'B', 'C']),

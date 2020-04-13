@@ -3,11 +3,11 @@
 import pathlib
 from typing import List, Tuple
 
+from lodimp import ptb, tasks
+
 import h5py
 import torch
 from torch.utils import data
-
-from lodimp import ptb, tasks
 
 
 class ELMoRepresentationsDataset(data.Dataset):

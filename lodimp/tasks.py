@@ -4,10 +4,10 @@ import collections
 import itertools
 from typing import Callable, Dict, List, Optional
 
+from lodimp import ptb
+
 import numpy as np
 import torch
-
-from lodimp import ptb
 
 # For now, tasks are defined in terms of Penn Treebank samples.
 Task = Callable[[ptb.Sample], torch.Tensor]

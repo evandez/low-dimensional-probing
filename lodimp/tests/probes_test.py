@@ -1,9 +1,9 @@
 """Unit tests for probes module."""
 
+from lodimp import probes
+
 import pytest
 import torch
-
-from lodimp import probes
 
 INPUT_DIMENSIONS = 100
 CLASSES = 10

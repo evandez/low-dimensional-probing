@@ -3,12 +3,12 @@ import argparse
 import pathlib
 from typing import List, Optional
 
+from lodimp import datasets, probes, ptb, tasks
+
 import torch
 from torch import nn, optim
 from torch.nn.utils import rnn
 from torch.utils import data, tensorboard
-
-from lodimp import datasets, probes, ptb, tasks
 
 
 # TODO(evandez): Move this to its own module.
