@@ -57,7 +57,11 @@ def collate_seq(samples: List[List[torch.Tensor]]) -> List[torch.Tensor]:
 parser = argparse.ArgumentParser(description='Train a POS tagger.')
 parser.add_argument('data', type=pathlib.Path, help='Data directory.')
 parser.add_argument('task', choices=['real', 'control'], help='Task variant.')
-parser.add_argument('--elmo', type=int, default=2, help='ELMo layer to use.')
+parser.add_argument('--elmo',
+                    choices=(0, 1, 2),
+                    type=int,
+                    default=2,
+                    help='ELMo layer to use.')
 parser.add_argument('--batch-size',
                     type=int,
                     default=64,
@@ -132,7 +136,7 @@ for epoch in range(options.epochs):
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-        writer.add_scalar(f'Train-Loss/{label}', loss.item(),
+        writer.add_scalar(f'{label}/Train-Loss', loss.item(),
                           epoch * len(loaders['train']) + batch)
 
     probe.eval()
@@ -142,7 +146,7 @@ for epoch in range(options.epochs):
         predictions = probe(reps)
         dev_loss += criterion(predictions, tags).item()
         dev_size += len(reps)
-    writer.add_scalar(f'Dev-Loss/{label}', dev_loss / dev_size, epoch)
+    writer.add_scalar(f'{label}/Dev-Loss', dev_loss / dev_size, epoch)
 
 correct, total = 0., 0
 for reps, tags in loaders['test']:
