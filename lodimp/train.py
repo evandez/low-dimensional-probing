@@ -57,6 +57,7 @@ def collate_seq(samples: List[List[torch.Tensor]]) -> List[torch.Tensor]:
 parser = argparse.ArgumentParser(description='Train a POS tagger.')
 parser.add_argument('data', type=pathlib.Path, help='Data directory.')
 parser.add_argument('task', choices=['real', 'control'], help='Task variant.')
+parser.add_argument('dim', type=int, help='Projection dimensionality.')
 parser.add_argument('--elmo',
                     choices=(0, 1, 2),
                     type=int,
@@ -75,13 +76,6 @@ parser.add_argument('--cuda', action='store_true', help='Use CUDA device.')
 parser.add_argument('--log-dir',
                     default='/tmp/lodimp/train',
                     help='Path to write TensorBoard logs.')
-
-subparsers = parser.add_subparsers(dest='probe')
-mlp_parser = subparsers.add_parser('mlp', help='Use an MLP probe.')
-mlp_parser.add_argument('--layers', type=int, default=2, help='MLP layers.')
-mlp_parser.add_argument('--hidden', type=int, default=1024, help='Hidden dim.')
-proj_parser = subparsers.add_parser('proj', help='Use a projection probe.')
-proj_parser.add_argument('dim', type=int, help='Projection dimensionality.')
 options = parser.parse_args()
 
 ptbs, elmos = {}, {}
@@ -109,23 +103,14 @@ for split in elmos.keys():
                                      collate_fn=collate_seq,
                                      shuffle=True)
 
-probe: Optional[nn.Module] = None
-if options.probe == 'mlp':
-    probe = probes.MLP(elmos['train'].dimension,
-                       classes,
-                       hidden_dimension=options.hidden,
-                       hidden_layers=options.layers)
-    label = f'MLP-{options.layers}-{options.task}'
-else:
-    probe = probes.Projection(elmos['train'].dimension, options.dim, classes)
-    label = f'Proj-{options.task}-{options.dim}'
-assert probe is not None, 'unitialized probe?'
-
 device = torch.device('cuda') if options.cuda else torch.device('cpu')
+probe = probes.Projection(elmos['train'].dimension, options.dim, classes)
 probe.to(device)
 criterion = nn.CrossEntropyLoss(reduction='sum').to(device)
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
+
 writer = tensorboard.SummaryWriter(log_dir=options.log_dir)
+label = f'proj{options.dim}'
 
 for epoch in range(options.epochs):
     probe.train()
@@ -136,7 +121,7 @@ for epoch in range(options.epochs):
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-        writer.add_scalar(f'{label}/Train-Loss', loss.item(),
+        writer.add_scalar(f'{label}/loss/train', loss.item(),
                           epoch * len(loaders['train']) + batch)
 
     probe.eval()
@@ -146,7 +131,7 @@ for epoch in range(options.epochs):
         predictions = probe(reps)
         dev_loss += criterion(predictions, tags).item()
         dev_size += len(reps)
-    writer.add_scalar(f'{label}/Dev-Loss', dev_loss / dev_size, epoch)
+    writer.add_scalar(f'{label}/loss/dev', dev_loss / dev_size, epoch)
 
 correct, total = 0., 0
 for reps, tags in loaders['test']:
@@ -154,8 +139,11 @@ for reps, tags in loaders['test']:
     predictions = probe(reps).argmax(dim=1)
     correct += predictions.eq(tags).sum().item()
     total += len(reps)
+accuracy = correct / total
+writer.add_scalar(f'accuracy/{task}', accuracy, options.dim)
 
-hparams = {'probe': label, 'task': options.task}
+# Also write full hyperparameters.
+hparams = {'dim': options.dim, 'task': options.task}
 metrics = {'hparam/accuracy': correct / total}
 writer.add_hparams(hparams, metrics)
 writer.close()
