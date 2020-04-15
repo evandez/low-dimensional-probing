@@ -11,7 +11,7 @@ import os
 import subprocess
 import sys
 
-parser = argparse.ArgumentParser(description='Run an ITIS script.')
+parser = argparse.ArgumentParser(description='Run an LoDimP script.')
 parser.add_argument('--debug',
                     action='store_true',
                     help='Log debug statements.')
