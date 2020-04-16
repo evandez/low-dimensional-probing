@@ -164,6 +164,6 @@ writer.add_scalar(f'accuracy/{options.task}', accuracy, options.dim)
 
 # Also write full hyperparameters.
 hparams = {'dim': options.dim, 'task': options.task}
-metrics = {'hparam/accuracy': accuracy}
+metrics = {'accuracy': accuracy}
 writer.add_hparams(hparams, metrics)
 writer.close()
