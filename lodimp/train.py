@@ -70,7 +70,7 @@ parser.add_argument('--batch-size',
                     help='Sentences per minibatch.')
 parser.add_argument('--epochs',
                     type=int,
-                    default=10,
+                    default=25,
                     help='Passes to make through dataset during training.')
 parser.add_argument('--lr', default=1e-3, type=float, help='Learning rate.')
 parser.add_argument('--lr-reduce',
