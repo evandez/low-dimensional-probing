@@ -2,7 +2,6 @@
 
 In particular, adjusts PYTHONPATH accordingly to ensure
 scripts in subdirectories know how to import first-party packages.
-Also saves run configuration so that experiments are repeatable.
 """
 
 import argparse
