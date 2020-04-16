@@ -7,8 +7,8 @@ from lodimp import datasets, probes, ptb, tasks
 
 import torch
 from torch import nn, optim
-from torch.optim import lr_scheduler
 from torch.nn.utils import rnn
+from torch.optim import lr_scheduler
 from torch.utils import data, tensorboard
 
 
