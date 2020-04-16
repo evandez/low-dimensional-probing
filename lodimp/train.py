@@ -7,6 +7,7 @@ from lodimp import datasets, probes, ptb, tasks
 
 import torch
 from torch import nn, optim
+from torch.optim import lr_scheduler
 from torch.nn.utils import rnn
 from torch.utils import data, tensorboard
 
@@ -72,6 +73,18 @@ parser.add_argument('--epochs',
                     default=10,
                     help='Passes to make through dataset during training.')
 parser.add_argument('--lr', default=1e-3, type=float, help='Learning rate.')
+parser.add_argument('--lr-reduce',
+                    type=float,
+                    default=0.5,
+                    help='Shrink LR at this rate when --lr-patience exceeded.')
+parser.add_argument('--lr-patience',
+                    type=int,
+                    default=1,
+                    help='Shrink LR after this many epochs dev loss decrease.')
+parser.add_argument('--patience',
+                    type=int,
+                    default=4,
+                    help='Epochs for dev loss to decrease to stop training.')
 parser.add_argument('--cuda', action='store_true', help='Use CUDA device.')
 parser.add_argument('--log-dir',
                     default='/tmp/lodimp/train',
@@ -108,6 +121,9 @@ probe = probes.Projection(elmos['train'].dimension, options.dim, classes)
 probe.to(device)
 criterion = nn.CrossEntropyLoss(reduction='sum').to(device)
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
+scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
+                                           factor=options.lr_reduce,
+                                           patience=options.lr_patience)
 
 writer = tensorboard.SummaryWriter(log_dir=options.log_dir)
 label = f'proj{options.dim}'
@@ -125,21 +141,25 @@ for epoch in range(options.epochs):
                           epoch * len(loaders['train']) + batch)
 
     probe.eval()
-    dev_loss, dev_size = 0., 0
+    total, count = 0., 0
     for reps, tags in loaders['dev']:
         reps, tags = reps.to(device), tags.to(device)
         predictions = probe(reps)
-        dev_loss += criterion(predictions, tags).item()
-        dev_size += len(reps)
-    writer.add_scalar(f'{label}/loss/dev', dev_loss / dev_size, epoch)
+        total += criterion(predictions, tags).item()
+        count += len(reps)
+    dev_loss = total / count
+    writer.add_scalar(f'{label}/loss/dev', dev_loss, epoch)
+    scheduler.step(dev_loss)
+    if scheduler.num_bad_epochs > options.patience:  # type: ignore
+        break
 
-correct, total = 0., 0
+correct, count = 0., 0
 for reps, tags in loaders['test']:
     reps, tags = reps.to(device), tags.to(device)
     predictions = probe(reps).argmax(dim=1)
     correct += predictions.eq(tags).sum().item()
-    total += len(reps)
-accuracy = correct / total
+    count += len(reps)
+accuracy = correct / count
 writer.add_scalar(f'accuracy/{task}', accuracy, options.dim)
 
 # Also write full hyperparameters.
