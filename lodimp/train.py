@@ -160,10 +160,10 @@ for reps, tags in loaders['test']:
     correct += predictions.eq(tags).sum().item()
     count += len(reps)
 accuracy = correct / count
-writer.add_scalar(f'accuracy/{task}', accuracy, options.dim)
+writer.add_scalar(f'accuracy/{options.task}', accuracy, options.dim)
 
 # Also write full hyperparameters.
 hparams = {'dim': options.dim, 'task': options.task}
-metrics = {'hparam/accuracy': correct / total}
+metrics = {'hparam/accuracy': accuracy}
 writer.add_hparams(hparams, metrics)
 writer.close()
