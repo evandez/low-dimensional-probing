@@ -143,7 +143,7 @@ for split in ('train', 'dev', 'test'):
     logging.info('loaded elmo %s reps from %s', split, path)
     assert len(ptbs[split]) == len(elmos[split]), 'mismatched datasets?'
 elmo_dim = elmos['train'].dimension
-logging.info('elmo layer %d has dim %d', options.elmo, elmo_dim)
+logging.info('using elmo layer %d which has dim %d', options.elmo, elmo_dim)
 
 task: Optional[tasks.Task] = None
 if options.task == 'real':
