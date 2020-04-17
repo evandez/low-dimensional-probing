@@ -232,8 +232,8 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
 
     # Also compute effective rank.
     _, s, _ = torch.svd(probe.project.weight, compute_uv=False)
-    rank = distributions.Categorical(logits=s).entropy()
+    erank = distributions.Categorical(logits=s).entropy()
 
     # Write metrics.
-    writer.add_hparams(hparams, {'accuracy': accuracy, 'erank': rank})
+    writer.add_hparams(dict(hparams), {'accuracy': accuracy, 'erank': erank})
     logging.info('test accuracy %.3f', accuracy)
