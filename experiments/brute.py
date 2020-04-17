@@ -7,7 +7,7 @@ import sys
 
 from torch import cuda
 
-parser = argparse.ArgumentParser(description='Run experiments.')
+parser = argparse.ArgumentParser(description='Run brute-force experiments.')
 parser.add_argument('data', help='Path to PTB data.')
 parser.add_argument('--low', type=int, default=2, help='Low projection dim.')
 parser.add_argument('--high', type=int, default=64, help='Top projection dim.')
@@ -15,7 +15,7 @@ parser.add_argument('--tasks',
                     nargs='+',
                     default=('real', 'control'),
                     help='Tasks to run.')
-parser.add_argument('--step-size', type=int, default=1, help='Step size.')
+parser.add_argument('--step', type=int, default=1, help='Dimenion step size.')
 parser.add_argument('--pool', type=int, default=2, help='Max jobs at once.')
 parser.add_argument('--log-dir', default='/tmp/lodimp', help='TB log path.')
 options = parser.parse_args()
@@ -27,15 +27,15 @@ module = os.path.join(root, 'lodimp')
 script = os.path.join(module, 'train.py')
 data = os.path.abspath(options.data)
 logs = os.path.abspath(options.log_dir)
-command = ['python3', module, script, data, '--log-dir', options.log_dir]
+command = ['python3', module, script, data, '--log-dir', logs]
 if cuda.is_available():
     command.append('--cuda')
 
-low, high, step = options.low, options.high, options.step_size
+low, high, step = options.low, options.high, options.step
 if low < 1 or high < low or step < 1:
     raise ValueError(f'bad range: ({low}, {high}, {step})')
 
-dims = list(range(options.low, options.high, options.step_size))
+dims = list(range(low, high, step))
 pool = options.pool
 groups = [dims[start:start + pool] for start in range(0, len(dims), pool)]
 
