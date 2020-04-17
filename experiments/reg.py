@@ -5,12 +5,13 @@ import os
 import subprocess
 import sys
 
+import numpy as np
 from torch import cuda
 
 parser = argparse.ArgumentParser(description='Run regularizer experiments.')
 parser.add_argument('data', help='Path to PTB data.')
 parser.add_argument('--dim', type=int, default=64, help='Projection dim.')
-parser.add_argument('--kind', default='l1', help='Regularization variety.')
+parser.add_argument('--reg', default='l1', help='Regularization variety.')
 parser.add_argument('--tasks',
                     nargs='+',
                     default=('real', 'control'),
@@ -35,10 +36,10 @@ if cuda.is_available():
     command.append('--cuda')
 
 low, high, step = options.low, options.high, options.step
-if low < 1 or high < low or step < 0:
+if low < 0 or high < low or step < 0:
     raise ValueError(f'bad range: ({low}, {high}, {step})')
 
-lams = list(range(low, high, step))
+lams = np.arange(low, high, step)
 pool = options.pool
 groups = [lams[start:start + pool] for start in range(0, len(lams), pool)]
 
@@ -47,7 +48,10 @@ for task in options.tasks:
     for group in groups:
         processes = []
         for lam in group:
-            args = command + [task, str(options.dim), f'--{options.reg}', lam]
+            args = command + [
+                task, str(options.dim), f'--{options.reg}',
+                str(lam)
+            ]
             print(' '.join(args))
             process = subprocess.Popen(args)
             processes.append(process)
