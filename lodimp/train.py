@@ -16,7 +16,7 @@ from torch.utils import data
 from torch.utils import tensorboard as tb
 
 
-# TODO(evandez): Move this to its own module.
+# TODO(evandez): Move the functions below to separate modules.
 def pack(samples: List[List[torch.Tensor]]) -> List[torch.Tensor]:
     """Collate samples of sequences into PackedSequences.
 
@@ -57,6 +57,27 @@ def pack(samples: List[List[torch.Tensor]]) -> List[torch.Tensor]:
         collated.append(rnn.pack_sequence(items, enforce_sorted=False).data)
 
     return collated
+
+
+def effective_rank(matrix: torch.Tensor) -> float:
+    """Return the effective rank of the matrix.
+
+    Effective rank is intuitively the expected dimensionality of the range of
+    the matrix. See "THE EFFECTIVE RANK: A MEASURE OF EFFECTIVE DIMENSIONALITY"
+    for detailed treatment.
+
+    Args:
+        matrix (torch.Tensor): Size (M, N) matrix for which to compute
+            effective rank.
+
+    Returns:
+        float: The effective rank.
+
+    """
+    if len(matrix.shape) != 2:
+        raise ValueError(f'expected 2D matrix, got shape {matrix.shape}')
+    _, s, _ = torch.svd(probe.project.weight, compute_uv=False)
+    return torch.exp(distributions.Categorical(logits=s).entropy()).item()
 
 
 parser = argparse.ArgumentParser(description='Train a POS tagger.')
@@ -198,7 +219,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
 
             iteration = epoch * len(loaders['train']) + batch
             writer.add_scalar(f'{tag}/train-loss', loss.item(), iteration)
-            logging.info('iteration %d loss %.3f', iteration, loss.item())
+            logging.info('iteration %d loss %f', iteration, loss.item())
 
         probe.eval()
         total, count = 0., 0
@@ -208,8 +229,12 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
             total += criterion(preds, tags).item() * len(reps)  # Undo mean.
             count += len(reps)
         dev_loss = total / count
+        erank = effective_rank(probe.project.weight)
+        logging.info('epoch %d dev loss %f erank %f', epoch, dev_loss, erank)
+
         writer.add_scalar(f'{tag}/dev-loss', dev_loss, epoch)
-        logging.info('epoch %d dev loss %.3f', epoch, dev_loss)
+        writer.add_scalar(f'{tag}/erank', erank, epoch)
+
         scheduler.step(dev_loss)
         if scheduler.num_bad_epochs > options.patience:  # type: ignore
             logging.info('patience exceeded, training complete')
@@ -229,10 +254,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
         correct += preds.eq(tags).sum().item()
         count += len(reps)
     accuracy = correct / count
-
-    # Also compute effective rank.
-    _, s, _ = torch.svd(probe.project.weight, compute_uv=False)
-    erank = torch.exp(distributions.Categorical(logits=s).entropy())
+    erank = effective_rank(probe.project.weight)
 
     # Write metrics.
     writer.add_hparams(dict(hparams), {'accuracy': accuracy, 'erank': erank})
