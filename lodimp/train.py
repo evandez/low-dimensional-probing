@@ -70,11 +70,11 @@ parser.add_argument('--elmo',
                     help='ELMo layer to use.')
 parser.add_argument('--batch-size',
                     type=int,
-                    default=64,
+                    default=128,
                     help='Sentences per minibatch.')
 parser.add_argument('--epochs',
                     type=int,
-                    default=25,
+                    default=100,
                     help='Passes to make through dataset during training.')
 parser.add_argument('--l1', type=float, help='Add L1 norm penalty.')
 parser.add_argument('--nuc', type=float, help='Add nuclear norm penalty')
