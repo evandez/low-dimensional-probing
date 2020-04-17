@@ -9,7 +9,7 @@ from typing import List, Optional
 from lodimp import datasets, probes, ptb, tasks
 
 import torch
-from torch import nn, optim
+from torch import distributions, nn, optim
 from torch.nn.utils import rnn
 from torch.optim import lr_scheduler
 from torch.utils import data
@@ -221,7 +221,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
     torch.save(probe.state_dict(), model_path)
     logging.info('model saved to %s', model_path)
 
-    # Test the model and write results.
+    # Test the model.
     correct, count = 0., 0
     for reps, tags in loaders['test']:
         reps, tags = reps.to(device), tags.to(device)
@@ -229,5 +229,11 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
         correct += preds.eq(tags).sum().item()
         count += len(reps)
     accuracy = correct / count
-    writer.add_hparams(hparams, {'accuracy': accuracy})
+
+    # Also compute effective rank.
+    _, s, _ = torch.svd(probe.project.weight, compute_uv=False)
+    rank = distributions.Categorical(logits=s).entropy()
+
+    # Write metrics.
+    writer.add_hparams(hparams, {'accuracy': accuracy, 'erank': rank})
     logging.info('test accuracy %.3f', accuracy)
