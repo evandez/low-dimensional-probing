@@ -1,6 +1,9 @@
 """Entry point for all experiments."""
 import argparse
+import collections
+import logging
 import pathlib
+import sys
 from typing import List, Optional
 
 from lodimp import datasets, probes, ptb, tasks
@@ -9,11 +12,12 @@ import torch
 from torch import nn, optim
 from torch.nn.utils import rnn
 from torch.optim import lr_scheduler
-from torch.utils import data, tensorboard
+from torch.utils import data
+from torch.utils import tensorboard as tb
 
 
 # TODO(evandez): Move this to its own module.
-def collate_seq(samples: List[List[torch.Tensor]]) -> List[torch.Tensor]:
+def pack(samples: List[List[torch.Tensor]]) -> List[torch.Tensor]:
     """Collate samples of sequences into PackedSequences.
 
     This is meant to be used as the collate_fn for a torch.utils.DataLoader
@@ -72,6 +76,8 @@ parser.add_argument('--epochs',
                     type=int,
                     default=25,
                     help='Passes to make through dataset during training.')
+parser.add_argument('--l1', type=float, help='Add L1 norm penalty.')
+parser.add_argument('--nuc', type=float, help='Add nuclear norm penalty')
 parser.add_argument('--lr', default=1e-3, type=float, help='Learning rate.')
 parser.add_argument('--lr-reduce',
                     type=float,
@@ -87,16 +93,57 @@ parser.add_argument('--patience',
                     help='Epochs for dev loss to decrease to stop training.')
 parser.add_argument('--cuda', action='store_true', help='Use CUDA device.')
 parser.add_argument('--log-dir',
-                    default='/tmp/lodimp/train',
+                    type=pathlib.Path,
+                    default='/tmp/lodimp/logs',
                     help='Path to write TensorBoard logs.')
+parser.add_argument('--model-dir',
+                    type=pathlib.Path,
+                    default='/tmp/lodimp/models',
+                    help='Path to write finished model(s).')
+parser.add_argument('--verbose',
+                    dest='log_level',
+                    action='store_const',
+                    const=logging.INFO,
+                    default=logging.WARNING,
+                    help='Print lots of logs to stdout.')
 options = parser.parse_args()
 
+# Set up.
+logging.basicConfig(stream=sys.stdout,
+                    format='%(asctime)s %(levelname)-8s %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    level=options.log_level)
+
+options.log_dir.mkdir(parents=True, exist_ok=True)
+logging.info('tensorboard will write to %s', options.log_dir)
+
+options.model_dir.mkdir(parents=True, exist_ok=True)
+logging.info('model(s) will be written to %s', options.model_dir)
+
+# Identify this run.
+hparams = collections.OrderedDict()
+hparams['proj'] = options.dim
+hparams['task'] = options.task
+if options.l1:
+    hparams['l1'] = options.l1
+if options.nuc:
+    hparams['nuc'] = options.nuc
+tag = '-'.join(f'{key}_{value}' for key, value in hparams.items())
+logging.info('job tag is %s', tag)
+
+# Load data.
 ptbs, elmos = {}, {}
 for split in ('train', 'dev', 'test'):
-    ptbs[split] = ptb.load(options.data / f'ptb3-wsj-{split}.conllx')
-    elmos[split] = datasets.ELMoRepresentationsDataset(
-        options.data / f'raw.{split}.elmo-layers.hdf5', options.elmo)
+    path = options.data / f'ptb3-wsj-{split}.conllx'
+    ptbs[split] = ptb.load(path)
+    logging.info('loaded ptb %s set from %s', split, path)
+
+    path = options.data / f'raw.{split}.elmo-layers.hdf5'
+    elmos[split] = datasets.ELMoRepresentationsDataset(path, options.elmo)
+    logging.info('loaded elmo %s reps from %s', split, path)
     assert len(ptbs[split]) == len(elmos[split]), 'mismatched datasets?'
+elmo_dim = elmos['train'].dimension
+logging.info('elmo layer %d has dim %d', options.elmo, elmo_dim)
 
 task: Optional[tasks.Task] = None
 if options.task == 'real':
@@ -106,6 +153,7 @@ else:
     task = tasks.PTBControlPOS(*ptbs.values())
     classes = len(task.tags)
 assert task is not None, 'unitialized task?'
+logging.info('will train on %s task', options.task)
 
 loaders = {}
 for split in elmos.keys():
@@ -113,57 +161,73 @@ for split in elmos.keys():
                                       datasets.PTBDataset(ptbs[split], task))
     loaders[split] = data.DataLoader(dataset,
                                      batch_size=options.batch_size,
-                                     collate_fn=collate_seq,
+                                     collate_fn=pack,
                                      shuffle=True)
 
+# Initialize model, optimizer, loss, etc.
 device = torch.device('cuda') if options.cuda else torch.device('cpu')
-probe = probes.Projection(elmos['train'].dimension, options.dim, classes)
-probe.to(device)
-criterion = nn.CrossEntropyLoss(reduction='sum').to(device)
+probe = probes.Projection(elmo_dim, options.dim, classes).to(device)
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
 scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
                                            factor=options.lr_reduce,
                                            patience=options.lr_patience)
+ce = nn.CrossEntropyLoss().to(device)
 
-writer = tensorboard.SummaryWriter(log_dir=options.log_dir)
-label = f'proj{options.dim}'
 
-for epoch in range(options.epochs):
-    probe.train()
-    for batch, (reps, tags) in enumerate(loaders['train']):
+def criterion(*args: torch.Tensor) -> torch.Tensor:
+    """Returns CE loss with regularizers."""
+    loss = ce(*args)
+    if options.l1:
+        return loss + options.l1 * probe.project.weight.norm(p=1)
+    if options.nuc:
+        return loss + options.nuc * probe.project.weight.norm(p='nuc')
+    return loss
+
+
+# Train the model.
+with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
+    for epoch in range(options.epochs):
+        probe.train()
+        for batch, (reps, tags) in enumerate(loaders['train']):
+            reps, tags = reps.to(device), tags.to(device)
+            preds = probe(reps)
+            loss = criterion(preds, tags)
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+
+            iteration = epoch * len(loaders['train']) + batch
+            writer.add_scalar(f'{tag}/train-loss', loss.item(), iteration)
+            logging.info('iteration %d loss %.3f', iteration, loss.item())
+
+        probe.eval()
+        total, count = 0., 0
+        for reps, tags in loaders['dev']:
+            reps, tags = reps.to(device), tags.to(device)
+            preds = probe(reps)
+            total += criterion(preds, tags).item() * len(reps)  # Undo mean.
+            count += len(reps)
+        dev_loss = total / count
+        writer.add_scalar(f'{tag}/dev-loss', dev_loss, epoch)
+        logging.info('epoch %d dev loss %.3f', epoch, dev_loss)
+        scheduler.step(dev_loss)
+        if scheduler.num_bad_epochs > options.patience:  # type: ignore
+            logging.info('patience exceeded, training complete')
+            break
+
+    # Write finished model.
+    model_file = tag + '.pth'
+    model_path = options.model_dir / model_file
+    torch.save(probe.state_dict(), model_path)
+    logging.info('model saved to %s', model_path)
+
+    # Test the model and write results.
+    correct, count = 0., 0
+    for reps, tags in loaders['test']:
         reps, tags = reps.to(device), tags.to(device)
-        predictions = probe(reps)
-        loss = criterion(predictions, tags) / len(reps)
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-        writer.add_scalar(f'{label}/loss/train', loss.item(),
-                          epoch * len(loaders['train']) + batch)
-
-    probe.eval()
-    total, count = 0., 0
-    for reps, tags in loaders['dev']:
-        reps, tags = reps.to(device), tags.to(device)
-        predictions = probe(reps)
-        total += criterion(predictions, tags).item()
+        preds = probe(reps).argmax(dim=1)
+        correct += preds.eq(tags).sum().item()
         count += len(reps)
-    dev_loss = total / count
-    writer.add_scalar(f'{label}/loss/dev', dev_loss, epoch)
-    scheduler.step(dev_loss)
-    if scheduler.num_bad_epochs > options.patience:  # type: ignore
-        break
-
-correct, count = 0., 0
-for reps, tags in loaders['test']:
-    reps, tags = reps.to(device), tags.to(device)
-    predictions = probe(reps).argmax(dim=1)
-    correct += predictions.eq(tags).sum().item()
-    count += len(reps)
-accuracy = correct / count
-writer.add_scalar(f'accuracy/{options.task}', accuracy, options.dim)
-
-# Also write full hyperparameters.
-hparams = {'dim': options.dim, 'task': options.task}
-metrics = {'accuracy': accuracy}
-writer.add_hparams(hparams, metrics)
-writer.close()
+    accuracy = correct / count
+    writer.add_hparams(hparams, {'accuracy': accuracy})
+    logging.info('test accuracy %.3f', accuracy)
