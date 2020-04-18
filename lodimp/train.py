@@ -76,7 +76,7 @@ def effective_rank(matrix: torch.Tensor) -> float:
     """
     if len(matrix.shape) != 2:
         raise ValueError(f'expected 2D matrix, got shape {matrix.shape}')
-    _, s, _ = torch.svd(probe.project.weight, compute_uv=False)
+    _, s, _ = torch.svd(matrix, compute_uv=False)
     return torch.exp(distributions.Categorical(logits=s).entropy()).item()
 
 
