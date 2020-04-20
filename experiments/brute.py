@@ -15,6 +15,7 @@ parser.add_argument('--tasks',
                     nargs='+',
                     default=('real', 'control'),
                     help='Tasks to run.')
+parser.add_argument('--layers', default=(2,), nargs='+', help='ELMo layers.')
 parser.add_argument('--step', type=int, default=1, help='Dimenion step size.')
 parser.add_argument('--pool', type=int, default=2, help='Max jobs at once.')
 parser.add_argument('--log-dir', default='/tmp/lodimp', help='TB log path.')
@@ -41,18 +42,19 @@ groups = [dims[start:start + pool] for start in range(0, len(dims), pool)]
 
 # Launch jobs, one task at a time, one group at a time.
 for task in options.tasks:
-    for group in groups:
-        processes = []
-        for dim in group:
-            args = command + [task, str(dim)]
-            print(' '.join(args))
-            process = subprocess.Popen(args)
-            processes.append(process)
+    for layer in options.layers:
+        for group in groups:
+            processes = []
+            for dim in group:
+                args = command + [task, str(dim), '--elmo', str(layer)]
+                print(' '.join(args))
+                process = subprocess.Popen(args)
+                processes.append(process)
 
-        # Wait for all processes to start before launching next. They should
-        # all finish at similar times assuming --pool was chosen to maximize
-        # resource use without clogging it.
-        for process in processes:
-            process.wait()
-            if process.returncode:
-                sys.exit(process.returncode)
+            # Wait for all processes to start before launching next. They
+            # should all finish at similar times assuming --pool was chosen
+            # to maximize resource use without clogging it.
+            for process in processes:
+                process.wait()
+                if process.returncode:
+                    sys.exit(process.returncode)
