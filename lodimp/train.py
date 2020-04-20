@@ -145,6 +145,7 @@ logging.info('model(s) will be written to %s', options.model_dir)
 hparams = collections.OrderedDict()
 hparams['proj'] = options.dim
 hparams['task'] = options.task
+hparams['layer'] = options.elmo
 if options.l1:
     hparams['l1'] = options.l1
 if options.nuc:
@@ -209,7 +210,7 @@ def criterion(*args: torch.Tensor) -> torch.Tensor:
 with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
     for epoch in range(options.epochs):
         probe.train()
-        for batch, (reps, tags) in enumerate(loaders['train']):
+        for batch, (reps, tags) in enumerate(loaders['dev']):
             reps, tags = reps.to(device), tags.to(device)
             preds = probe(reps)
             loss = criterion(preds, tags)
@@ -217,7 +218,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
             optimizer.step()
             optimizer.zero_grad()
 
-            iteration = epoch * len(loaders['train']) + batch
+            iteration = epoch * len(loaders['dev']) + batch
             writer.add_scalar(f'{tag}/train-loss', loss.item(), iteration)
             logging.info('iteration %d loss %f', iteration, loss.item())
 
