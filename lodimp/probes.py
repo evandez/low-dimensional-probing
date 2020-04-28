@@ -22,7 +22,7 @@ class Projection(nn.Module):
         self.classify = nn.Linear(hidden_dimension, classes)
         # Softmax is implicit in loss functions.
 
-    def forward(self, inputs: torch.Tensor) -> torch.Tensor:  # type: ignore
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """Project the inputs to low dimension and predict labels for them.
 
         Args:
