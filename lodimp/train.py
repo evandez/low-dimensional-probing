@@ -199,7 +199,8 @@ probe = probes.Projection(elmo_dim, options.dim, classes).to(device)
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
 scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
                                            factor=options.lr_reduce,
-                                           patience=options.lr_patience)
+                                           patience=options.lr_patience,
+                                           threshold=1e-6)
 ce = nn.CrossEntropyLoss().to(device)
 
 
