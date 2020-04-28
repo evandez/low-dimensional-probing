@@ -6,10 +6,10 @@ import pathlib
 import sys
 from typing import Dict, List, Optional
 
-from lodimp import datasets, probes, ptb, tasks
+from lodimp import datasets, metrics, probes, ptb, tasks
 
 import torch
-from torch import distributions, nn, optim
+from torch import nn, optim
 from torch.nn.utils import rnn
 from torch.optim import lr_scheduler
 from torch.utils import data
@@ -57,27 +57,6 @@ def pack(samples: List[List[torch.Tensor]]) -> List[torch.Tensor]:
         collated.append(rnn.pack_sequence(items, enforce_sorted=False).data)
 
     return collated
-
-
-def effective_rank(matrix: torch.Tensor) -> float:
-    """Return the effective rank of the matrix.
-
-    Effective rank is intuitively the expected dimensionality of the range of
-    the matrix. See "THE EFFECTIVE RANK: A MEASURE OF EFFECTIVE DIMENSIONALITY"
-    for detailed treatment.
-
-    Args:
-        matrix (torch.Tensor): Size (M, N) matrix for which to compute
-            effective rank.
-
-    Returns:
-        float: The effective rank.
-
-    """
-    if len(matrix.shape) != 2:
-        raise ValueError(f'expected 2D matrix, got shape {matrix.shape}')
-    _, s, _ = torch.svd(matrix, compute_uv=False)
-    return torch.exp(distributions.Categorical(logits=s).entropy()).item()
 
 
 parser = argparse.ArgumentParser(description='Train a POS tagger.')
@@ -238,7 +217,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
             total += criterion(preds, tags).item() * len(reps)  # Undo mean.
             count += len(reps)
         dev_loss = total / count
-        erank = effective_rank(probe.project.weight)
+        erank = metrics.effective_rank(probe.project.weight)
         logging.info('epoch %d dev loss %f erank %f', epoch, dev_loss, erank)
 
         writer.add_scalar(f'{tag}/dev-loss', dev_loss, epoch)
@@ -263,7 +242,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
         correct += preds.eq(tags).sum().item()
         count += len(reps)
     accuracy = correct / count
-    erank = effective_rank(probe.project.weight)
+    erank = metrics.effective_rank(probe.project.weight)
 
     # Write metrics.
     writer.add_hparams(dict(hparams), {'accuracy': accuracy, 'erank': erank})
