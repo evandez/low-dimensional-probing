@@ -1,7 +1,7 @@
 """Defines datasets for training probes."""
 
 import pathlib
-from typing import List, Tuple
+from typing import Any, Iterable, List, Tuple
 
 from lodimp import ptb, tasks
 
@@ -115,3 +115,50 @@ class ZippedDatasets(data.Dataset):
         if index < 0 or index >= len(self):
             raise IndexError(f'index out of bounds: {index}')
         return (*[dataset[index] for dataset in self.datasets],)
+
+
+class CollatedDataset(data.IterableDataset):
+    """Pre-collate a dataset.
+
+    In other words, treat the entire dataset as one giant batch.
+    """
+
+    def __init__(self, dataset: data.Dataset, **kwargs: Any):
+        """Run the collation and cache the results.
+
+        Keyword arguments forwarded to torch.utils.data.DataLoader.
+
+        Args:
+            dataset (data.Dataset): The dataset to pre-collate.
+
+        """
+        super().__init__()
+        for forbidden in ('batch_size', 'shuffle'):
+            if forbidden in kwargs:
+                raise ValueError(f'cannot set {forbidden}')
+        self.collated, = list(
+            data.DataLoader(
+                dataset,
+                batch_size=len(dataset),
+                **kwargs,
+            ))
+
+    def __iter__(self) -> Iterable:
+        """No need to iterate over a collated dataset. Just yield the data."""
+        yield self.collated
+
+    def __getitem__(self, index: int) -> Tuple:
+        """Return the sample at the given index.
+
+        Args:
+            index (int): The sample to return.
+
+        Returns:
+            Tuple: All data associated with that sample.
+
+        """
+        return (*[item[index] for item in self.collated],)
+
+    def __len__(self) -> int:
+        """Returns the number of samples in the individual dataset."""
+        return len(self.collated[0])

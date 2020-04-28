@@ -4,7 +4,7 @@ import collections
 import logging
 import pathlib
 import sys
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from lodimp import datasets, probes, ptb, tasks
 
@@ -89,10 +89,12 @@ parser.add_argument('--elmo',
                     type=int,
                     default=2,
                     help='ELMo layer to use.')
-parser.add_argument('--batch-size',
-                    type=int,
-                    default=128,
-                    help='Sentences per minibatch.')
+parser_ex = parser.add_mutually_exclusive_group()
+parser_ex.add_argument('--batch-size',
+                       type=int,
+                       default=128,
+                       help='Sentences per minibatch.')
+parser_ex.add_argument('--no-batch', action='store_true', help='Do not batch.')
 parser.add_argument('--epochs',
                     type=int,
                     default=100,
@@ -177,14 +179,19 @@ else:
 assert task is not None, 'unitialized task?'
 logging.info('will train on %s task', options.task)
 
-loaders = {}
+loaders: Dict[str, data.DataLoader] = {}
 for split in elmos.keys():
-    dataset = datasets.ZippedDatasets(elmos[split],
-                                      datasets.PTBDataset(ptbs[split], task))
-    loaders[split] = data.DataLoader(dataset,
-                                     batch_size=options.batch_size,
-                                     collate_fn=pack,
-                                     shuffle=True)
+    dataset: data.Dataset = datasets.ZippedDatasets(
+        elmos[split], datasets.PTBDataset(ptbs[split], task))
+    if options.no_batch:
+        logging.info(f'batching disabled, collating {split} set')
+        dataset = datasets.CollatedDataset(dataset, collate_fn=pack)
+        loaders[split] = data.DataLoader(dataset)
+    else:
+        loaders[split] = data.DataLoader(dataset,
+                                         batch_size=options.batch_size,
+                                         collate_fn=pack,
+                                         shuffle=True)
 
 # Initialize model, optimizer, loss, etc.
 device = torch.device('cuda') if options.cuda else torch.device('cpu')
@@ -211,7 +218,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
     for epoch in range(options.epochs):
         probe.train()
         for batch, (reps, tags) in enumerate(loaders['train']):
-            reps, tags = reps.to(device), tags.to(device)
+            reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
             preds = probe(reps)
             loss = criterion(preds, tags)
             loss.backward()
@@ -225,7 +232,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
         probe.eval()
         total, count = 0., 0
         for reps, tags in loaders['dev']:
-            reps, tags = reps.to(device), tags.to(device)
+            reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
             preds = probe(reps)
             total += criterion(preds, tags).item() * len(reps)  # Undo mean.
             count += len(reps)
@@ -250,7 +257,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
     # Test the model.
     correct, count = 0., 0
     for reps, tags in loaders['test']:
-        reps, tags = reps.to(device), tags.to(device)
+        reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
         preds = probe(reps).argmax(dim=1)
         correct += preds.eq(tags).sum().item()
         count += len(reps)
