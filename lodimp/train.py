@@ -242,7 +242,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
             break
 
     # Write finished model.
-    model_file = tag + '.pth'
+    model_file = f'{tag}.pth'
     model_path = options.model_dir / model_file
     torch.save(probe.state_dict(), model_path)
     logging.info('model saved to %s', model_path)
