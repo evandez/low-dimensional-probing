@@ -39,6 +39,7 @@ script = os.path.join(module, 'train.py')
 command = ['python3', module, script, os.path.abspath(options.data)]
 command += ['--log-dir', os.path.abspath(options.log_dir)]
 command += ['--epochs', str(options.epochs)]
+command += ['--verbose']
 if cuda.is_available():
     command += ['--cuda', '--no-batch']
 
