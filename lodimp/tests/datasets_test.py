@@ -129,16 +129,6 @@ def test_collated_dataset_iter(collated_dataset):
     assert labels.shape == (2,)
 
 
-def test_collated_dataset_getitem(collated_dataset):
-    """Test CollatedDataset.__getitem__ behaves like a regular dataset."""
-    for index in range(len(SHORT_DATASET)):
-        items = collated_dataset[index]
-        assert len(items) == 2
-        name, label = items
-        assert name == LONG_DATASET[index]
-        assert label == SHORT_DATASET[index]
-
-
 def test_collated_dataset_len(collated_dataset):
     """Test CollatedDataset.__len__ returns correct length."""
-    assert len(collated_dataset) == len(SHORT_DATASET)
+    assert len(collated_dataset) == 1

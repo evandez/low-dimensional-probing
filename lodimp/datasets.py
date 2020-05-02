@@ -120,7 +120,8 @@ class ZippedDatasets(data.Dataset):
 class CollatedDataset(data.IterableDataset):
     """Pre-collate a dataset.
 
-    In other words, treat the entire dataset as one giant batch.
+    In other words, treat the entire dataset as one giant batch. Items may
+    not be accessed individually.
     """
 
     def __init__(self, dataset: data.Dataset, **kwargs: Any):
@@ -147,18 +148,6 @@ class CollatedDataset(data.IterableDataset):
         """No need to iterate over a collated dataset. Just yield the data."""
         yield self.collated
 
-    def __getitem__(self, index: int) -> Tuple:
-        """Return the sample at the given index.
-
-        Args:
-            index (int): The sample to return.
-
-        Returns:
-            Tuple: All data associated with that sample.
-
-        """
-        return (*[item[index] for item in self.collated],)
-
     def __len__(self) -> int:
         """Returns the number of samples in the individual dataset."""
-        return len(self.collated[0])
+        return 1
