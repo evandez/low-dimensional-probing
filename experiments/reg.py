@@ -16,50 +16,45 @@ parser.add_argument('--tasks',
                     nargs='+',
                     default=('real', 'control'),
                     help='Tasks to run.')
+parser.add_argument('--layers',
+                    type=int,
+                    nargs='+',
+                    default=(0, 1, 2),
+                    help='ELMo layers.')
 parser.add_argument('--low', type=float, default=0, help='Low L1 weight.')
 parser.add_argument('--high', type=float, default=1., help='Top L1 weight.')
 parser.add_argument('--step', type=float, default=.1, help='Weight step size.')
-parser.add_argument('--pool', type=int, default=4, help='Max jobs at once.')
+parser.add_argument('--epochs',
+                    type=int,
+                    default=500,
+                    help='Total passes through training dataset.')
 parser.add_argument('--log-dir', default='/tmp/lodimp', help='TB log path.')
 options = parser.parse_args()
 
-# TODO(evandez): De-dupe from other experiments...
 root = subprocess.check_output(['git', 'rev-parse',
                                 '--show-toplevel']).decode().strip()
 assert root, 'no git root?'
 module = os.path.join(root, 'lodimp')
 script = os.path.join(module, 'train.py')
-data = os.path.abspath(options.data)
-logs = os.path.abspath(options.log_dir)
-command = ['python3', module, script, data, '--log-dir', logs]
+command = ['python3', module, script, os.path.abspath(options.data)]
+command += ['--log-dir', os.path.abspath(options.log_dir)]
+command += ['--epochs', str(options.epochs)]
 if cuda.is_available():
-    command.append('--cuda')
+    command += ['--cuda', '--no-batch']
 
 low, high, step = options.low, options.high, options.step
 if low < 0 or high < low or step < 0:
     raise ValueError(f'bad range: ({low}, {high}, {step})')
 
-lams = np.arange(low, high, step)
-pool = options.pool
-groups = [lams[start:start + pool] for start in range(0, len(lams), pool)]
-
 # Launch jobs, one task at a time, one group at a time.
 for task in options.tasks:
-    for group in groups:
-        processes = []
-        for lam in group:
-            args = command + [
-                task, str(options.dim), f'--{options.reg}',
-                str(lam)
-            ]
+    for layer in options.layers:
+        for lam in np.arange(low, high, step):
+            args = command.copy()
+            args += [task, str(options.dim)]
+            args += [f'--{options.reg}', str(lam)]
+            args += ['--elmo', str(layer)]
             print(' '.join(args))
-            process = subprocess.Popen(args)
-            processes.append(process)
-
-        # Wait for all processes to start before launching next. They should
-        # all finish at similar times assuming --pool was chosen to maximize
-        # resource use without clogging it.
-        for process in processes:
-            process.wait()
+            process = subprocess.run(args)
             if process.returncode:
                 sys.exit(process.returncode)
