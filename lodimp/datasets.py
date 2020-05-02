@@ -1,7 +1,7 @@
 """Defines datasets for training probes."""
 
 import pathlib
-from typing import Any, Iterable, List, Tuple
+from typing import Any, Iterable, List, Optional, Tuple
 
 from lodimp import ptb, tasks
 
@@ -124,25 +124,37 @@ class CollatedDataset(data.IterableDataset):
     not be accessed individually.
     """
 
-    def __init__(self, dataset: data.Dataset, **kwargs: Any):
+    def __init__(self,
+                 dataset: data.Dataset,
+                 device: Optional[torch.device] = None,
+                 **kwargs: Any):
         """Run the collation and cache the results.
 
         Keyword arguments forwarded to torch.utils.data.DataLoader.
 
         Args:
             dataset (data.Dataset): The dataset to pre-collate.
+            device (torch.device): Send data to this device immediately
+                so it need not be done repeatedly.
 
         """
         super().__init__()
         for forbidden in ('batch_size', 'shuffle'):
             if forbidden in kwargs:
                 raise ValueError(f'cannot set {forbidden}')
+
         self.collated, = list(
             data.DataLoader(
                 dataset,
                 batch_size=len(dataset),
                 **kwargs,
             ))
+
+        if device is not None:
+            self.collated = [
+                item.to(device) if isinstance(item, torch.Tensor) else item
+                for item in self.collated
+            ]
 
     def __iter__(self) -> Iterable:
         """No need to iterate over a collated dataset. Just yield the data."""

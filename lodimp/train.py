@@ -122,6 +122,9 @@ logging.info('tensorboard will write to %s', options.log_dir)
 options.model_dir.mkdir(parents=True, exist_ok=True)
 logging.info('model(s) will be written to %s', options.model_dir)
 
+device = torch.device('cuda') if options.cuda else torch.device('cpu')
+logging.info('using %s', device.type)
+
 # Identify this run.
 hparams = collections.OrderedDict()
 hparams['proj'] = options.dim
@@ -164,7 +167,9 @@ for split in elmos.keys():
         elmos[split], datasets.PTBDataset(ptbs[split], task))
     if options.no_batch:
         logging.info(f'batching disabled, collating {split} set')
-        dataset = datasets.CollatedDataset(dataset, collate_fn=pack)
+        dataset = datasets.CollatedDataset(dataset,
+                                           device=device,
+                                           collate_fn=pack)
         loaders[split] = data.DataLoader(dataset)
     else:
         loaders[split] = data.DataLoader(dataset,
@@ -173,7 +178,6 @@ for split in elmos.keys():
                                          shuffle=True)
 
 # Initialize model, optimizer, loss, etc.
-device = torch.device('cuda') if options.cuda else torch.device('cpu')
 probe = probes.Projection(elmo_dim, options.dim, classes).to(device)
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
 scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
