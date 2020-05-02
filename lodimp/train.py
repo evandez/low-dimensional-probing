@@ -234,16 +234,27 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
     torch.save(probe.state_dict(), model_path)
     logging.info('model saved to %s', model_path)
 
-    # Test the model.
-    correct, count = 0., 0
-    for reps, tags in loaders['test']:
-        reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
-        preds = probe(reps).argmax(dim=1)
-        correct += preds.eq(tags).sum().item()
-        count += len(reps)
-    accuracy = correct / count
+    # Test the model with and without truncated rank.
     erank = metrics.effective_rank(probe.project.weight)
+    logging.info('effective rank %.3f', erank)
+    results = {'erank': erank}
+
+    truncated = probes.Projection(elmo_dim, options.dim, classes).to(device)
+    truncated.load_state_dict(probe.state_dict())
+    u, s, v = torch.svd(truncated.project.weight)
+    s[int(erank):] = 0
+    truncated.project.weight.data = u.mm(torch.diag(s)).mm(v.t())
+
+    for name, model in (('full', probe), ('truncated', truncated)):
+        correct, count = 0., 0
+        for reps, tags in loaders['test']:
+            reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
+            preds = probe(reps).argmax(dim=1)
+            correct += preds.eq(tags).sum().item()
+            count += len(reps)
+        accuracy = correct / count
+        results[f'{name}-accuracy'] = accuracy
+        logging.info('%s accuracy %.3f', name, accuracy)
 
     # Write metrics.
-    writer.add_hparams(dict(hparams), {'accuracy': accuracy, 'erank': erank})
-    logging.info('test accuracy %.3f/effective rank %.3f', accuracy, erank)
+    writer.add_hparams(dict(hparams), results)
