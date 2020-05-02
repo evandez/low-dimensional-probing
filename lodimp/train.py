@@ -253,7 +253,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
         correct, count = 0., 0
         for reps, tags in loaders['test']:
             reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
-            preds = probe(reps).argmax(dim=1)
+            preds = model(reps).argmax(dim=1)
             correct += preds.eq(tags).sum().item()
             count += len(reps)
         accuracy = correct / count
