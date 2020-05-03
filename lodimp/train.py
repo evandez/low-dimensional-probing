@@ -246,7 +246,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
     truncated = probes.Projection(elmo_dim, options.dim, classes).to(device)
     truncated.load_state_dict(probe.state_dict())
     u, s, v = torch.svd(truncated.project.weight)
-    s[int(erank):] = 0
+    s[int(erank) + 1:] = 0
     truncated.project.weight.data = u.mm(torch.diag(s)).mm(v.t())
 
     for name, model in (('full', probe), ('truncated', truncated)):
