@@ -258,6 +258,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
             count += len(reps)
         accuracy = correct / count
         results[f'{name}-accuracy'] = accuracy
+        writer.add_scalar(f'{tag}/{name}-accuracy', accuracy)
         logging.info('%s accuracy %.3f', name, accuracy)
 
     # Write metrics.
