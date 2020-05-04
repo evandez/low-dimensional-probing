@@ -23,7 +23,14 @@ def test_ptb_real_pos_init():
         'B': 1,
         'C': 2,
         'D': 3,
+        'UNK': 4,
     }
+
+
+def test_ptb_real_pos_init_tags():
+    """Test PTBRealPOS.__init__ indexes correctly when given tags=..."""
+    task = tasks.PTBRealPOS(SAMPLES, tags={'A', 'B', 'C'})
+    assert task.indexer == {'A': 0, 'B': 1, 'C': 2, 'UNK': 3}
 
 
 def test_ptb_real_pos_call():
@@ -32,6 +39,13 @@ def test_ptb_real_pos_call():
     for sample, expected in zip(SAMPLES, REAL_TAGS):
         actual = task(sample)
         assert torch.equal(actual, expected)
+
+
+def test_ptb_real_pos_call_unknown_tag():
+    """Test PTBRealPOs.__call__ handles unknown tags correctly."""
+    task = tasks.PTBRealPOS(SAMPLES)
+    actual = task(ptb.Sample(['foo', 'bar'], ['A', 'blah']))
+    assert actual.equal(torch.tensor([0, 4]))
 
 
 def test_ptb_control_pos_init():

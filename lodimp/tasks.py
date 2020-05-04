@@ -2,7 +2,7 @@
 
 import collections
 import itertools
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Set
 
 from lodimp import ptb
 
@@ -12,22 +12,36 @@ import torch
 # For now, tasks are defined in terms of Penn Treebank samples.
 Task = Callable[[ptb.Sample], torch.Tensor]
 
+PTB_POS_NOUNS = {'NN', 'NNS', 'NNP', 'NNPS'}
+PTB_POS_VERBS = {'VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ'}
+PTB_POS_ADJECTIVES = {'JJ', 'JJR', 'JJS'}
+PTB_POS_ADVERBS = {'RB', 'RBR', 'RBS'}
+
 
 class PTBRealPOS:
     """Indexes PTB POS tags."""
 
-    def __init__(self, samples: List[ptb.Sample]):
+    def __init__(self,
+                 samples: List[ptb.Sample],
+                 tags: Optional[Set[str]] = None,
+                 unk: str = 'UNK'):
         """Maps each POS tag to an index.
 
         Args:
             samples (List[ptb.PTBSample]): The samples from which to draw tags.
+            tags (Optional[Set[str]]): The XPOS tags to distinguish.
+                All tags not in this set will be collapsed to the same tag.
+                By default, all tags will be distinguished.
+            unk (str): Tag to use when un-indexed XPOS is encountered.
 
         """
-        self.indexer: Dict[str, int] = {}
-        for sample in samples:
-            for xpos in sample.xpos:
-                if xpos not in self.indexer:
-                    self.indexer[xpos] = len(self.indexer)
+        if tags is None:
+            tags = {xpos for sample in samples for xpos in sample.xpos}
+        assert tags is not None, 'no tags to distinguish?'
+
+        self.indexer = {xpos: index for index, xpos in enumerate(sorted(tags))}
+        self.indexer[unk] = len(self.indexer)
+        self.unk = unk
 
     def __call__(self, sample: ptb.Sample) -> torch.Tensor:
         """Index the part-of-speech tags for each sample.
@@ -39,7 +53,10 @@ class PTBRealPOS:
             torch.Tensor: Integer tags for each XPOS in the sample.
 
         """
-        return torch.tensor([self.indexer[xpos] for xpos in sample.xpos])
+        return torch.tensor([
+            self.indexer.get(xpos, self.indexer[self.unk])
+            for xpos in sample.xpos
+        ])
 
 
 class PTBControlPOS:
