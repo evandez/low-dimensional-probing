@@ -61,7 +61,16 @@ def pack(samples: List[List[torch.Tensor]]) -> List[torch.Tensor]:
 
 parser = argparse.ArgumentParser(description='Train a POS tagger.')
 parser.add_argument('data', type=pathlib.Path, help='Data directory.')
-parser.add_argument('task', choices=['real', 'control'], help='Task variant.')
+parser.add_argument('task',
+                    choices=[
+                        'control',
+                        'real',
+                        'real-verb',
+                        'real-noun',
+                        'real-adj',
+                        'real-adv',
+                    ],
+                    help='Task variant.')
 parser.add_argument('dim', type=int, help='Projection dimensionality.')
 parser.add_argument('--elmo',
                     choices=(0, 1, 2),
@@ -152,14 +161,23 @@ elmo_dim = elmos['train'].dimension
 logging.info('using elmo layer %d which has dim %d', options.elmo, elmo_dim)
 
 task: Optional[tasks.Task] = None
-if options.task == 'real':
-    task = tasks.PTBRealPOS(ptbs['train'])
-    classes = len(task.indexer)
-else:
+if options.task == 'control':
     task = tasks.PTBControlPOS(*ptbs.values())
     classes = len(task.tags)
+else:
+    task = tasks.PTBRealPOS(
+        ptbs['train'],
+        tags={
+            'real-verb': tasks.PTB_POS_VERBS,
+            'real-noun': tasks.PTB_POS_NOUNS,
+            'real-adj': tasks.PTB_POS_ADJECTIVES,
+            'real-adv': tasks.PTB_POS_ADVERBS,
+        }.get(options.task),
+    )
+    classes = len(task.indexer)
+
 assert task is not None, 'unitialized task?'
-logging.info('will train on %s task', options.task)
+logging.info('will train on %s task which has %d tags', options.task, classes)
 
 loaders: Dict[str, data.DataLoader] = {}
 for split in elmos.keys():
