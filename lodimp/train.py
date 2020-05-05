@@ -4,60 +4,15 @@ import collections
 import logging
 import pathlib
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
-from lodimp import datasets, linalg, probes, ptb, tasks
+from lodimp import collate, datasets, linalg, probes, ptb, tasks
 
 import torch
 from torch import nn, optim
-from torch.nn.utils import rnn
 from torch.optim import lr_scheduler
 from torch.utils import data
 from torch.utils import tensorboard as tb
-
-
-# TODO(evandez): Move the functions below to separate modules.
-def pack(samples: List[List[torch.Tensor]]) -> List[torch.Tensor]:
-    """Collate samples of sequences into PackedSequences.
-
-    This is meant to be used as the collate_fn for a torch.utils.DataLoader
-    when the elements of the dataset are sequences of arbitrary length.
-    Note that this process is destructive! The sequences may not be
-    separated afterward because we toss the PackedSequence wrapper.
-
-    Args:
-        samples (List[List[torch.Tensor]]): The samples to collate.
-
-    Raises:
-        ValueError: If the samples do not consist of equal numbers of elements.
-
-    Returns:
-        List[torch.Tensor]: The packed sequences.
-
-    """
-    if not samples:
-        return []
-
-    length = len(samples[-1])
-    for sample in samples:
-        if len(sample) != length:
-            raise ValueError(f'bad sample lengths: {len(sample)} vs. {length}')
-        seq_len = len(sample[-1])
-        for item in sample:
-            if len(item) != seq_len:
-                raise ValueError(f'bad seq lengths: {len(item)} vs. {seq_len}')
-
-    separated: List[List[torch.Tensor]] = [[] for _ in range(length)]
-    for sample in samples:
-        for index, item in enumerate(sample):
-            separated[index].append(item)
-
-    collated = []
-    for items in separated:
-        collated.append(rnn.pack_sequence(items, enforce_sorted=False).data)
-
-    return collated
-
 
 parser = argparse.ArgumentParser(description='Train a POS tagger.')
 parser.add_argument('data', type=pathlib.Path, help='Data directory.')
@@ -187,12 +142,12 @@ for split in elmos.keys():
         logging.info(f'batching disabled, collating {split} set')
         dataset = datasets.CollatedDataset(dataset,
                                            device=device,
-                                           collate_fn=pack)
+                                           collate_fn=collate.pack)
         loaders[split] = data.DataLoader(dataset)
     else:
         loaders[split] = data.DataLoader(dataset,
                                          batch_size=options.batch_size,
-                                         collate_fn=pack,
+                                         collate_fn=collate.pack,
                                          shuffle=True)
 
 # Initialize model, optimizer, loss, etc.
