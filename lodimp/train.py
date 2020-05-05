@@ -6,7 +6,7 @@ import pathlib
 import sys
 from typing import Dict, List, Optional
 
-from lodimp import datasets, metrics, probes, ptb, tasks
+from lodimp import datasets, linalg, probes, ptb, tasks
 
 import torch
 from torch import nn, optim
@@ -239,7 +239,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
             total += criterion(preds, tags).item() * len(reps)  # Undo mean.
             count += len(reps)
         dev_loss = total / count
-        erank = metrics.effective_rank(probe.project.weight)
+        erank = linalg.effective_rank(probe.project.weight)
         logging.info('epoch %d dev loss %f erank %f', epoch, dev_loss, erank)
 
         writer.add_scalar(f'{tag}/dev-loss', dev_loss, epoch)
@@ -257,15 +257,14 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
     logging.info('model saved to %s', model_path)
 
     # Test the model with and without truncated rank.
-    erank = metrics.effective_rank(probe.project.weight)
+    erank = linalg.effective_rank(probe.project.weight)
     logging.info('effective rank %.3f', erank)
     results = {'erank': erank}
 
     truncated = probes.Projection(elmo_dim, options.dim, classes).to(device)
     truncated.load_state_dict(probe.state_dict())
-    u, s, v = torch.svd(truncated.project.weight)
-    s[int(erank) + 1:] = 0
-    truncated.project.weight.data = u.mm(torch.diag(s)).mm(v.t())
+    weights = linalg.truncate(truncated.project.weight.data, int(erank) + 1)
+    truncated.project.weight.data = weights
 
     for name, model in (('full', probe), ('truncated', truncated)):
         correct, count = 0., 0
