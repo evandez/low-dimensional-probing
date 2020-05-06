@@ -133,7 +133,7 @@ for split, dataset in data.items():
             dataset, batch_size=options.batch_size, shuffle=True)
 
 # Initialize model, optimizer, loss, etc.
-probe = probes.Projection(elmo_dim, options.dim, classes).to(device)
+probe = probes.ProjectedLinear(elmo_dim, options.dim, classes).to(device)
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
 scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
                                            factor=options.lr_reduce,
@@ -198,7 +198,8 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
     logging.info('effective rank %.3f', erank)
     results = {'erank': erank}
 
-    truncated = probes.Projection(elmo_dim, options.dim, classes).to(device)
+    truncated = probes.ProjectedLinear(elmo_dim, options.dim,
+                                       classes).to(device)
     truncated.load_state_dict(probe.state_dict())
     weights = linalg.truncate(truncated.project.weight.data, int(erank) + 1)
     truncated.project.weight.data = weights

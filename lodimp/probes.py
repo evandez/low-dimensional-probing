@@ -4,7 +4,11 @@ import torch
 from torch import nn
 
 
-class Projection(nn.Module):
+class Projection(nn.Linear):
+    """Defines a linear projection."""
+
+
+class ProjectedLinear(nn.Module):
     """Probe for low-dimensional subspace of representation."""
 
     def __init__(self, input_dimension: int, hidden_dimension: int,
@@ -18,7 +22,7 @@ class Projection(nn.Module):
 
         """
         super().__init__()
-        self.project = nn.Linear(input_dimension, hidden_dimension)
+        self.project = Projection(input_dimension, hidden_dimension)
         self.classify = nn.Linear(hidden_dimension, classes)
         # Softmax is implicit in loss functions.
 
