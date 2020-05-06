@@ -1,7 +1,7 @@
 """Defines datasets for training probes."""
 
 import pathlib
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type
 
 from lodimp import ptb, tasks
 
@@ -10,7 +10,16 @@ import torch
 from torch.utils import data
 
 
-class ELMoRepresentationsDataset(data.Dataset):
+class RepresentationsDataset(data.Dataset):
+    """Abstract dataset of word representations."""
+
+    @property
+    def dimension(self) -> int:
+        """Returns the dimensionality of the representations."""
+        raise NotImplementedError
+
+
+class ELMoRepresentationsDataset(RepresentationsDataset):
     """Iterates through a dataset of word representations."""
 
     def __init__(self, path: pathlib.Path, layer: int):
@@ -26,8 +35,12 @@ class ELMoRepresentationsDataset(data.Dataset):
             raise ValueError(f'invalid layer: {layer}')
         self.file = h5py.File(path, 'r')
         self.layer = layer
+
+    @property
+    def dimension(self) -> int:
+        """Returns the dimensionality of the ELMo representations."""
         assert '0' in self.file, 'ELMo reps file has no 0th element?'
-        self.dimension = self.file['0'].shape[-1]
+        return self.file['0'].shape[-1]
 
     def __getitem__(self, index: int) -> torch.Tensor:
         """Returns the ELMo represenations for the sentence at the given index.
@@ -40,8 +53,11 @@ class ELMoRepresentationsDataset(data.Dataset):
             tensor, where L is length of the sentence and D is the ELMo layer
             dimensionality.
 
+        Raises:
+            IndexError: If the index is out of bounds.
+
         """
-        if not index < len(self):
+        if index < 0 or index >= len(self):
             raise IndexError(f'index out of bounds: {index}')
         return torch.tensor(self.file[str(index)][self.layer])
 
@@ -50,7 +66,7 @@ class ELMoRepresentationsDataset(data.Dataset):
         return len(self.file.keys()) - 1  # Ignore sentence_to_index.
 
 
-class PTBDataset(data.Dataset):
+class LabelsDataset(data.Dataset):
     """Iterates over Penn Treebank for some task.
 
     A task is a mapping from samples to tags. So in principle this is just
@@ -78,7 +94,12 @@ class PTBDataset(data.Dataset):
         Returns:
             torch.Tensor: Integer-encoded tags.
 
+        Raises:
+            IndexError: If the index is out of bounds.
+
         """
+        if index < 0 or index >= len(self):
+            raise IndexError(f'index out of bounds: {index}')
         return self.task(self.samples[index])
 
     def __len__(self) -> int:
@@ -86,35 +107,116 @@ class PTBDataset(data.Dataset):
         return len(self.samples)
 
 
-class ZippedDatasets(data.Dataset):
-    """Zips one or more datasets."""
+class LabeledRepresentationsDataset(data.Dataset):
+    """Word representations paired with labels.
 
-    def __init__(self, *datasets: data.Dataset):
-        """Initialize and verify datasets."""
-        super(ZippedDatasets, self).__init__()
-        if not len(datasets):
-            raise ValueError('must specify at least one dataset.')
+    This dataset effectively zips a dataset of word representations and a
+    dataset of word labels. The data are assumed to be grouped by sentence,
+    but note that this dataset iterates at the word level.
+    """
 
-        self.datasets = datasets
-        self.length = min([len(dataset) for dataset in datasets])
-
-    def __len__(self) -> int:
-        """Returns the length of the zipped dataset."""
-        return self.length
-
-    def __getitem__(self, index: int) -> Tuple:
-        """Zips the index'th items of each dataset.
+    def __init__(self, reps: RepresentationsDataset, labels: LabelsDataset):
+        """Validate the datasets and preprocess for fast access.
 
         Args:
-            index (int): Which items to zip.
+            reps (data.Dataset): The dataset of word representations.
+            labels (LabelsDataset): The dataset of word labels.
+
+        Raises:
+            ValueError: If the datasets have different lengths or if any pair
+                of sentences in the datasets have mismatched lengths.
+
+        """
+        self.reps = reps
+        self.labels = labels
+
+        if len(reps) != len(labels):
+            raise ValueError(f'rep/label datasets have different sizes: '
+                             f'{len(reps)} vs. {len(labels)}')
+
+        self.coordinates = []
+        for index in range(len(reps)):
+            nreps, nlabels = len(reps[index]), len(labels[index])
+            if nreps != nlabels:
+                raise ValueError(f'sample {index} has {nreps} representations '
+                                 f'but {nlabels} labels')
+            self.coordinates += [(index, word) for word in range(nreps)]
+
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Fetch the index'th (rep, label) pair.
+
+        Args:
+            index (int): Index of the sample to retrieve.
 
         Returns:
-            Tuple: The index'th item from each dataset.
+            Tuple[torch.Tensor, torch.Tensor]: The (rep, label) pair.
+
+        Raises:
+            IndexError: If the index is out of bounds.
 
         """
         if index < 0 or index >= len(self):
             raise IndexError(f'index out of bounds: {index}')
-        return (*[dataset[index] for dataset in self.datasets],)
+        sentence, word = self.coordinates[index]
+        rep = self.reps[sentence][word]
+        label = self.labels[sentence][word]
+        return rep, label
+
+    def __len__(self) -> int:
+        """Returns the number of (rep, label) pairs in the dataset."""
+        return len(self.coordinates)
+
+
+# TODO(evandez): Split up or test this function.
+def load_elmo_ptb(
+        path: pathlib.Path,
+        task: Type[tasks.Task],
+        layers: Sequence[int] = (0, 1, 2),
+        splits: Sequence[str] = ('train', 'dev', 'test'),
+        ptb_prefix: str = 'ptb3-wsj-',
+        ptb_suffix: str = '.conllx',
+        elmo_prefix: str = 'raw.',
+        elmo_suffix: str = '.elmo-layers.hdf5',
+        **kwargs: Any) -> Sequence[Dict[str, LabeledRepresentationsDataset]]:
+    """Load the ELMo-encoded PTB from the given directory.
+
+    Args:
+        path (pathlib.Path): Path to data directory.
+        task (Type[tasks.Task]): Task used to derive labels from samples.
+        layers (Sequence[int], optional): Which ELMo layers to load.
+            Defaults to (0, 1, 2).
+        splits (Sequence[str], optional): Which dataset splits to look for.
+            Defaults to ('train', 'dev', 'test').
+        ptb_prefix (str, optional): Expected prefix for PTB files.
+            Defaults to 'ptb3-wsj-'.
+        ptb_suffix (str, optional): Expected suffix for PTB files.
+            Defaults to '.conllx'.
+        elmo_prefix (str, optional): Expected prefix for ELMo files.
+            Defaults to 'raw.'.
+        elmo_suffix (str, optional): Expected suffix for ELMo files.
+            Defaults to '.elmo-layers.hdf5'.
+
+    Returns:
+        Sequence[Dict[str, LabeledRepresentationsDataset]]: Loaded datasets.
+            Grouped first by ELMo layer, then by split.
+
+    """
+    elmo_paths, labels = {}, {}
+    for split in splits:
+        samples = ptb.load(path / f'{ptb_prefix}{split}{ptb_suffix}')
+        labels[split] = LabelsDataset(samples, task(samples, **kwargs))
+        elmo_paths[split] = path / f'{elmo_prefix}{split}{elmo_suffix}'
+
+    groups = []
+    for layer in layers:
+        datasets = {}
+        for split in split:
+            elmos = ELMoRepresentationsDataset(elmo_paths[split], layer)
+            dataset = LabeledRepresentationsDataset(elmos, labels[split])
+            datasets[split] = dataset
+        groups.append(datasets)
+
+    return (*groups,)
 
 
 class CollatedDataset(data.IterableDataset):

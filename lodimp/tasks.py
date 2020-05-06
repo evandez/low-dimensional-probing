@@ -2,15 +2,12 @@
 
 import collections
 import itertools
-from typing import Callable, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Sequence, Set
 
 from lodimp import ptb
 
 import numpy as np
 import torch
-
-# For now, tasks are defined in terms of Penn Treebank samples.
-Task = Callable[[ptb.Sample], torch.Tensor]
 
 PTB_POS_NOUNS = {'NN', 'NNS', 'NNP', 'NNPS'}
 PTB_POS_VERBS = {'VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ'}
@@ -18,7 +15,37 @@ PTB_POS_ADJECTIVES = {'JJ', 'JJR', 'JJS'}
 PTB_POS_ADVERBS = {'RB', 'RBR', 'RBS'}
 
 
-class PTBRealPOS:
+class Task:
+    """Base class for all tasks."""
+
+    def __init__(self, samples: Sequence[ptb.Sample], **kwargs: Any):
+        """Preprocess the samples to construct the task.
+
+        Args:
+            samples (Sequence[ptb.Sample]): PTB samples on which to base
+                the task.
+
+        """
+        raise NotImplementedError
+
+    def __call__(self, sample: ptb.Sample) -> torch.Tensor:
+        """Maps a sample to a tensor label.
+
+        Args:
+            sample (ptb.Sample): The sample to label.
+
+        Returns:
+            torch.Tensor: The tensor label.
+
+        """
+        raise NotImplementedError
+
+    def __len__(self) -> int:
+        """Returns the number of valid labels in this task."""
+        raise NotImplementedError
+
+
+class RealPOSTask(Task):
     """Indexes PTB POS tags."""
 
     def __init__(self,
@@ -58,8 +85,13 @@ class PTBRealPOS:
             for xpos in sample.xpos
         ])
 
+    def __len__(self) -> int:
+        """Returns the number of valid POS tags in this task."""
+        return len(self.indexer)
 
-class PTBControlPOS:
+
+# TODO(evandez): Allow restricting # of tags in control task.
+class ControlPOSTask(Task):
     """Maps words to arbitrary POS tags."""
 
     def __init__(self,
@@ -107,3 +139,7 @@ class PTBControlPOS:
 
         """
         return torch.tensor([self.tags[word] for word in sample.sentence])
+
+    def __len__(self) -> int:
+        """Returns the number of fake tags in this task."""
+        return len(self.tags)

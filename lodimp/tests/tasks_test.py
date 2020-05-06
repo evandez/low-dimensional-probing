@@ -15,9 +15,9 @@ REAL_TAGS = [
 ]
 
 
-def test_ptb_real_pos_init():
-    """Test PTBRealPOS.__init__ assigns tags as expected."""
-    task = tasks.PTBRealPOS(SAMPLES)
+def test_real_pos_task_init():
+    """Test RealPOSTask.__init__ assigns tags as expected."""
+    task = tasks.RealPOSTask(SAMPLES)
     assert task.indexer == {
         'A': 0,
         'B': 1,
@@ -27,37 +27,49 @@ def test_ptb_real_pos_init():
     }
 
 
-def test_ptb_real_pos_init_tags():
-    """Test PTBRealPOS.__init__ indexes correctly when given tags=..."""
-    task = tasks.PTBRealPOS(SAMPLES, tags={'A', 'B', 'C'})
+def test_real_pos_task_init_tags():
+    """Test RealPOSTask.__init__ indexes correctly when given tags=..."""
+    task = tasks.RealPOSTask(SAMPLES, tags={'A', 'B', 'C'})
     assert task.indexer == {'A': 0, 'B': 1, 'C': 2, 'UNK': 3}
 
 
-def test_ptb_real_pos_call():
-    """Test PTBRealPOS.__call__ tags samples correctly."""
-    task = tasks.PTBRealPOS(SAMPLES)
+def test_real_pos_task_call():
+    """Test RealPOSTask.__call__ tags samples correctly."""
+    task = tasks.RealPOSTask(SAMPLES)
     for sample, expected in zip(SAMPLES, REAL_TAGS):
         actual = task(sample)
         assert torch.equal(actual, expected)
 
 
-def test_ptb_real_pos_call_unknown_tag():
-    """Test PTBRealPOs.__call__ handles unknown tags correctly."""
-    task = tasks.PTBRealPOS(SAMPLES)
+def test_real_pos_task_call_unknown_tag():
+    """Test RealPOSTask.__call__ handles unknown tags correctly."""
+    task = tasks.RealPOSTask(SAMPLES)
     actual = task(ptb.Sample(['foo', 'bar'], ['A', 'blah']))
     assert actual.equal(torch.tensor([0, 4]))
 
 
-def test_ptb_control_pos_init():
-    """Test PTBControlPOS.__init__ sets state correctly."""
-    task = tasks.PTBControlPOS(SAMPLES)
+def test_real_pos_task_len():
+    """Test RealPOSTask.__len__ returns correct number of tags."""
+    task = tasks.RealPOSTask(SAMPLES)
+    assert len(task) == 5
+
+
+def test_control_pos_task_init():
+    """Test ControlPOSTask.__init__ sets state correctly."""
+    task = tasks.ControlPOSTask(SAMPLES)
     assert list(task.dist) == [0.4, 0.2, 0.2, 0.2]
     assert task.tags.keys() == {'foo', 'bar', 'baz', 'boof'}
 
 
-def test_ptb_control_pos_call():
-    """Test PTBControlPOs.__call__ tags sensibly."""
-    task = tasks.PTBControlPOS(SAMPLES)
+def test_control_pos_task_call():
+    """Test ControlPOSTask.__call__ tags sensibly."""
+    task = tasks.ControlPOSTask(SAMPLES)
     for sample in SAMPLES:
         actual = task(sample)
         assert len(actual) == len(sample.sentence)
+
+
+def test_control_pos_task_len():
+    """Test ControlPOSTask.__len__ returns correct number of tags."""
+    task = tasks.ControlPOSTask(SAMPLES)
+    assert len(task) == 4

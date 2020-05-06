@@ -4,14 +4,14 @@ import collections
 import logging
 import pathlib
 import sys
-from typing import Dict, Optional
+from typing import Dict
 
-from lodimp import collate, datasets, linalg, probes, ptb, tasks
+from lodimp import datasets, linalg, probes, tasks
 
 import torch
+import torch.utils.data
 from torch import nn, optim
 from torch.optim import lr_scheduler
-from torch.utils import data
 from torch.utils import tensorboard as tb
 
 parser = argparse.ArgumentParser(description='Train a POS tagger.')
@@ -102,53 +102,35 @@ tag = '-'.join(f'{key}_{value}' for key, value in hparams.items())
 logging.info('job tag is %s', tag)
 
 # Load data.
-ptbs, elmos = {}, {}
-for split in ('train', 'dev', 'test'):
-    path = options.data / f'ptb3-wsj-{split}.conllx'
-    ptbs[split] = ptb.load(path)
-    logging.info('loaded ptb %s set from %s', split, path)
+# TODO(evandez): Simplify this logic.
+task = tasks.ControlPOSTask if options.task == 'control' else tasks.RealPOSTask
+kwargs = {}
+if options.task not in ('real', 'control'):
+    kwargs['tags'] = {
+        'real-verb': tasks.PTB_POS_VERBS,
+        'real-noun': tasks.PTB_POS_NOUNS,
+        'real-adj': tasks.PTB_POS_ADJECTIVES,
+        'real-adv': tasks.PTB_POS_ADVERBS,
+    }[options.task]
 
-    path = options.data / f'raw.{split}.elmo-layers.hdf5'
-    elmos[split] = datasets.ELMoRepresentationsDataset(path, options.elmo)
-    logging.info('loaded elmo %s reps from %s', split, path)
-    assert len(ptbs[split]) == len(elmos[split]), 'mismatched datasets?'
-elmo_dim = elmos['train'].dimension
-logging.info('using elmo layer %d which has dim %d', options.elmo, elmo_dim)
+logging.info('loading data from %s', options.data)
+data, = datasets.load_elmo_ptb(options.data, task, layers=(options.elmo,))
 
-task: Optional[tasks.Task] = None
-if options.task == 'control':
-    task = tasks.PTBControlPOS(*ptbs.values())
-    classes = len(task.tags)
-else:
-    task = tasks.PTBRealPOS(
-        ptbs['train'],
-        tags={
-            'real-verb': tasks.PTB_POS_VERBS,
-            'real-noun': tasks.PTB_POS_NOUNS,
-            'real-adj': tasks.PTB_POS_ADJECTIVES,
-            'real-adv': tasks.PTB_POS_ADVERBS,
-        }.get(options.task),
-    )
-    classes = len(task.indexer)
+elmo_dim = data['train'].reps.dimension
+logging.info('using elmo layer %d with dimension %d', options.elmo, elmo_dim)
 
-assert task is not None, 'unitialized task?'
+classes = len(data['train'].labels)
 logging.info('will train on %s task which has %d tags', options.task, classes)
 
-loaders: Dict[str, data.DataLoader] = {}
-for split in elmos.keys():
-    dataset: data.Dataset = datasets.ZippedDatasets(
-        elmos[split], datasets.PTBDataset(ptbs[split], task))
+loaders: Dict[str, torch.utils.data.DataLoader] = {}
+for split, dataset in data.items():
     if options.no_batch:
         logging.info(f'batching disabled, collating {split} set')
-        dataset = datasets.CollatedDataset(dataset,
-                                           device=device,
-                                           collate_fn=collate.pack)
-        loaders[split] = data.DataLoader(dataset)
+        collated = datasets.CollatedDataset(dataset, device=device)
+        loaders[split] = torch.utils.data.DataLoader(collated)
     else:
-        loaders[split] = data.DataLoader(dataset,
-                                         batch_size=options.batch_size,
-                                         collate_fn=collate.pack,
-                                         shuffle=True)
+        loaders[split] = torch.utils.data.DataLoader(
+            dataset, batch_size=options.batch_size, shuffle=True)
 
 # Initialize model, optimizer, loss, etc.
 probe = probes.Projection(elmo_dim, options.dim, classes).to(device)

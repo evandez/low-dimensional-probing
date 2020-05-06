@@ -10,9 +10,19 @@ import numpy as np
 import pytest
 import torch
 
+SAMPLES = (
+    ptb.Sample(
+        ['The', 'company', 'expects', 'earnings', '.'],
+        ['DT', 'NN', 'VBZ', 'NNS', '.'],
+    ),
+    ptb.Sample(
+        ['He', 'was', 'named', 'chief', '.'],
+        ['PRP', 'VBD', 'VBN', 'JJ', '.'],
+    ),
+)
 ELMO_LAYERS = 3
 ELMO_DIMENSION = 1024
-SEQ_LENGTHS = (1, 2, 3)
+SEQ_LENGTHS = (*[len(sample.sentence) for sample in SAMPLES],)
 
 
 @pytest.yield_fixture
@@ -35,8 +45,15 @@ def test_elmo_init_bad_layer(elmo_path):
         datasets.ELMoRepresentationsDataset(elmo_path, 3)
 
 
+def test_elmo_representations_dataset_dimension(elmo_path):
+    """Test ELMoRepresentationsDataset.dimension returns correct dimension."""
+    for layer in range(ELMO_LAYERS):
+        dataset = datasets.ELMoRepresentationsDataset(elmo_path, layer)
+        assert dataset.dimension == ELMO_DIMENSION
+
+
 def test_elmo_representaitons_dataset_getitem(elmo_path):
-    """Test ELMoRepresentationsDataset.__len__ returns correct shape."""
+    """Test ELMoRepresentationsDataset.__getitem__ returns correct shape."""
     for layer in range(ELMO_LAYERS):
         dataset = datasets.ELMoRepresentationsDataset(elmo_path, layer)
         for index, length in enumerate(SEQ_LENGTHS):
@@ -51,18 +68,6 @@ def test_elmo_representations_dataset_len(elmo_path):
         assert len(dataset) == len(SEQ_LENGTHS)
 
 
-PTB_SAMPLES = [
-    ptb.Sample(
-        ['The', 'company', 'expects', 'earnings', '.'],
-        ['DT', 'NN', 'VBZ', 'NNS', '.'],
-    ),
-    ptb.Sample(
-        ['He', 'was', 'named', 'chief', '.'],
-        ['PRP', 'VBD', 'VBN', 'JJ', '.'],
-    ),
-]
-
-
 def task(sample):
     """A fake task."""
     labels = []
@@ -72,48 +77,116 @@ def task(sample):
 
 
 @pytest.fixture
-def ptb_dataset():
-    """Returns a PTBDataset for testing."""
-    return datasets.PTBDataset(PTB_SAMPLES, task)
+def labels_dataset():
+    """Returns a LabelsDataset for testing."""
+    return datasets.LabelsDataset(SAMPLES, task)
 
 
-def test_ptb_dataset_getitem(ptb_dataset):
-    """Test whether PTBDataset.__getitem__ returns correct labels."""
+def test_labels_dataset_getitem(labels_dataset):
+    """Test whether LabelsDataset.__getitem__ returns correct labels."""
     for index in (0, 1):
-        item = ptb_dataset[index]
+        item = labels_dataset[index]
         assert item[-1] == 1
         assert not item[:-1].any()
 
 
-def test_ptb_dataset_len(ptb_dataset):
-    """Test whether PTBDataset.__len__ returns correct length."""
-    assert len(ptb_dataset) == len(PTB_SAMPLES)
-
-
-LONG_DATASET = ['foo', 'bar', 'baz']
-SHORT_DATASET = [1, 2]
+def test_labels_dataset_len(labels_dataset):
+    """Test whether LabelsDataset.__len__ returns correct length."""
+    assert len(labels_dataset) == len(SAMPLES)
 
 
 @pytest.fixture
-def zipped_datasets():
-    """Returns ZippedDatasets for testing."""
-    return datasets.ZippedDatasets(LONG_DATASET, SHORT_DATASET)
-
-
-def test_zipped_datasets_getitem(zipped_datasets):
-    """Test ZippedDatasets.__getitem__ returns zipped items."""
-    assert list(zipped_datasets) == list(zip(LONG_DATASET, SHORT_DATASET))
-
-
-def test_zipped_datasets_len(zipped_datasets):
-    """Test ZippedDatasets.__len__ returns length of smallest dataset."""
-    assert len(zipped_datasets) == len(SHORT_DATASET)
+def representations_dataset(elmo_path):
+    """Returns a RepresentationsDataset for testing."""
+    return datasets.ELMoRepresentationsDataset(elmo_path, 0)
 
 
 @pytest.fixture
-def collated_dataset(zipped_datasets):
+def labeled_representations_dataset(representations_dataset, labels_dataset):
+    """Returns a LabeledRepresentationsDataset for testing."""
+    return datasets.LabeledRepresentationsDataset(representations_dataset,
+                                                  labels_dataset)
+
+
+def test_labeled_representations_dataset_getitem(
+        labeled_representations_dataset, representations_dataset,
+        labels_dataset):
+    """Test LabeledRepresentationsDataset.__getitem__ returns word-by-word."""
+    expected_reps = torch.cat(list(representations_dataset))
+    expected_labels = torch.cat(list(labels_dataset))
+    for index in range(len(labeled_representations_dataset)):
+        actual_rep, actual_label = labeled_representations_dataset[index]
+        assert torch.equal(actual_rep, expected_reps[index])
+        assert torch.equal(actual_label, expected_labels[index])
+
+
+def test_labeled_representations_dataset_len(labeled_representations_dataset):
+    """Test LabeledRepresentationsDataset.__len__ returns correct length."""
+    assert len(labeled_representations_dataset) == sum(SEQ_LENGTHS)
+
+
+def test_labeled_representations_dataset_init_bad_dataset_lengths(
+        representations_dataset):
+    """Test LabeledRepresentationsDataset.__init__ checks dataset lengths."""
+    with pytest.raises(ValueError, match=r'.*2 vs\. 1.*'):
+        samples = list(SAMPLES)
+        del samples[-1]
+        datasets.LabeledRepresentationsDataset(
+            representations_dataset, datasets.LabelsDataset(samples, task))
+
+
+def test_labeled_representations_dataset_init_bad_seq_lengths(
+        representations_dataset):
+    """Test LabeledRepresentationsDataset.__init__ checks all seq lengths."""
+    with pytest.raises(ValueError, match=r'.*5 representations but 4.*'):
+        samples = list(SAMPLES)
+        del samples[-1].sentence[-1]
+        del samples[-1].xpos[-1]
+        datasets.LabeledRepresentationsDataset(
+            representations_dataset, datasets.LabelsDataset(samples, task))
+
+
+class FakeDataset(torch.utils.data.Dataset):
+    """A very dumb dataset."""
+
+    def __init__(self, features, labels):
+        """Store simple features and labels.
+
+        Args:
+            features: Feature tensor.
+            labels: Label tensor.
+
+        """
+        assert len(features) == len(labels)
+        self.features = features
+        self.labels = labels
+
+    def __getitem__(self, index):
+        """Return the (feature, label) at the given index.
+
+        Args:
+            index: Index of sample to retrieve.
+
+        Returns:
+            The (feature, label) pair.
+
+        """
+        return self.features[index], self.labels[index]
+
+    def __len__(self):
+        """Returns number of samples in the dataset."""
+        return len(self.features)
+
+
+LENGTH = 5
+DIMENSION = 10
+
+
+@pytest.fixture
+def collated_dataset():
     """Returns CollatedDataset for testing."""
-    return datasets.CollatedDataset(zipped_datasets)
+    dataset = FakeDataset(torch.ones(LENGTH, DIMENSION), torch.ones(LENGTH))
+    return datasets.CollatedDataset(dataset)
 
 
 def test_collated_dataset_iter(collated_dataset):
@@ -124,9 +197,9 @@ def test_collated_dataset_iter(collated_dataset):
     batch, = batches
     assert len(batch) == 2
 
-    names, labels = batch
-    assert len(names) == 2
-    assert labels.shape == (2,)
+    features, labels = batch
+    assert features.shape == (LENGTH, DIMENSION)
+    assert labels.shape == (LENGTH,)
 
 
 def test_collated_dataset_len(collated_dataset):
