@@ -190,7 +190,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
     # Write finished model.
     model_file = f'{tag}.pth'
     model_path = options.model_dir / model_file
-    torch.save(probe.state_dict(), model_path)
+    torch.save(probe, model_path)
     logging.info('model saved to %s', model_path)
 
     # Test the model with and without truncated rank.
