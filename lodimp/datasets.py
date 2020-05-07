@@ -210,7 +210,7 @@ def load_elmo_ptb(
     groups = []
     for layer in layers:
         datasets = {}
-        for split in split:
+        for split in splits:
             elmos = ELMoRepresentationsDataset(elmo_paths[split], layer)
             dataset = LabeledRepresentationsDataset(elmos, labels[split])
             datasets[split] = dataset
