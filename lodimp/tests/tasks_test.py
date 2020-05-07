@@ -25,9 +25,9 @@ REAL_TAGS = [
 ]
 
 
-def test_real_pos_task_init():
-    """Test RealPOSTask.__init__ assigns tags as expected."""
-    task = tasks.RealPOSTask(SAMPLES)
+def test_pos_task_init():
+    """Test POSTask.__init__ assigns tags as expected."""
+    task = tasks.POSTask(SAMPLES)
     assert task.indexer == {
         'A': 0,
         'B': 1,
@@ -37,30 +37,30 @@ def test_real_pos_task_init():
     }
 
 
-def test_real_pos_task_init_tags():
-    """Test RealPOSTask.__init__ indexes correctly when given tags=..."""
-    task = tasks.RealPOSTask(SAMPLES, tags={'A', 'B', 'C'})
+def test_pos_task_init_tags():
+    """Test POSTask.__init__ indexes correctly when given tags=..."""
+    task = tasks.POSTask(SAMPLES, tags={'A', 'B', 'C'})
     assert task.indexer == {'A': 0, 'B': 1, 'C': 2, 'UNK': 3}
 
 
-def test_real_pos_task_call():
-    """Test RealPOSTask.__call__ tags samples correctly."""
-    task = tasks.RealPOSTask(SAMPLES)
+def test_pos_task_call():
+    """Test POSTask.__call__ tags samples correctly."""
+    task = tasks.POSTask(SAMPLES)
     for sample, expected in zip(SAMPLES, REAL_TAGS):
         actual = task(sample)
         assert torch.equal(actual, expected)
 
 
-def test_real_pos_task_call_unknown_tag():
-    """Test RealPOSTask.__call__ handles unknown tags correctly."""
-    task = tasks.RealPOSTask(SAMPLES)
+def test_pos_task_call_unknown_tag():
+    """Test POSTask.__call__ handles unknown tags correctly."""
+    task = tasks.POSTask(SAMPLES)
     actual = task(ptb.Sample(('foo',), ('blah',), (-1,), ('root',)))
     assert actual.equal(torch.tensor([4]))
 
 
-def test_real_pos_task_len():
-    """Test RealPOSTask.__len__ returns correct number of tags."""
-    task = tasks.RealPOSTask(SAMPLES)
+def test_pos_task_len():
+    """Test POSTask.__len__ returns correct number of tags."""
+    task = tasks.POSTask(SAMPLES)
     assert len(task) == 5
 
 

@@ -103,7 +103,7 @@ logging.info('job tag is %s', tag)
 
 # Load data.
 # TODO(evandez): Simplify this logic.
-task = tasks.ControlPOSTask if options.task == 'control' else tasks.RealPOSTask
+task = tasks.ControlPOSTask if options.task == 'control' else tasks.POSTask
 kwargs = {}
 if options.task not in ('real', 'control'):
     kwargs['tags'] = {

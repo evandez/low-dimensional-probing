@@ -45,7 +45,7 @@ class Task:
         raise NotImplementedError
 
 
-class RealPOSTask(Task):
+class POSTask(Task):
     """Indexes PTB POS tags."""
 
     def __init__(self,
