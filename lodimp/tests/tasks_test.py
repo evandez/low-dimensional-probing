@@ -104,9 +104,9 @@ def test_dependency_arc_task_call():
 
 
 def test_dependency_arc_task_len():
-    """Test DependencyArcTask.__len__ returns 1."""
+    """Test DependencyArcTask.__len__ returns 2."""
     task = tasks.DependencyArcTask(SAMPLES)
-    assert len(task) == 1
+    assert len(task) == 2
 
 
 DEPENDENCY_LABELS = (

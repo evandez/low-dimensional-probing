@@ -171,8 +171,8 @@ class DependencyArcTask(Task):
         return labels
 
     def __len__(self) -> int:
-        """Returns 1, since this is a binary classification task."""
-        return 1
+        """Returns 2, since this is a binary classification task."""
+        return 2
 
 
 class DependencyLabelTask(Task):

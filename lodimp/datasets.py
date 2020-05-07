@@ -18,6 +18,14 @@ class RepresentationsDataset(data.Dataset):
         """Returns the dimensionality of the representations."""
         raise NotImplementedError
 
+    def length(self, index: int) -> int:
+        """Returns the length of the index'th sequence.
+
+        This is generally much faster than reading the sequence from disk.
+        Useful for preprocessing.
+        """
+        raise NotImplementedError
+
 
 class ELMoRepresentationsDataset(RepresentationsDataset):
     """Iterates through a dataset of word representations."""
@@ -41,6 +49,25 @@ class ELMoRepresentationsDataset(RepresentationsDataset):
         """Returns the dimensionality of the ELMo representations."""
         assert '0' in self.file, 'ELMo reps file has no 0th element?'
         return self.file['0'].shape[-1]
+
+    def length(self, index: int) -> int:
+        """Determines the length of the index'th sequence.
+
+        Only looks at file metadata, so this function is fast.
+
+        Args:
+            index: The sequence to find the length of.
+
+        Returns:
+            The index'th sequence length.
+
+        Raises:
+            IndexError: If the index is out of bounds.
+
+        """
+        if index < 0 or index >= len(self):
+            raise IndexError()
+        return self.file[str(index)].shape[1]
 
     def __getitem__(self, index: int) -> torch.Tensor:
         """Returns the ELMo represenations for the sentence at the given index.
@@ -84,6 +111,7 @@ class LabelsDataset(data.Dataset):
         """
         self.samples = samples
         self.task = task
+        self.cache = [task(sample) for sample in samples]
 
     def __getitem__(self, index: int) -> torch.Tensor:
         """Return the tags for the index-th sentence.
@@ -100,7 +128,7 @@ class LabelsDataset(data.Dataset):
         """
         if index < 0 or index >= len(self):
             raise IndexError(f'index out of bounds: {index}')
-        return self.task(self.samples[index])
+        return self.cache[index]
 
     def __len__(self) -> int:
         """Returns the number of tagged sentences in this dataset."""
@@ -108,7 +136,38 @@ class LabelsDataset(data.Dataset):
 
 
 class LabeledRepresentationsDataset(data.Dataset):
-    """Word representations paired with labels.
+    """Abstract dataset mapping one or more word representations to labels."""
+
+    def __init__(self, reps: RepresentationsDataset, labels: LabelsDataset):
+        """Initialize the dataset, validating the constituent datasets.
+
+        Args:
+            reps (RepresentationsDataset): The dataset of word representations.
+            labels (LabelsDataset): The dataset of word labels.
+
+        Raises:
+            ValueError: If the datasets have different lengths.
+
+        """
+        if len(reps) != len(labels):
+            raise ValueError(f'rep/label datasets have different sizes: '
+                             f'{len(reps)} vs. {len(labels)}')
+        self.reps = reps
+        self.labels = labels
+
+    @property
+    def nfeatures(self) -> int:
+        """Returns the dimensionality of the representations."""
+        return self.reps.dimension
+
+    @property
+    def nlabels(self) -> int:
+        """Returns the number of valid labels in this dataset."""
+        return len(self.labels.task)
+
+
+class LabeledRepresentationSinglesDataset(LabeledRepresentationsDataset):
+    """Word representations mapped directly to labels.
 
     This dataset effectively zips a dataset of word representations and a
     dataset of word labels. The data are assumed to be grouped by sentence,
@@ -119,7 +178,7 @@ class LabeledRepresentationsDataset(data.Dataset):
         """Validate the datasets and preprocess for fast access.
 
         Args:
-            reps (data.Dataset): The dataset of word representations.
+            reps (RepresentationsDataset): The dataset of word representations.
             labels (LabelsDataset): The dataset of word labels.
 
         Raises:
@@ -127,16 +186,10 @@ class LabeledRepresentationsDataset(data.Dataset):
                 of sentences in the datasets have mismatched lengths.
 
         """
-        self.reps = reps
-        self.labels = labels
-
-        if len(reps) != len(labels):
-            raise ValueError(f'rep/label datasets have different sizes: '
-                             f'{len(reps)} vs. {len(labels)}')
-
+        super().__init__(reps, labels)
         self.coordinates = []
         for index in range(len(reps)):
-            nreps, nlabels = len(reps[index]), len(labels[index])
+            nreps, nlabels = reps.length(index), len(labels[index])
             if nreps != nlabels:
                 raise ValueError(f'sample {index} has {nreps} representations '
                                  f'but {nlabels} labels')
@@ -167,7 +220,7 @@ class LabeledRepresentationsDataset(data.Dataset):
         return len(self.coordinates)
 
 
-class LabeledRepresentationPairsDataset(data.Dataset):
+class LabeledRepresentationPairsDataset(LabeledRepresentationsDataset):
     """Pairs of word representations with labels.
 
     This dataset assumes that for a sentence of length W, the labels are
@@ -182,7 +235,7 @@ class LabeledRepresentationPairsDataset(data.Dataset):
         """Validate the datasets and preprocess for fast access.
 
         Args:
-            reps (data.Dataset): The dataset of word representations.
+            reps (RepresentationsDataset): The dataset of word representations.
             labels (LabelsDataset): The dataset of word labels.
 
         Raises:
@@ -190,22 +243,22 @@ class LabeledRepresentationPairsDataset(data.Dataset):
                 of sentences in the datasets have mismatched lengths.
 
         """
-        self.reps = reps
-        self.labels = labels
-
-        if len(reps) != len(labels):
-            raise ValueError(f'rep/label datasets have different sizes: '
-                             f'{len(reps)} vs. {len(labels)}')
-
+        super().__init__(reps, labels)
         self.coordinates = []
         for index in range(len(reps)):
-            nreps, lshape = len(reps[index]), labels[index].shape
+            nreps = reps.length(index)
+            nreps, lshape = reps.length(index), labels[index].shape
             if lshape != (nreps, nreps):
                 raise ValueError(f'sample {index} has {nreps} representations '
                                  f'but size {lshape} label matrix')
-            self.coordinates += [
+            self.coordinates.extend([
                 (index, wi, wj) for wi in range(nreps) for wj in range(nreps)
-            ]
+            ])
+
+    @property
+    def nfeatures(self) -> int:
+        """This dataset returns representation pairs, so double features."""
+        return 2 * self.reps.dimension
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Fetch the index'th (rep, label) pair.
@@ -237,6 +290,7 @@ class LabeledRepresentationPairsDataset(data.Dataset):
 def load_elmo_ptb(
         path: pathlib.Path,
         task: Type[tasks.Task],
+        dataset: Type[LabeledRepresentationsDataset],
         layers: Sequence[int] = (0, 1, 2),
         splits: Sequence[str] = ('train', 'dev', 'test'),
         ptb_prefix: str = 'ptb3-wsj-',
@@ -249,6 +303,8 @@ def load_elmo_ptb(
     Args:
         path (pathlib.Path): Path to data directory.
         task (Type[tasks.Task]): Task used to derive labels from samples.
+        dataset (Type[LabeledRepresentationsDataset]): Type of dataset
+            corresponding to the task.
         layers (Sequence[int], optional): Which ELMo layers to load.
             Defaults to (0, 1, 2).
         splits (Sequence[str], optional): Which dataset splits to look for.
@@ -278,8 +334,7 @@ def load_elmo_ptb(
         datasets = {}
         for split in splits:
             elmos = ELMoRepresentationsDataset(elmo_paths[split], layer)
-            dataset = LabeledRepresentationsDataset(elmos, labels[split])
-            datasets[split] = dataset
+            datasets[split] = dataset(elmos, labels[split])
         groups.append(datasets)
 
     return (*groups,)

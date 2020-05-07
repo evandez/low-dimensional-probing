@@ -1,6 +1,8 @@
 """Entry point for all experiments."""
+
 import argparse
 import collections
+import functools
 import logging
 import pathlib
 import sys
@@ -18,12 +20,14 @@ parser = argparse.ArgumentParser(description='Train a POS tagger.')
 parser.add_argument('data', type=pathlib.Path, help='Data directory.')
 parser.add_argument('task',
                     choices=[
-                        'control',
-                        'real',
-                        'real-verb',
-                        'real-noun',
-                        'real-adj',
-                        'real-adv',
+                        'pos',
+                        'pos-verb',
+                        'pos-noun',
+                        'pos-adj',
+                        'pos-adv',
+                        'pos-control',
+                        'dep-arc',
+                        'dep-label',
                     ],
                     help='Task variant.')
 parser.add_argument('dim', type=int, help='Projection dimensionality.')
@@ -102,25 +106,35 @@ tag = '-'.join(f'{key}_{value}' for key, value in hparams.items())
 logging.info('job tag is %s', tag)
 
 # Load data.
-# TODO(evandez): Simplify this logic.
-task = tasks.ControlPOSTask if options.task == 'control' else tasks.POSTask
-kwargs = {}
-if options.task not in ('real', 'control'):
-    kwargs['tags'] = {
-        'real-verb': tasks.PTB_POS_VERBS,
-        'real-noun': tasks.PTB_POS_NOUNS,
-        'real-adj': tasks.PTB_POS_ADJECTIVES,
-        'real-adv': tasks.PTB_POS_ADVERBS,
-    }[options.task]
+task = {
+    'pos-control': tasks.ControlPOSTask,
+    'dep-arc': tasks.DependencyArcTask,
+    'dep-label': tasks.DependencyLabelTask,
+}.get(options.task, tasks.POSTask)
 
-logging.info('loading data from %s', options.data)
-data, = datasets.load_elmo_ptb(options.data, task, layers=(options.elmo,))
+if options.task.startswith('pos-'):
+    task = functools.partial(  # type:ignore
+        task,
+        tags={
+            'pos-verb': tasks.PTB_POS_VERBS,
+            'pos-noun': tasks.PTB_POS_NOUNS,
+            'pos-adj': tasks.PTB_POS_ADJECTIVES,
+            'pos-adv': tasks.PTB_POS_ADVERBS,
+        }[options.task])
 
-elmo_dim = data['train'].reps.dimension
-logging.info('using elmo layer %d with dimension %d', options.elmo, elmo_dim)
+logging.info('loading data from %s, this may take a while', options.data)
+data, = datasets.load_elmo_ptb(options.data,
+                               task,
+                               datasets.LabeledRepresentationPairsDataset
+                               if options.task.startswith('dep-') else
+                               datasets.LabeledRepresentationSinglesDataset,
+                               layers=(options.elmo,))
 
-classes = len(data['train'].labels)
-logging.info('will train on %s task which has %d tags', options.task, classes)
+features = data['train'].nfeatures
+logging.info('using elmo layer %d with %d features', options.elmo, features)
+
+classes = data['train'].nlabels
+logging.info('training on %s task which has %d tag(s)', options.task, classes)
 
 loaders: Dict[str, torch.utils.data.DataLoader] = {}
 for split, dataset in data.items():
@@ -133,7 +147,7 @@ for split, dataset in data.items():
             dataset, batch_size=options.batch_size, shuffle=True)
 
 # Initialize model, optimizer, loss, etc.
-probe = probes.ProjectedLinear(elmo_dim, options.dim, classes).to(device)
+probe = probes.ProjectedLinear(features, options.dim, classes).to(device)
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
 scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
                                            factor=options.lr_reduce,
@@ -158,7 +172,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
         probe.train()
         for batch, (reps, tags) in enumerate(loaders['train']):
             reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
-            preds = probe(reps)
+            preds = probe(reps).squeeze()
             loss = criterion(preds, tags)
             loss.backward()
             optimizer.step()
@@ -172,7 +186,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
         total, count = 0., 0
         for reps, tags in loaders['dev']:
             reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
-            preds = probe(reps)
+            preds = probe(reps).squeeze()
             total += criterion(preds, tags).item() * len(reps)  # Undo mean.
             count += len(reps)
         dev_loss = total / count
@@ -198,7 +212,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
     logging.info('effective rank %.3f', erank)
     results = {'erank': erank}
 
-    truncated = probes.ProjectedLinear(elmo_dim, options.dim,
+    truncated = probes.ProjectedLinear(features, options.dim,
                                        classes).to(device)
     truncated.load_state_dict(probe.state_dict())
     weights = linalg.truncate(truncated.project.weight.data, int(erank) + 1)
