@@ -2,7 +2,7 @@
 
 import collections
 import itertools
-from typing import Any, Dict, List, Optional, Sequence, Set
+from typing import Any, Dict, Optional, Sequence, Set
 
 from lodimp import ptb
 
@@ -26,7 +26,7 @@ class Task:
                 the task.
 
         """
-        raise NotImplementedError
+        pass
 
     def __call__(self, sample: ptb.Sample) -> torch.Tensor:
         """Maps a sample to a tensor label.
@@ -49,13 +49,14 @@ class POSTask(Task):
     """Indexes PTB POS tags."""
 
     def __init__(self,
-                 samples: List[ptb.Sample],
+                 samples: Sequence[ptb.Sample],
                  tags: Optional[Set[str]] = None,
                  unk: str = 'UNK'):
         """Maps each POS tag to an index.
 
         Args:
-            samples (List[ptb.PTBSample]): The samples from which to draw tags.
+            samples (Sequence[ptb.PTBSample]): The samples from which to
+                draw tags.
             tags (Optional[Set[str]]): The XPOS tags to distinguish.
                 All tags not in this set will be collapsed to the same tag.
                 By default, all tags will be distinguished.
@@ -95,8 +96,8 @@ class ControlPOSTask(Task):
     """Maps words to arbitrary POS tags."""
 
     def __init__(self,
-                 *groups: List[ptb.Sample],
-                 dist: Optional[List[float]] = None):
+                 *groups: Sequence[ptb.Sample],
+                 dist: Optional[Sequence[float]] = None):
         """Initialize the tagger.
 
         The tagger computes the empirical distribution of the samples, if not
@@ -104,11 +105,11 @@ class ControlPOSTask(Task):
         individual word type.
 
         Args:
-            *groups (List[ptb.PTBSample]): All samples, provided in one or more
-                lists, for which to generate tags.
-            dist (Optional[List[float]], optional): The empirical distribution
-                to use when sampling tags for word type. By default, is
-                computed from the list of samples.
+            *groups (Sequence[ptb.PTBSample]): All samples, provided in one or
+                more lists, for which to generate tags.
+            dist (Optional[Sequence[float]], optional): The empirical
+                distribution to use when sampling tags for word type.
+                By default, is computed from the list of samples.
 
         """
         samples = list(itertools.chain(*groups))
@@ -119,7 +120,7 @@ class ControlPOSTask(Task):
                     counts[pos] += 1
             dist = np.array([float(count) for count in counts.values()])
             dist /= np.sum(dist)
-        assert dist is not None, 'uninitialized distribution'
+        assert dist is not None, 'uninitialized distribution?'
         self.dist = dist
 
         self.tags: Dict[str, int] = {}
@@ -143,3 +144,85 @@ class ControlPOSTask(Task):
     def __len__(self) -> int:
         """Returns the number of fake tags in this task."""
         return len(self.tags)
+
+
+class DependencyArcTask(Task):
+    """Maps pairs words to a boolean "depends on" label."""
+
+    def __call__(self, sample: ptb.Sample) -> torch.Tensor:
+        """Map all possible (word, word) pairs to boolean labels.
+
+        The label for (v, w) is 1 if v depends on w, and 0 otherwise.
+
+        Args:
+            sample (ptb.Sample): The sample to label.
+
+        Returns:
+            torch.Tensor: For length W sentence, this returns a shape
+                (W, W) 0/1 matrix, where slot (v, w) is 1 iff v depends on w.
+
+        """
+        labels = torch.zeros(len(sample.heads),
+                             len(sample.heads),
+                             dtype=torch.long)
+        for word, head in enumerate(sample.heads):
+            if head != -1:
+                labels[word, head] = 1
+        return labels
+
+    def __len__(self) -> int:
+        """Returns 1, since this is a binary classification task."""
+        return 1
+
+
+class DependencyLabelTask(Task):
+    """Maps pairs of words to their syntactic relationship, if any."""
+
+    def __init__(self,
+                 samples: Sequence[ptb.Sample],
+                 relations: Optional[Set[str]] = None,
+                 unk: str = 'unk'):
+        """Map each relation label to an integer.
+
+        Args:
+            samples: The samples from which to pull possible relations.
+            relations: If set, only use these labels, and collapse the rest to
+                the "unk" label.
+            unk: Name for the unknown label.
+
+        """
+        if relations is None:
+            relations = {rel for sample in samples for rel in sample.relations}
+        assert relations is not None, 'unitialized relations?'
+        self.indexer = {rel: ind for ind, rel in enumerate(sorted(relations))}
+        self.indexer[unk] = len(self.indexer)
+        self.unk = unk
+
+    def __call__(self, sample: ptb.Sample) -> torch.Tensor:
+        """Map all possible (word, word) pairs to labels.
+
+        Args:
+            sample (ptb.Sample): The sample to label.
+
+        Returns:
+            torch.Tensor: For length W sentence, returns shape (W, W) matrix
+                where element (v, w) is the index of the label describing
+                the relationship between word v and w, if any. Defaults to
+                the "unk" label, even if there is no relationship between
+                v and w.
+
+        """
+        heads, relations = sample.heads, sample.relations
+        labels = torch.empty(len(heads), len(heads), dtype=torch.long)
+        labels.fill_(self.indexer[self.unk])
+        for word, (head, rel) in enumerate(zip(heads, relations)):
+            if head == -1:
+                labels[word, word] = self.indexer[rel]
+            else:
+                label = self.indexer.get(rel, self.indexer[self.unk])
+                labels[word, head] = label
+        return labels
+
+    def __len__(self) -> int:
+        """Returns the number of unique labels for this task."""
+        return len(self.indexer)
