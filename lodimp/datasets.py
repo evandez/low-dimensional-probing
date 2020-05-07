@@ -167,6 +167,72 @@ class LabeledRepresentationsDataset(data.Dataset):
         return len(self.coordinates)
 
 
+class LabeledRepresentationPairsDataset(data.Dataset):
+    """Pairs of word representations with labels.
+
+    This dataset assumes that for a sentence of length W, the labels are
+    given by a shape (W, W) matrix denoting some relationship between
+    each pair of words, e.g. for dependency edge prediction.
+
+    Note that this dataset includes ALL negative examples, so its length
+    will be larger than the total number of words in the original dataset.
+    """
+
+    def __init__(self, reps: RepresentationsDataset, labels: LabelsDataset):
+        """Validate the datasets and preprocess for fast access.
+
+        Args:
+            reps (data.Dataset): The dataset of word representations.
+            labels (LabelsDataset): The dataset of word labels.
+
+        Raises:
+            ValueError: If the datasets have different lengths or if any pair
+                of sentences in the datasets have mismatched lengths.
+
+        """
+        self.reps = reps
+        self.labels = labels
+
+        if len(reps) != len(labels):
+            raise ValueError(f'rep/label datasets have different sizes: '
+                             f'{len(reps)} vs. {len(labels)}')
+
+        self.coordinates = []
+        for index in range(len(reps)):
+            nreps, lshape = len(reps[index]), labels[index].shape
+            if lshape != (nreps, nreps):
+                raise ValueError(f'sample {index} has {nreps} representations '
+                                 f'but size {lshape} label matrix')
+            self.coordinates += [
+                (index, wi, wj) for wi in range(nreps) for wj in range(nreps)
+            ]
+
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Fetch the index'th (rep, label) pair.
+
+        Args:
+            index (int): Index of the sample to retrieve.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: The (rep, label) pair.
+
+        Raises:
+            IndexError: If the index is out of bounds.
+
+        """
+        if index < 0 or index >= len(self):
+            raise IndexError(f'index out of bounds: {index}')
+        sentence, wi, wj = self.coordinates[index]
+        reps = self.reps[sentence]
+        rep = torch.cat((reps[wi], reps[wj]))
+        label = self.labels[sentence][wi, wj]
+        return rep, label
+
+    def __len__(self) -> int:
+        """Returns the number of (rep, label) pairs in the dataset."""
+        return len(self.coordinates)
+
+
 # TODO(evandez): Split up or test this function.
 def load_elmo_ptb(
         path: pathlib.Path,

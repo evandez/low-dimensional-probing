@@ -149,6 +149,70 @@ def test_labeled_representations_dataset_init_bad_seq_lengths(
             representations_dataset, datasets.LabelsDataset(samples, task))
 
 
+def pairwise_task(sample):
+    """A fake pairwise task always returning the identity."""
+    return torch.eye(len(sample.sentence))
+
+
+@pytest.fixture
+def pairwise_labels_dataset():
+    """Returns a pairwise LabelsDataset for testing."""
+    return datasets.LabelsDataset(SAMPLES, pairwise_task)
+
+
+@pytest.fixture
+def labeled_representation_pairs_dataset(representations_dataset,
+                                         pairwise_labels_dataset):
+    """Returns a LabeledRepresentationPairsDataset for testing."""
+    return datasets.LabeledRepresentationPairsDataset(representations_dataset,
+                                                      pairwise_labels_dataset)
+
+
+def test_labeled_representation_pairs_dataset_getitem(
+        labeled_representation_pairs_dataset, representations_dataset):
+    """Test LabeledRepresentationPairsDataset.__getitem__ preserves order."""
+    actual_rep, actual_label = labeled_representation_pairs_dataset[0]
+    expected_rep = torch.cat(
+        (representations_dataset[0][0], representations_dataset[0][0]))
+    assert torch.equal(actual_rep, expected_rep)
+    assert actual_label == 1
+
+    actual_rep, actual_label = labeled_representation_pairs_dataset[1]
+    expected_rep = torch.cat(
+        (representations_dataset[0][0], representations_dataset[0][1]))
+    assert torch.equal(actual_rep, expected_rep)
+    assert actual_label == 0
+
+
+def test_labeled_representation_pairs_dataset_len(
+        labeled_representation_pairs_dataset):
+    """Test LabeledRepresentationPairsDataset.__len__ gives correct length."""
+    expected = sum(len(sample.sentence)**2 for sample in SAMPLES)
+    assert len(labeled_representation_pairs_dataset) == expected
+
+
+def test_labeled_representation_pairs_dataset_init_bad_dataset_lengths(
+        representations_dataset):
+    """Test LabeledRepresentationPairsDataset.__init__ checks dataset lens."""
+    with pytest.raises(ValueError, match=r'.*2 vs\. 1.*'):
+        samples = list(SAMPLES)
+        del samples[-1]
+        datasets.LabeledRepresentationPairsDataset(
+            representations_dataset,
+            datasets.LabelsDataset(samples, pairwise_task))
+
+
+def test_labeled_representation_pairs_dataset_init_bad_seq_lengths(
+        representations_dataset):
+    """Test LabeledRepresentationsDataset.__init__ checks all seq lengths."""
+    with pytest.raises(ValueError, match=r'.*5 representations but size.*'):
+        samples = list(SAMPLES)
+        samples[-1] = ptb.Sample(*[item[:-1] for item in samples[-1]])
+        datasets.LabeledRepresentationPairsDataset(
+            representations_dataset,
+            datasets.LabelsDataset(samples, pairwise_task))
+
+
 class FakeDataset(torch.utils.data.Dataset):
     """A very dumb dataset."""
 
