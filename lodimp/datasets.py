@@ -1,7 +1,7 @@
 """Defines datasets for training probes."""
 
 import pathlib
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type
+from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Type
 
 from lodimp import ptb, tasks
 
@@ -74,11 +74,11 @@ class LabelsDataset(data.Dataset):
     representations.
     """
 
-    def __init__(self, samples: List[ptb.Sample], task: tasks.Task):
+    def __init__(self, samples: Sequence[ptb.Sample], task: tasks.Task):
         """Initialize the dataset.
 
         Args:
-            samples (List[ptb.Sample]): The Penn Treebank samples.
+            samples (Sequence[ptb.Sample]): The Penn Treebank samples.
             task (tasks.Task): Maps Treebank samples to tags.
 
         """

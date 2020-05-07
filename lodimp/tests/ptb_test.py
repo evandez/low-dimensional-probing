@@ -24,20 +24,26 @@ CONLLX = '''\
 3      .       _       PUNCT   .       _       6       punct   _       _
 '''
 
-SAMPLES = [
+SAMPLES = (
     ptb.Sample(
-        ['The', 'company', 'expects', 'earnings', '.'],
-        ['DT', 'NN', 'VBZ', 'NNS', '.'],
+        ('The', 'company', 'expects', 'earnings', '.'),
+        ('DT', 'NN', 'VBZ', 'NNS', '.'),
+        (1, 2, -1, 15, 1),
+        ('det', 'nsubj', 'root', 'nsubj', 'punct'),
     ),
     ptb.Sample(
-        ['He', 'was', 'named', 'chief'],
-        ['PRP', 'VBD', 'VBN', 'JJ'],
+        ('He', 'was', 'named', 'chief'),
+        ('PRP', 'VBD', 'VBN', 'JJ'),
+        (2, 2, -1, 5),
+        ('nsubjpass', 'auxpass', 'root', 'amod'),
     ),
     ptb.Sample(
-        ['He', 'took', '.'],
-        ['PRP', 'VBD', '.'],
-    )
-]
+        ('He', 'took', '.'),
+        ('PRP', 'VBD', '.'),
+        (2, -1, 5),
+        ('nsubjpass', 'root', 'punct'),
+    ),
+)
 
 
 @pytest.yield_fixture

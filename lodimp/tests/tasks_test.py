@@ -5,8 +5,18 @@ from lodimp import ptb, tasks
 import torch
 
 SAMPLES = [
-    ptb.Sample(['foo', 'bar', 'baz'], ['A', 'B', 'C']),
-    ptb.Sample(['boof', 'foo'], ['D', 'A']),
+    ptb.Sample(
+        ('foo', 'bar', 'baz'),
+        ('A', 'B', 'C'),
+        (-1, 0, 0),
+        ('root', 'head', 'head'),
+    ),
+    ptb.Sample(
+        ('boof', 'foo'),
+        ('D', 'A'),
+        (2, 2, -1),
+        ('head', 'head', 'root'),
+    ),
 ]
 
 REAL_TAGS = [
@@ -44,8 +54,8 @@ def test_real_pos_task_call():
 def test_real_pos_task_call_unknown_tag():
     """Test RealPOSTask.__call__ handles unknown tags correctly."""
     task = tasks.RealPOSTask(SAMPLES)
-    actual = task(ptb.Sample(['foo', 'bar'], ['A', 'blah']))
-    assert actual.equal(torch.tensor([0, 4]))
+    actual = task(ptb.Sample(('foo',), ('blah',), (-1,), ('root',)))
+    assert actual.equal(torch.tensor([4]))
 
 
 def test_real_pos_task_len():

@@ -1,7 +1,7 @@
 """Utilities for interacting with the Penn Treebank."""
 
 import pathlib
-from typing import List, NamedTuple
+from typing import NamedTuple, Sequence
 
 
 class Sample(NamedTuple):
@@ -9,11 +9,14 @@ class Sample(NamedTuple):
 
     In this project we only load the fields that we need.
     """
-    sentence: List[str]
-    xpos: List[str]
+
+    sentence: Sequence[str]
+    xpos: Sequence[str]
+    heads: Sequence[int]
+    relations: Sequence[str]
 
 
-def load(path: pathlib.Path) -> List[Sample]:
+def load(path: pathlib.Path) -> Sequence[Sample]:
     """Loads the given .conllx file.
 
     Args:
@@ -25,17 +28,33 @@ def load(path: pathlib.Path) -> List[Sample]:
     """
     samples = []
     with path.open() as file:
-        sentence, xpos = [], []
+        sentence, xpos, heads, relations = [], [], [], []
         for line in file:
             if line.strip():
                 components = line.strip().split()
                 assert len(components) == 10, f'malformed line: {line}'
                 sentence.append(components[1])
                 xpos.append(components[4])
+                head = components[6]
+                assert head.isdigit(), f'bad head index: {head}'
+                heads.append(int(head) - 1)
+                relations.append(components[7])
             elif sentence:
                 assert len(sentence) == len(xpos)
-                samples.append(Sample(sentence, xpos))
-                sentence, xpos = [], []
+                samples.append(
+                    Sample(
+                        (*sentence,),
+                        (*xpos,),
+                        (*heads,),
+                        (*relations,),
+                    ))
+                sentence, xpos, heads, relations = [], [], [], []
         if sentence:
-            samples.append(Sample(sentence, xpos))
-    return samples
+            samples.append(
+                Sample(
+                    (*sentence,),
+                    (*xpos,),
+                    (*heads,),
+                    (*relations,),
+                ))
+    return (*samples,)

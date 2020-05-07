@@ -12,12 +12,16 @@ import torch
 
 SAMPLES = (
     ptb.Sample(
-        ['The', 'company', 'expects', 'earnings', '.'],
-        ['DT', 'NN', 'VBZ', 'NNS', '.'],
+        ('The', 'company', 'expects', 'earnings', '.'),
+        ('DT', 'NN', 'VBZ', 'NNS', '.'),
+        (1, 2, -1, 15, 1),
+        ('det', 'nsubj', 'root', 'nsubj', 'punct'),
     ),
     ptb.Sample(
-        ['He', 'was', 'named', 'chief', '.'],
-        ['PRP', 'VBD', 'VBN', 'JJ', '.'],
+        ('He', 'was', 'named', 'chief', '.'),
+        ('PRP', 'VBD', 'VBN', 'JJ', '.'),
+        (3, 3, 0, 6),
+        ('nsubjpass', 'auxpass', 'root', 'amod'),
     ),
 )
 ELMO_LAYERS = 3
@@ -140,8 +144,7 @@ def test_labeled_representations_dataset_init_bad_seq_lengths(
     """Test LabeledRepresentationsDataset.__init__ checks all seq lengths."""
     with pytest.raises(ValueError, match=r'.*5 representations but 4.*'):
         samples = list(SAMPLES)
-        del samples[-1].sentence[-1]
-        del samples[-1].xpos[-1]
+        samples[-1] = ptb.Sample(*[item[:-1] for item in samples[-1]])
         datasets.LabeledRepresentationsDataset(
             representations_dataset, datasets.LabelsDataset(samples, task))
 
