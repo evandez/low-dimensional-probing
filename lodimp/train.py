@@ -2,13 +2,12 @@
 
 import argparse
 import collections
-import functools
 import logging
 import pathlib
 import sys
 from typing import Dict
 
-from lodimp import datasets, linalg, probes, tasks
+from lodimp import datasets, linalg, probes
 
 import torch
 import torch.utils.data
@@ -17,25 +16,10 @@ from torch.optim import lr_scheduler
 from torch.utils import tensorboard as tb
 
 parser = argparse.ArgumentParser(description='Train a POS tagger.')
-parser.add_argument('data', type=pathlib.Path, help='Data directory.')
-parser.add_argument('task',
-                    choices=[
-                        'pos',
-                        'pos-verb',
-                        'pos-noun',
-                        'pos-adj',
-                        'pos-adv',
-                        'pos-control',
-                        'dep-arc',
-                        'dep-label',
-                    ],
-                    help='Task variant.')
+parser.add_argument('data',
+                    type=pathlib.Path,
+                    help='Task directory; output of preprocess script.')
 parser.add_argument('dim', type=int, help='Projection dimensionality.')
-parser.add_argument('--elmo',
-                    choices=(0, 1, 2),
-                    type=int,
-                    default=2,
-                    help='ELMo layer to use.')
 parser_ex = parser.add_mutually_exclusive_group()
 parser_ex.add_argument('--batch-size',
                        type=int,
@@ -96,8 +80,7 @@ logging.info('using %s', device.type)
 # Identify this run.
 hparams = collections.OrderedDict()
 hparams['proj'] = options.dim
-hparams['task'] = options.task
-hparams['layer'] = options.elmo
+hparams['task'] = options.data.name
 if options.l1:
     hparams['l1'] = options.l1
 if options.nuc:
@@ -106,35 +89,9 @@ tag = '-'.join(f'{key}_{value}' for key, value in hparams.items())
 logging.info('job tag is %s', tag)
 
 # Load data.
-task = {
-    'pos-control': tasks.ControlPOSTask,
-    'dep-arc': tasks.DependencyArcTask,
-    'dep-label': tasks.DependencyLabelTask,
-}.get(options.task, tasks.POSTask)
-
-if options.task.startswith('pos-'):
-    task = functools.partial(  # type:ignore
-        task,
-        tags={
-            'pos-verb': tasks.POS_VERBS,
-            'pos-noun': tasks.POS_NOUNS,
-            'pos-adj': tasks.POS_ADJECTIVES,
-            'pos-adv': tasks.POS_ADVERBS,
-        }[options.task])
-
-logging.info('loading data from %s, this may take a while', options.data)
-data, = datasets.load_elmo_ptb(options.data,
-                               task,
-                               datasets.LabeledRepresentationPairsDataset
-                               if options.task.startswith('dep-') else
-                               datasets.LabeledRepresentationSinglesDataset,
-                               layers=(options.elmo,))
-
-features = data['train'].nfeatures
-logging.info('using elmo layer %d with %d features', options.elmo, features)
-
-classes = data['train'].nlabels
-logging.info('training on %s task which has %d tag(s)', options.task, classes)
+data = {}
+for split in ('train', 'dev', 'test'):
+    data[split] = datasets.TaskDataset(options.data / f'{split}.h5')
 
 loaders: Dict[str, torch.utils.data.DataLoader] = {}
 for split, dataset in data.items():
@@ -145,6 +102,12 @@ for split, dataset in data.items():
     else:
         loaders[split] = torch.utils.data.DataLoader(
             dataset, batch_size=options.batch_size, shuffle=True)
+
+features = data['train'].nfeatures
+logging.info('samples have %d features', features)
+
+classes = data['train'].nlabels
+logging.info('task has %d distinct tag(s)', classes)
 
 # Initialize model, optimizer, loss, etc.
 probe = probes.ProjectedLinear(features, options.dim, classes).to(device)
@@ -219,6 +182,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
     truncated.project.weight.data = weights
 
     for name, model in (('full', probe), ('truncated', truncated)):
+        logging.info('testing on %s model', name)
         correct, count = 0., 0
         for reps, tags in loaders['test']:
             reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
