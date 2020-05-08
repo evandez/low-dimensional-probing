@@ -121,7 +121,9 @@ class TaskDataset(data.Dataset):
         """
         if index < 0 or index >= len(self):
             raise IndexError(f'index out of bounds: {index}')
-        return self.file['features'][index], self.file['labels'][index]
+        features = torch.tensor(self.file['features'][index])
+        labels = torch.tensor(self.file['labels'][index])
+        return features, labels
 
     def __len__(self) -> int:
         """Returns the number of samples in this dataset."""
