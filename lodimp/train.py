@@ -116,10 +116,10 @@ if options.task.startswith('pos-'):
     task = functools.partial(  # type:ignore
         task,
         tags={
-            'pos-verb': tasks.PTB_POS_VERBS,
-            'pos-noun': tasks.PTB_POS_NOUNS,
-            'pos-adj': tasks.PTB_POS_ADJECTIVES,
-            'pos-adv': tasks.PTB_POS_ADVERBS,
+            'pos-verb': tasks.POS_VERBS,
+            'pos-noun': tasks.POS_NOUNS,
+            'pos-adj': tasks.POS_ADJECTIVES,
+            'pos-adv': tasks.POS_ADVERBS,
         }[options.task])
 
 logging.info('loading data from %s, this may take a while', options.data)

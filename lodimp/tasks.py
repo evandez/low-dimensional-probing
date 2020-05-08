@@ -9,10 +9,10 @@ from lodimp import ptb
 import numpy as np
 import torch
 
-PTB_POS_NOUNS = {'NN', 'NNS', 'NNP', 'NNPS'}
-PTB_POS_VERBS = {'VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ'}
-PTB_POS_ADJECTIVES = {'JJ', 'JJR', 'JJS'}
-PTB_POS_ADVERBS = {'RB', 'RBR', 'RBS'}
+POS_NOUNS = {'NN', 'NNS', 'NNP', 'NNPS'}
+POS_VERBS = {'VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ'}
+POS_ADJECTIVES = {'JJ', 'JJR', 'JJS'}
+POS_ADVERBS = {'RB', 'RBR', 'RBS'}
 
 
 class Task:
