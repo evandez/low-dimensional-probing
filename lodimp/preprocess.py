@@ -105,16 +105,18 @@ else:
     task = BIGRAM_TASKS[options.task](samples)
     logging.info('will prepare for bigram task "%s"', options.task)
 
-for split in options.splits:
-    for layer in options.elmo_layers:
-        directory = options.out or options.data
-        directory.mkdir(parents=True, exist_ok=True)
-        file = directory / f'{options.task}-{split}-l{layer}.h5'
-        logging.info('will write %s layer %d task to %s', split, layer, file)
+for layer in options.elmo_layers:
+    tag = f'{options.task}-elmo-l{layer}'
+    directory = (options.out or options.data) / tag
+    directory.mkdir(parents=True, exist_ok=True)
+    logging.info('writing splits for task %s to %s', tag, directory)
 
+    for split in options.splits:
+        file = directory / f'{split}.h5'
+        logging.info('will write split %s to %s', split, file)
         with h5py.File(file, 'w') as h5f:
             reps = elmos[split][layer]
-            labels = [task(sample) for sample in samples]
+            labels = [task(sample) for sample in ptbs[split]]
 
             # Determine important dimensions.
             nfeatures, nlabels = reps.dimension, len(task)
