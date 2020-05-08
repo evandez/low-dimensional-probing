@@ -18,7 +18,7 @@ import functools as ft
 import logging
 import pathlib
 import sys
-from typing import Callable, Dict, Sequence, Type
+from typing import Callable, Dict, List, Sequence, Type
 
 from lodimp import datasets, ptb, tasks
 
@@ -94,7 +94,10 @@ for split in options.splits:
         for layer in options.elmo_layers
     ]
 
-samples = ptbs['train']  # TODO(evandez): Make this an option.
+samples: List[ptb.Sample] = []
+for split in options.splits:
+    samples.extend(ptbs[split])
+
 if options.task in UNIGRAM_TASKS:
     task = UNIGRAM_TASKS[options.task](samples)
     logging.info('will prepare for unigram task "%s"', options.task)
@@ -152,4 +155,5 @@ for split in options.splits:
             dataset = h5f.create_dataset(
                 'labels',
                 data=torch.cat([label.flatten() for label in labels]).numpy())
+            dataset.attrs['nlabels'] = nlabels
             assert len(dataset) == nsamples
