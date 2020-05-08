@@ -143,7 +143,7 @@ for layer in options.elmo_layers:
                                               dtype='f')
             labels_out = h5f.create_dataset('labels',
                                             shape=(nsamples,),
-                                            dtype='u8')
+                                            dtype='i')
             labels_out.attrs['nlabels'] = nlabels
             if options.task in UNIGRAM_TASKS:
                 logging.info('writing features to %s', file)
