@@ -53,7 +53,8 @@ parser.add_argument('--log-dir',
 parser.add_argument('--model-dir',
                     type=pathlib.Path,
                     default='/tmp/lodimp/models',
-                    help='Path to write finished model(s).')
+                    help='Directory to write finished model.')
+parser.add_argument('--model-file', help='Save file name. Defaults to TB tag.')
 parser.add_argument('--verbose',
                     dest='log_level',
                     action='store_const',
@@ -61,6 +62,9 @@ parser.add_argument('--verbose',
                     default=logging.WARNING,
                     help='Print lots of logs to stdout.')
 options = parser.parse_args()
+
+if not options.data.exists():
+    raise FileNotFoundError(f'data directory does not exist: {options.data}')
 
 # Set up.
 logging.basicConfig(stream=sys.stdout,
@@ -165,7 +169,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
             break
 
     # Write finished model.
-    model_file = f'{tag}.pth'
+    model_file = options.model_file or f'{tag}.pth'
     model_path = options.model_dir / model_file
     torch.save(probe, model_path)
     logging.info('model saved to %s', model_path)
