@@ -148,6 +148,7 @@ for layer in options.elmo_layers:
                 logging.info('writing features to %s', file)
                 start = 0
                 for index in range(len(reps)):
+                    logging.info('processing %d of %d', index + 1, len(reps))
                     current = reps[index]
                     features_out[start:start + len(current)] = current.numpy()
                     start += len(current)
@@ -159,6 +160,7 @@ for layer in options.elmo_layers:
                 logging.info('writing features and labels to %s', file)
                 start = 0
                 for index in range(len(reps)):
+                    logging.info('processing %d of %d', index + 1, len(reps))
                     rep, label = reps[index], labels[index]
                     assert label.shape == (len(rep), len(rep))
 
@@ -168,10 +170,12 @@ for layer in options.elmo_layers:
                     pairs = [(i, j) for i in idxs for j in idxs if label[i, j]]
                     assert pairs and len(pairs) == len(rep)
                     if len(rep) > 1:
+                        negatives = []
                         for i, j in pairs:
                             choices = tuple(idxs - {j})
                             negative = (i, random.choice(choices))
-                            pairs.append(negative)
+                            negatives.append(negative)
+                        pairs += negatives
                         assert len(pairs) == 2 * len(rep)
 
                     # Write the results to the file.
