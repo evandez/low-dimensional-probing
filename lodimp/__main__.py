@@ -14,9 +14,7 @@ parser = argparse.ArgumentParser(description='Run an LoDimP script.')
 parser.add_argument('--debug',
                     action='store_true',
                     help='Log debug statements.')
-parser.add_argument('--detach',
-                    action='store_true',
-                    help='Start a screen session and detach.')
+parser.add_argument('--detach', help='Start a screen session with this name.')
 parser.add_argument('--also-log-to',
                     metavar='FILE',
                     help='Path to a file in where logs should be dumped.')
@@ -43,7 +41,7 @@ args.extend(options.command)
 if options.detach:
     # If we want to use screen, we have to handle logging slightly
     # differently.
-    screen = ['screen', '-S', os.path.basename(args[0])]
+    screen = ['screen', '-S', options.detach]
     if options.also_log_to:
         screen.extend(['-L', '-Logfile', options.also_log_to])
     screen.append('-dm')
