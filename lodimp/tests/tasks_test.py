@@ -86,12 +86,12 @@ def test_control_pos_task_len():
 
 
 DEPENDENCY_ARCS = (torch.tensor([
-    [0, 0, 0],
+    [1, 0, 0],
     [1, 0, 0],
     [1, 0, 0],
 ]), torch.tensor([
     [0, 1],
-    [0, 0],
+    [0, 1],
 ]))
 
 
@@ -111,13 +111,13 @@ def test_dependency_arc_task_len():
 
 DEPENDENCY_LABELS = (
     torch.tensor([
-        [1, 3, 3],
-        [0, 3, 3],
-        [2, 3, 3],
+        [2, 0, 0],
+        [1, 0, 0],
+        [3, 0, 0],
     ]),
     torch.tensor([
-        [3, 0],
-        [3, 1],
+        [0, 1],
+        [0, 2],
     ]),
 )
 
@@ -126,10 +126,10 @@ def test_dependency_label_task_init():
     """Test DependencyLabelTask.__init__ maps labels to integers correctly."""
     task = tasks.DependencyLabelTask(SAMPLES)
     assert task.indexer == {
-        'first': 0,
-        'root': 1,
-        'second': 2,
-        'unk': 3,
+        'unk': 0,
+        'first': 1,
+        'root': 2,
+        'second': 3,
     }
 
 
@@ -137,8 +137,8 @@ def test_dependency_label_task_init_relations():
     """Test DependencyLabelTask.__init__ filters relations when provided."""
     task = tasks.DependencyLabelTask(SAMPLES, relations={'first'})
     assert task.indexer == {
-        'first': 0,
-        'unk': 1,
+        'unk': 0,
+        'first': 1,
     }
 
 

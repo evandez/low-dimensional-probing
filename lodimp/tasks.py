@@ -166,8 +166,7 @@ class DependencyArcTask(Task):
                              len(sample.heads),
                              dtype=torch.long)
         for word, head in enumerate(sample.heads):
-            if head != -1:
-                labels[word, head] = 1
+            labels[word, head if head != -1 else word] = 1
         return labels
 
     def __len__(self) -> int:
@@ -194,8 +193,10 @@ class DependencyLabelTask(Task):
         if relations is None:
             relations = {rel for sample in samples for rel in sample.relations}
         assert relations is not None, 'unitialized relations?'
-        self.indexer = {rel: ind for ind, rel in enumerate(sorted(relations))}
-        self.indexer[unk] = len(self.indexer)
+
+        self.indexer = {unk: 0}
+        for rel in sorted(relations):
+            self.indexer[rel] = len(self.indexer)
         self.unk = unk
 
     def __call__(self, sample: ptb.Sample) -> torch.Tensor:

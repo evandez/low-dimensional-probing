@@ -17,6 +17,7 @@ import argparse
 import functools as ft
 import logging
 import pathlib
+import random
 import sys
 from typing import Callable, Dict, List, Sequence, Type
 
@@ -121,41 +122,63 @@ for layer in options.elmo_layers:
             # Determine important dimensions.
             nfeatures, nlabels = reps.dimension, len(task)
             if options.task in BIGRAM_TASKS:
+                # For bigram tasks, the features correspond to two stacked
+                # representations, and the labels correspond to a relationship
+                # between them, if any. We assume each representation connects
+                # with exactly one other representation (in a directed sense).
+                # We sample a linear number of negative samples from each
+                # sentence to balance positive with negative examples.
                 nfeatures *= 2
-                nsamples = sum([len(label)**2 for label in labels])
+                nsamples = sum([
+                    len(label) * 2 if len(label) > 1 else 1 for label in labels
+                ])
             else:
                 nsamples = sum([len(label) for label in labels])
             logging.info(
                 'found %d samples, %d features per sample, and %d classes',
                 nsamples, nfeatures, nlabels)
 
-            logging.info('writing features to %s', file)
-            dataset = h5f.create_dataset('features',
-                                         shape=(nsamples, nfeatures),
-                                         dtype='f')
+            features_out = h5f.create_dataset('features',
+                                              shape=(nsamples, nfeatures),
+                                              dtype='f')
+            labels_out = h5f.create_dataset('labels',
+                                            shape=(nsamples,),
+                                            dtype='u8')
             if options.task in UNIGRAM_TASKS:
+                logging.info('writing features to %s', file)
                 start = 0
                 for index in range(len(reps)):
                     current = reps[index]
-                    dataset[start:start + len(current)] = current.numpy()
+                    features_out[start:start + len(current)] = current.numpy()
                     start += len(current)
-                assert start == len(dataset)
+                assert start == len(features_out)
+
+                logging.info('writing labels to %s', file)
+                labels_out[:] = torch.cat(labels).numpy()
             else:
+                logging.info('writing features and labels to %s', file)
                 start = 0
                 for index in range(len(reps)):
-                    current = reps[index]
-                    pairs = torch.stack([
-                        torch.cat((reps[i], reps[j]))
-                        for i in range(len(reps))
-                        for j in range(len(reps))
-                    ])
-                    dataset[start:start + len(pairs)] = pairs
-                    start += len(pairs)
-                assert start == len(dataset)
+                    rep, label = reps[index], labels[index]
+                    assert label.shape == (len(rep), len(rep))
 
-            logging.info('writing labels to %s', file)
-            dataset = h5f.create_dataset(
-                'labels',
-                data=torch.cat([label.flatten() for label in labels]).numpy())
-            dataset.attrs['nlabels'] = nlabels
-            assert len(dataset) == nsamples
+                    # Take all positive examples, and O(n) negative examples.
+                    # We assume negative examples have label 0.
+                    idxs = set(range(len(rep)))
+                    pairs = [(i, j) for i in idxs for j in idxs if label[i, j]]
+                    assert pairs and len(pairs) == len(rep)
+                    if len(rep) > 1:
+                        for i, j in pairs:
+                            choices = tuple(idxs - {j})
+                            negative = (i, random.choice(choices))
+                            pairs.append(negative)
+                        assert len(pairs) == 2 * len(rep)
+
+                    # Write the results to the file.
+                    end = start + len(pairs)
+                    features = [torch.cat((rep[i], rep[j])) for i, j in pairs]
+                    features_out[start:end] = torch.stack(features).numpy()
+                    labels_out[start:end] = torch.stack(
+                        [label[i, j] for i, j in pairs]).numpy()
+                    start = end
+                assert start == nsamples
