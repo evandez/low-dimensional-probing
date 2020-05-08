@@ -18,7 +18,7 @@ parser.add_argument('--epochs',
                     help='Total passes through training dataset.')
 parser.add_argument('--tasks',
                     nargs='+',
-                    default=('real', 'control'),
+                    default=('pos', 'pos-control'),
                     help='Tasks to run.')
 parser.add_argument('--layers',
                     type=int,
