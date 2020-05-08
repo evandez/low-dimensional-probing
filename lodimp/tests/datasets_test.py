@@ -3,30 +3,16 @@
 import pathlib
 import tempfile
 
-from lodimp import datasets, ptb
+from lodimp import datasets
 
 import h5py
 import numpy as np
 import pytest
 import torch
 
-SAMPLES = (
-    ptb.Sample(
-        ('The', 'company', 'expects', 'earnings', '.'),
-        ('DT', 'NN', 'VBZ', 'NNS', '.'),
-        (1, 2, -1, 15, 1),
-        ('det', 'nsubj', 'root', 'nsubj', 'punct'),
-    ),
-    ptb.Sample(
-        ('He', 'was', 'named', 'chief', '.'),
-        ('PRP', 'VBD', 'VBN', 'JJ', '.'),
-        (3, 3, 0, 6),
-        ('nsubjpass', 'auxpass', 'root', 'amod'),
-    ),
-)
 ELMO_LAYERS = 3
 ELMO_DIMENSION = 1024
-SEQ_LENGTHS = (*[len(sample.sentence) for sample in SAMPLES],)
+SEQ_LENGTHS = (1, 2, 3)
 
 
 @pytest.yield_fixture
@@ -136,166 +122,6 @@ def test_task_dataset_nfeatures(task_dataset):
 def test_task_dataset_nlabels(task_dataset):
     """Test TaskDataset.nlabels returns correct number of labels."""
     assert task_dataset.nlabels == NLABELS
-
-
-class Task:
-    """A dumb, fake task."""
-
-    def __len__(self):
-        """There is only one, binray label in this task: period, no period."""
-        return 1
-
-    def __call__(self, sample):
-        """Map words to period vs. no period label."""
-        labels = []
-        for xpos in sample.xpos:
-            labels.append(int(xpos == '.'))
-        return torch.tensor(labels, dtype=torch.uint8)
-
-
-@pytest.fixture
-def labels_dataset():
-    """Returns a LabelsDataset for testing."""
-    return datasets.LabelsDataset(SAMPLES, Task())
-
-
-def test_labels_dataset_getitem(labels_dataset):
-    """Test whether LabelsDataset.__getitem__ returns correct labels."""
-    for index in (0, 1):
-        item = labels_dataset[index]
-        assert item[-1] == 1
-        assert not item[:-1].any()
-
-
-def test_labels_dataset_len(labels_dataset):
-    """Test whether LabelsDataset.__len__ returns correct length."""
-    assert len(labels_dataset) == len(SAMPLES)
-
-
-@pytest.fixture
-def representations_dataset(elmo_path):
-    """Returns a RepresentationsDataset for testing."""
-    return datasets.ELMoRepresentationsDataset(elmo_path, 0)
-
-
-@pytest.fixture
-def labeled_representations_dataset(representations_dataset, labels_dataset):
-    """Returns a LabeledRepresentationsDataset for testing."""
-    return datasets.LabeledRepresentationsDataset(representations_dataset,
-                                                  labels_dataset)
-
-
-def test_labeled_representations_dataset_nfeatures(
-        labeled_representations_dataset):
-    """Test LabeledRepresentationsDataset.nfeatures returns rep dimension."""
-    assert labeled_representations_dataset.nfeatures == ELMO_DIMENSION
-
-
-def test_labeled_representations_dataset_nlabels(
-        labeled_representations_dataset):
-    """Test LabeledRepresentationsDataset.nlabels forwards to len(labels)."""
-    assert labeled_representations_dataset.nlabels == 1
-
-
-def test_labeled_representations_dataset_init_bad_dataset_lengths(
-        representations_dataset):
-    """Test LabeledRepresentationsDataset.__init__ check dataset lengths."""
-    with pytest.raises(ValueError, match=r'.*2 vs\. 1.*'):
-        samples = list(SAMPLES)
-        del samples[-1]
-        datasets.LabeledRepresentationsDataset(
-            representations_dataset, datasets.LabelsDataset(samples, Task()))
-
-
-@pytest.fixture
-def labeled_representation_singles_dataset(representations_dataset,
-                                           labels_dataset):
-    """Returns a LabeledRepresentationSinglesDataset for testing."""
-    return datasets.LabeledRepresentationSinglesDataset(
-        representations_dataset,
-        labels_dataset,
-    )
-
-
-def test_labeled_representation_singles_dataset_getitem(
-        labeled_representation_singles_dataset, representations_dataset,
-        labels_dataset):
-    """Test LabeledRepresentationSinglesDataset.__getitem__ gives all words."""
-    expected_reps = torch.cat(list(representations_dataset))
-    expected_labels = torch.cat(list(labels_dataset))
-    for index in range(len(labeled_representation_singles_dataset)):
-        rep, label = labeled_representation_singles_dataset[index]
-        assert torch.equal(rep, expected_reps[index])
-        assert torch.equal(label, expected_labels[index])
-
-
-def test_labeled_representation_singles_dataset_len(
-        labeled_representation_singles_dataset):
-    """Test LabeledRepresentationSinglesDataset.__len__ gives right length."""
-    assert len(labeled_representation_singles_dataset) == sum(SEQ_LENGTHS)
-
-
-def test_labeled_representation_singles_dataset_init_bad_seq_lengths(
-        representations_dataset):
-    """Test LabeledRepresentationSinglesDataset.__init__ checks seq lengths."""
-    with pytest.raises(ValueError, match=r'.*5 representations but 4.*'):
-        samples = list(SAMPLES)
-        samples[-1] = ptb.Sample(*[item[:-1] for item in samples[-1]])
-        datasets.LabeledRepresentationSinglesDataset(
-            representations_dataset, datasets.LabelsDataset(samples, Task()))
-
-
-def pairwise_task(sample):
-    """A fake pairwise task always returning the identity."""
-    return torch.eye(len(sample.sentence))
-
-
-@pytest.fixture
-def pairwise_labels_dataset():
-    """Returns a pairwise LabelsDataset for testing."""
-    return datasets.LabelsDataset(SAMPLES, pairwise_task)
-
-
-@pytest.fixture
-def labeled_representation_pairs_dataset(representations_dataset,
-                                         pairwise_labels_dataset):
-    """Returns a LabeledRepresentationPairsDataset for testing."""
-    return datasets.LabeledRepresentationPairsDataset(representations_dataset,
-                                                      pairwise_labels_dataset)
-
-
-def test_labeled_representation_pairs_dataset_getitem(
-        labeled_representation_pairs_dataset, representations_dataset):
-    """Test LabeledRepresentationPairsDataset.__getitem__ preserves order."""
-    actual_rep, actual_label = labeled_representation_pairs_dataset[0]
-    expected_rep = torch.cat(
-        (representations_dataset[0][0], representations_dataset[0][0]))
-    assert torch.equal(actual_rep, expected_rep)
-    assert actual_label == 1
-
-    actual_rep, actual_label = labeled_representation_pairs_dataset[1]
-    expected_rep = torch.cat(
-        (representations_dataset[0][0], representations_dataset[0][1]))
-    assert torch.equal(actual_rep, expected_rep)
-    assert actual_label == 0
-
-
-def test_labeled_representation_pairs_dataset_len(
-        labeled_representation_pairs_dataset):
-    """Test LabeledRepresentationPairsDataset.__len__ gives correct length."""
-    expected = sum(len(sample.sentence)**2 for sample in SAMPLES)
-    assert len(labeled_representation_pairs_dataset) == expected
-
-
-def test_labeled_representation_pairs_dataset_init_bad_seq_lengths(
-        representations_dataset):
-    """Test LabeledRepresentationsDataset.__init__ checks all seq lengths."""
-    with pytest.raises(ValueError, match=r'.*5 representations but size.*'):
-        samples = list(SAMPLES)
-        samples[-1] = ptb.Sample(*[item[:-1] for item in samples[-1]])
-        datasets.LabeledRepresentationPairsDataset(
-            representations_dataset,
-            datasets.LabelsDataset(samples, pairwise_task))
 
 
 class FakeDataset(torch.utils.data.Dataset):
