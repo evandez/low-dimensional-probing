@@ -93,6 +93,53 @@ class ELMoRepresentationsDataset(RepresentationsDataset):
         return len(self.file.keys()) - 1  # Ignore sentence_to_index.
 
 
+class TaskDataset(data.Dataset):
+    """Iterates through a precomputed task.
+
+    Tasks map word representations to labels. See preprocess.py and tasks.py
+    to see how this is done. This dataset simply reads the pre-computed task.
+    """
+
+    def __init__(self, path: pathlib.Path):
+        """Initialize the task dataset.
+
+        Args:
+            path (pathlib.Path): Path to the h5 file containing the task.
+
+        """
+        self.file = h5py.File(path, 'r')
+        assert 'features' in self.file, 'no features?'
+        assert 'labels' in self.file, 'no labels?'
+
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Returns the (features, label) pair at the given index.
+
+        Args:
+            index (int): The index of the pair to retrieve.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: The (feature, label) tensors.
+
+        """
+        if index < 0 or index >= len(self):
+            raise IndexError(f'index out of bounds: {index}')
+        return self.file['features'][index], self.file['labels'][index]
+
+    def __len__(self) -> int:
+        """Returns the number of samples in this dataset."""
+        return len(self.file['features'])
+
+    @property
+    def nfeatures(self) -> int:
+        """Returns the number of features in each sample."""
+        return self.file['features'].shape[-1]
+
+    @property
+    def nlabels(self) -> int:
+        """Returns the number of unique labels in the dataset."""
+        return self.file['labels'].attrs['nlabels']
+
+
 class LabelsDataset(data.Dataset):
     """Iterates over Penn Treebank for some task.
 

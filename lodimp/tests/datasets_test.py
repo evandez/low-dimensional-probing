@@ -80,6 +80,64 @@ def test_elmo_representations_dataset_len(elmo_path):
         assert len(dataset) == len(SEQ_LENGTHS)
 
 
+NSAMPLES = 5
+NFEATURES = 10
+NLABELS = 3
+
+
+@pytest.fixture
+def features():
+    """Returns fake features for testing."""
+    return torch.randn(NSAMPLES, NFEATURES)
+
+
+@pytest.fixture
+def labels():
+    """Returns fake labels for testing."""
+    return torch.randint(NLABELS, size=(NSAMPLES,))
+
+
+@pytest.yield_fixture
+def task_dataset(features, labels):
+    """Yields the path to a fake ELMo h5 file."""
+    with tempfile.TemporaryDirectory() as tempdir:
+        path = pathlib.Path(tempdir) / 'task.h5'
+        with h5py.File(path, 'w') as handle:
+            handle.create_dataset('features', data=features)
+            dataset = handle.create_dataset('labels', data=labels)
+            dataset.attrs['nlabels'] = NLABELS
+        yield datasets.TaskDataset(path)
+
+
+def test_task_dataset_getitem(task_dataset, features, labels):
+    """Test TaskDataset.__getitem__ returns all (feature, label) pairs."""
+    for (af, al), ef, el in zip(task_dataset, features, labels):
+        assert torch.tensor(af).equal(ef)
+        assert torch.tensor(al).equal(el)
+
+
+def test_task_dataset_getitem_bad_index(task_dataset):
+    """Test TaskDataset.__getitem__ explodes when given a bad index."""
+    for bad in (-1, NSAMPLES):
+        with pytest.raises(IndexError, match=f'.*bounds: {bad}.*'):
+            task_dataset[bad]
+
+
+def test_task_dataset_len(task_dataset):
+    """Test TaskDataset.__len__ returns correct length."""
+    assert len(task_dataset) == NSAMPLES
+
+
+def test_task_dataset_nfeatures(task_dataset):
+    """Test TaskDataset.nfeatures returns correct number of features."""
+    assert task_dataset.nfeatures == NFEATURES
+
+
+def test_task_dataset_nlabels(task_dataset):
+    """Test TaskDataset.nlabels returns correct number of labels."""
+    assert task_dataset.nlabels == NLABELS
+
+
 class Task:
     """A dumb, fake task."""
 
