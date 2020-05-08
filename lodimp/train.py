@@ -5,7 +5,7 @@ import collections
 import logging
 import pathlib
 import sys
-from typing import Dict
+from typing import Dict, List
 
 from lodimp import datasets, linalg, probes
 
@@ -45,6 +45,10 @@ parser.add_argument('--patience',
                     type=int,
                     default=4,
                     help='Epochs for dev loss to decrease to stop training.')
+parser.add_argument('--compose',
+                    nargs='+',
+                    type=pathlib.Path,
+                    help='Compose these projections with learned projection.')
 parser.add_argument('--cuda', action='store_true', help='Use CUDA device.')
 parser.add_argument('--log-dir',
                     type=pathlib.Path,
@@ -65,6 +69,9 @@ options = parser.parse_args()
 
 if not options.data.exists():
     raise FileNotFoundError(f'data directory does not exist: {options.data}')
+for path in options.compose or []:
+    if not path.exists():
+        raise FileNotFoundError(f'model does not exist: {options.compose}')
 
 # Set up.
 logging.basicConfig(stream=sys.stdout,
@@ -113,6 +120,23 @@ logging.info('samples have %d features', features)
 classes = data['train'].nlabels
 logging.info('task has %d distinct tag(s)', classes)
 
+# Initialize compositions, if any.
+compose: nn.Module = nn.Identity()
+if options.compose:
+    projections: List[probes.Projection] = []
+    dim = features
+    for path in options.compose:
+        # TODO(evandez): Validate model type.
+        model = torch.load(path, map_location=device).project
+        if model.in_features != dim:
+            raise ValueError(
+                f'cannot compose out dim {dim}, in dim {model.in_features}')
+        projections.append(model)
+        dim = model.out_features
+    compose = nn.Sequential(*projections)
+    features = dim
+compose.to(device)
+
 # Initialize model, optimizer, loss, etc.
 probe = probes.ProjectedLinear(features, options.dim, classes).to(device)
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
@@ -139,6 +163,8 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
         probe.train()
         for batch, (reps, tags) in enumerate(loaders['train']):
             reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
+            with torch.no_grad():
+                reps = compose(reps)
             preds = probe(reps).squeeze()
             loss = criterion(preds, tags)
             loss.backward()
@@ -153,6 +179,8 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
         total, count = 0., 0
         for reps, tags in loaders['dev']:
             reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
+            with torch.no_grad():
+                reps = compose(reps)
             preds = probe(reps).squeeze()
             total += criterion(preds, tags).item() * len(reps)  # Undo mean.
             count += len(reps)
@@ -190,6 +218,8 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
         correct, count = 0., 0
         for reps, tags in loaders['test']:
             reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
+            with torch.no_grad():
+                reps = compose(reps)
             preds = model(reps).argmax(dim=1)
             correct += preds.eq(tags).sum().item()
             count += len(reps)
