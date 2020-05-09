@@ -1,7 +1,8 @@
 """Defines datasets for training probes."""
 
+import math
 import pathlib
-from typing import Any, Iterable, Optional, Tuple
+from typing import Iterator, Tuple
 
 import h5py
 import torch
@@ -140,49 +141,31 @@ class TaskDataset(data.Dataset):
         return self.file['labels'].attrs['nlabels']
 
 
-class CollatedDataset(data.IterableDataset):
-    """Pre-collate a dataset.
+class ChunkedTaskDataset(data.IterableDataset):
+    """Iterable wrapper for TaskDataset that pre-collates chunks."""
 
-    In other words, treat the entire dataset as one giant batch. Items may
-    not be accessed individually.
-    """
-
-    def __init__(self,
-                 dataset: data.Dataset,
-                 device: Optional[torch.device] = None,
-                 **kwargs: Any):
-        """Run the collation and cache the results.
-
-        Keyword arguments forwarded to torch.utils.data.DataLoader.
+    def __init__(self, dataset: TaskDataset, chunks: int = 1):
+        """Chunk the dataset for later iteration.
 
         Args:
-            dataset (data.Dataset): The dataset to pre-collate.
-            device (torch.device): Send data to this device immediately
-                so it need not be done repeatedly.
+            dataset (TaskDataset): The dataset to chunk.
+            chunks (int, optional): Number of chunks to create. Defaults to 1.
 
         """
-        super().__init__()
-        for forbidden in ('batch_size', 'shuffle'):
-            if forbidden in kwargs:
-                raise ValueError(f'cannot set {forbidden}')
+        features, labels = dataset.file['features'], dataset.file['labels']
+        size = math.ceil(len(dataset) / chunks)
+        self.chunks = []
+        for index in range(chunks):
+            start = index * size
+            end = start + size
+            chunk = (torch.tensor(features[start:end]),
+                     torch.tensor(labels[start:end]))
+            self.chunks.append(chunk)
 
-        self.collated, = list(
-            data.DataLoader(
-                dataset,
-                batch_size=len(dataset),
-                **kwargs,
-            ))
-
-        if device is not None:
-            self.collated = [
-                item.to(device) if isinstance(item, torch.Tensor) else item
-                for item in self.collated
-            ]
-
-    def __iter__(self) -> Iterable:
-        """No need to iterate over a collated dataset. Just yield the data."""
-        yield self.collated
+    def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
+        """Iterates over all chunks."""
+        return iter(self.chunks)
 
     def __len__(self) -> int:
-        """Returns the number of samples in the individual dataset."""
-        return 1
+        """Returns the number of chunks in the dataset."""
+        return len(self.chunks)

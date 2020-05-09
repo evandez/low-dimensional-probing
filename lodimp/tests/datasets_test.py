@@ -98,8 +98,8 @@ def task_dataset(features, labels):
 def test_task_dataset_getitem(task_dataset, features, labels):
     """Test TaskDataset.__getitem__ returns all (feature, label) pairs."""
     for (af, al), ef, el in zip(task_dataset, features, labels):
-        assert torch.tensor(af).equal(ef)
-        assert torch.tensor(al).equal(el)
+        assert af.equal(ef)
+        assert al.equal(el)
 
 
 def test_task_dataset_getitem_bad_index(task_dataset):
@@ -124,62 +124,30 @@ def test_task_dataset_nlabels(task_dataset):
     assert task_dataset.nlabels == NLABELS
 
 
-class FakeDataset(torch.utils.data.Dataset):
-    """A very dumb dataset."""
-
-    def __init__(self, features, labels):
-        """Store simple features and labels.
-
-        Args:
-            features: Feature tensor.
-            labels: Label tensor.
-
-        """
-        assert len(features) == len(labels)
-        self.features = features
-        self.labels = labels
-
-    def __getitem__(self, index):
-        """Return the (feature, label) at the given index.
-
-        Args:
-            index: Index of sample to retrieve.
-
-        Returns:
-            The (feature, label) pair.
-
-        """
-        return self.features[index], self.labels[index]
-
-    def __len__(self):
-        """Returns number of samples in the dataset."""
-        return len(self.features)
-
-
-LENGTH = 5
-DIMENSION = 10
-
-
 @pytest.fixture
-def collated_dataset():
-    """Returns CollatedDataset for testing."""
-    dataset = FakeDataset(torch.ones(LENGTH, DIMENSION), torch.ones(LENGTH))
-    return datasets.CollatedDataset(dataset)
+def chunked_task_dataset(task_dataset):
+    """Returns a ChunkedTaskDataset for testing."""
+    return datasets.ChunkedTaskDataset(task_dataset, chunks=2)
 
 
-def test_collated_dataset_iter(collated_dataset):
-    """Test CollatedDataset.__iter__ only returns one batch."""
-    batches = [batch for batch in collated_dataset]
-    assert len(batches) == 1
+def test_chunked_task_dataset_iter(chunked_task_dataset, features, labels):
+    """Test ChunkedTaskDataset.__iter__ yields all chunks."""
+    chunks = list(iter(chunked_task_dataset))
+    assert len(chunks) == 2
 
-    batch, = batches
-    assert len(batch) == 2
+    first, second = chunks
+    assert len(first) == 2
+    assert len(second) == 2
 
-    features, labels = batch
-    assert features.shape == (LENGTH, DIMENSION)
-    assert labels.shape == (LENGTH,)
+    af, al = first
+    assert af.equal(features[:3])
+    assert al.equal(labels[:3])
+
+    af, al = second
+    assert af.equal(features[3:])
+    assert al.equal(labels[3:])
 
 
-def test_collated_dataset_len(collated_dataset):
-    """Test CollatedDataset.__len__ returns correct length."""
-    assert len(collated_dataset) == 1
+def test_chunked_dataset_len(chunked_task_dataset):
+    """Test ChunkedTaskDataset.__len__ returns correct length."""
+    assert len(chunked_task_dataset) == 2

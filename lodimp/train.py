@@ -108,8 +108,8 @@ loaders: Dict[str, torch.utils.data.DataLoader] = {}
 for split, dataset in data.items():
     if options.no_batch:
         logging.info(f'batching disabled, collating {split} set')
-        collated = datasets.CollatedDataset(dataset, device=device)
-        loaders[split] = torch.utils.data.DataLoader(collated)
+        chunked = datasets.ChunkedTaskDataset(dataset)
+        loaders[split] = torch.utils.data.DataLoader(chunked)
     else:
         loaders[split] = torch.utils.data.DataLoader(
             dataset, batch_size=options.batch_size, shuffle=True)
