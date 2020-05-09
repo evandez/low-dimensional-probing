@@ -123,7 +123,7 @@ class TaskDataset(data.Dataset):
         if index < 0 or index >= len(self):
             raise IndexError(f'index out of bounds: {index}')
         features = torch.tensor(self.file['features'][index])
-        labels = torch.tensor(self.file['labels'][index])
+        labels = torch.tensor(self.file['labels'][index], dtype=torch.long)
         return features, labels
 
     def __len__(self) -> int:
@@ -159,7 +159,7 @@ class ChunkedTaskDataset(data.IterableDataset):
             start = index * size
             end = start + size
             chunk = (torch.tensor(features[start:end]),
-                     torch.tensor(labels[start:end]))
+                     torch.tensor(labels[start:end], dtype=torch.long))
             self.chunks.append(chunk)
 
     def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
