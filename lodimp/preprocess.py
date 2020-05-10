@@ -19,7 +19,7 @@ import logging
 import pathlib
 import random
 import sys
-from typing import Callable, Dict, List, Sequence, Type
+from typing import Callable, Dict, List, Sequence
 
 from lodimp import datasets, ptb, tasks
 
@@ -35,10 +35,11 @@ UNIGRAM_TASKS: Dict[str, TaskFactory] = {
     'pos-adv': ft.partial(tasks.POSTask, tags=tasks.POS_ADVERBS),
     'pos-control': tasks.ControlPOSTask,
 }
-BIGRAM_TASKS: Dict[str, Type[tasks.Task]] = {
+BIGRAM_TASKS: Dict[str, TaskFactory] = {
     'dep-arc': tasks.DependencyArcTask,
     'dep-label': tasks.DependencyLabelTask,
 }
+ELMO_LAYERS = (0, 1, 2)
 
 parser = argparse.ArgumentParser(description='Preprocess PTB for some task.')
 parser.add_argument('data', type=pathlib.Path, help='Path to PTB directory.')
@@ -66,8 +67,8 @@ parser.add_argument(
     '--elmo-layers',
     type=int,
     nargs='+',
-    choices=(0, 1, 2),
-    default=(0, 1, 2),
+    choices=ELMO_LAYERS,
+    default=ELMO_LAYERS,
     help='ELMo layers to use. Separate files generated for each.')
 parser.add_argument('--verbose',
                     dest='log_level',
@@ -122,21 +123,18 @@ for layer in options.elmo_layers:
             # Determine important dimensions.
             nfeatures, nlabels = reps.dimension, len(task)
             if options.task in BIGRAM_TASKS:
-                # For bigram tasks, the features correspond to two stacked
-                # representations, and the labels correspond to a relationship
-                # between them, if any. We assume each representation connects
-                # with exactly one other representation (in a directed sense).
-                # We sample a linear number of negative samples from each
-                # sentence to balance positive with negative examples.
                 nfeatures *= 2
-                nsamples = sum([
-                    len(label) * 2 if len(label) > 1 else 1 for label in labels
-                ])
-            else:
-                nsamples = sum([len(label) for label in labels])
-            logging.info(
-                'found %d samples, %d features per sample, and %d classes',
-                nsamples, nfeatures, nlabels)
+
+            lens = [len(label) for label in labels]
+            if options.task == 'dep-arc':
+                # Unfortunately, the DependencyArcTask is a special snowflake
+                # and requires us to select O(n) negative samples of the O(n^2)
+                # possible negative samples. So double the lengths where
+                # negative examples actually exist.
+                lens = [length * 2 if length > 1 else 1 for length in lens]
+            nsamples = sum(lens)
+            logging.info('found %d samples, %d features/sample, %d classes',
+                         nsamples, nfeatures, nlabels)
 
             features_out = h5f.create_dataset('features',
                                               shape=(nsamples, nfeatures),
@@ -170,7 +168,7 @@ for layer in options.elmo_layers:
                     idxs = set(range(len(rep)))
                     pairs = [(i, j) for i in idxs for j in idxs if label[i, j]]
                     assert pairs and len(pairs) == len(rep)
-                    if len(rep) > 1:
+                    if options.task == 'dep-arc' and len(rep) > 1:
                         negatives = []
                         for i, j in pairs:
                             choices = tuple(idxs - {j})
