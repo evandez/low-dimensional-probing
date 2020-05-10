@@ -9,16 +9,16 @@ import sys
 from torch import cuda
 
 parser = argparse.ArgumentParser(description='Learn projection hierarchy.')
-parser.add_argument('data', type=pathlib.Path, help='Path to data directory.')
+parser.add_argument('root', type=pathlib.Path, help='Root task to run.')
+parser.add_argument('leaves',
+                    type=pathlib.Path,
+                    nargs='+',
+                    help='Leaf tasks to run.')
 parser.add_argument('--layers',
                     type=int,
                     nargs='+',
                     default=(0, 1, 2),
                     help='ELMo layers to use.')
-parser.add_argument('--projected-dir',
-                    type=pathlib.Path,
-                    default='/tmp/lodimp/projected',
-                    help='Path at which to store projected copies of dataset.')
 parser.add_argument('--model-dir',
                     type=pathlib.Path,
                     default='/tmp/lodimp/models',
@@ -44,10 +44,10 @@ module = pathlib.Path(root) / 'lodimp'
 script = module / 'train.py'
 base = [
     'python3',
-    str(module),
-    str(script), '--verbose', '--log-dir',
-    str(options.log_dir), '--model-dir',
-    str(options.model_dir), '--epochs',
+    str(module.resolve()),
+    str(script.resolve()), '--verbose', '--log-dir',
+    str(options.log_dir.resolve()), '--model-dir',
+    str(options.model_dir.resolve()), '--epochs',
     str(options.epochs)
 ]
 if cuda.is_available():
@@ -56,29 +56,32 @@ if cuda.is_available():
 for layer in options.layers:
     if options.model_dir.exists():
         shutil.rmtree(options.model_dir)
-    command = (*base, str(options.data), 'pos', str(options.dimension),
-               '--elmo', str(layer))
+    task = options.root / f'elmo-{layer}'
+    model_file = f'root-{options.root.name}-l{layer}-d{options.dimension}.pth'
+    command = (
+        *base,
+        str(task.resolve()),
+        str(options.dimension),
+        '--model-file',
+        model_file,
+    )
     print(' '.join(command))
     process = subprocess.run(command)
     if process.returncode:
         sys.exit(process.returncode)
 
-    if options.projected_dir.exists():
-        shutil.rmtree(options.projected_dir)
-    command = ('python3', str(module), str(module / 'project.py'),
-               str(next(options.model_dir.iterdir())), str(options.data),
-               str(options.projected_dir), '--verbose')
-    if cuda.is_available():
-        command = (*command, '--cuda')
-    print(' '.join(command))
-    process = subprocess.run(command)
-    if process.returncode:
-        sys.exit(process.returncode)
-
-    for dim in range(2, options.dimension):
-        for task in ('pos-noun', 'pos-verb', 'pos-adj', 'pos-adv'):
-            command = (*base, str(options.projected_dir), task, str(dim),
-                       '--elmo', str(layer))
+    for dimension in range(2, options.dimension):
+        for leaf in options.leaves:
+            task = leaf / f'elmo-{layer}'
+            command = (
+                *base,
+                str(task.resolve()),
+                str(dimension),
+                '--compose',
+                str(options.model_dir / model_file),
+                '--model-file',
+                f'leaf-{leaf.name}-l{layer}-d{dimension}.pth',
+            )
             print(' '.join(command))
             proc = subprocess.run(command)
             if proc.returncode:
