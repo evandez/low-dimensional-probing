@@ -12,7 +12,7 @@ SAMPLES = [
         ('root', 'first', 'second'),
     ),
     ptb.Sample(
-        ('boof', 'foo'),
+        ('boof', 'biff'),
         ('D', 'A'),
         (1, -1),
         ('first', 'root'),
@@ -68,7 +68,7 @@ def test_control_pos_task_init():
     """Test ControlPOSTask.__init__ sets state correctly."""
     task = tasks.ControlPOSTask(SAMPLES)
     assert list(task.dist) == [0.4, 0.2, 0.2, 0.2]
-    assert task.tags.keys() == {'foo', 'bar', 'baz', 'boof'}
+    assert task.tags.keys() == {'foo', 'bar', 'baz', 'boof', 'biff'}
 
 
 def test_control_pos_task_call():

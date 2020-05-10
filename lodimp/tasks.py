@@ -143,7 +143,7 @@ class ControlPOSTask(Task):
 
     def __len__(self) -> int:
         """Returns the number of fake tags in this task."""
-        return len(self.tags)
+        return len(self.dist)
 
 
 class DependencyArcTask(Task):
