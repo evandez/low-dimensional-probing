@@ -107,11 +107,11 @@ else:
     task = BIGRAM_TASKS[options.task](samples)
     logging.info('will prepare for bigram task "%s"', options.task)
 
+root = (options.out or options.data) / options.task
 for layer in options.elmo_layers:
-    tag = f'{options.task}-elmo-l{layer}'
-    directory = (options.out or options.data) / tag
+    directory = root / f'elmo-{layer}'
     directory.mkdir(parents=True, exist_ok=True)
-    logging.info('writing splits for task %s to %s', tag, directory)
+    logging.info('writing splits for layer %d to %s', layer, directory)
 
     for split in options.splits:
         file = directory / f'{split}.h5'
