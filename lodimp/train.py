@@ -5,7 +5,7 @@ import collections
 import logging
 import pathlib
 import sys
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from lodimp import datasets, linalg, probes
 
@@ -104,12 +104,16 @@ data = {}
 for split in ('train', 'dev', 'test'):
     data[split] = datasets.TaskDataset(options.data / f'{split}.h5')
 
-loaders: Dict[str, torch.utils.data.DataLoader] = {}
+loaders: Dict[str, Union[torch.utils.data.DataLoader,
+                         datasets.ChunkedTaskDataset]] = {}
 for split, dataset in data.items():
     if options.no_batch:
         logging.info(f'batching disabled, collating {split} set')
-        chunked = datasets.ChunkedTaskDataset(dataset)
-        loaders[split] = torch.utils.data.DataLoader(chunked)
+        # You might be wondering: why not use a DataLoader here, like a normal
+        # person? It's because DataLoaders unexpectedly copy the data in some
+        # cases. This is problematic if, for example, your data is already
+        # stored on the GPU and copying it would result in an OOM error.
+        loaders[split] = datasets.ChunkedTaskDataset(dataset, device=device)
     else:
         loaders[split] = torch.utils.data.DataLoader(
             dataset, batch_size=options.batch_size, shuffle=True)
@@ -162,10 +166,10 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
     for epoch in range(options.epochs):
         probe.train()
         for batch, (reps, tags) in enumerate(loaders['train']):
-            reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
+            reps, tags = reps.to(device), tags.to(device)
             with torch.no_grad():
                 reps = compose(reps)
-            preds = probe(reps).squeeze()
+            preds = probe(reps)
             loss = criterion(preds, tags)
             loss.backward()
             optimizer.step()
@@ -178,10 +182,10 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
         probe.eval()
         total, count = 0., 0
         for reps, tags in loaders['dev']:
-            reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
+            reps, tags = reps.to(device), tags.to(device)
             with torch.no_grad():
                 reps = compose(reps)
-            preds = probe(reps).squeeze()
+            preds = probe(reps)
             total += criterion(preds, tags).item() * len(reps)  # Undo mean.
             count += len(reps)
         dev_loss = total / count
@@ -217,7 +221,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
         logging.info('testing on %s model', name)
         correct, count = 0., 0
         for reps, tags in loaders['test']:
-            reps, tags = reps.squeeze().to(device), tags.squeeze().to(device)
+            reps, tags = reps.to(device), tags.to(device)
             with torch.no_grad():
                 reps = compose(reps)
             preds = model(reps).argmax(dim=1)

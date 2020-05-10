@@ -127,7 +127,9 @@ def test_task_dataset_nlabels(task_dataset):
 @pytest.fixture
 def chunked_task_dataset(task_dataset):
     """Returns a ChunkedTaskDataset for testing."""
-    return datasets.ChunkedTaskDataset(task_dataset, chunks=2)
+    return datasets.ChunkedTaskDataset(task_dataset,
+                                       chunks=2,
+                                       device=torch.device('cpu'))
 
 
 def test_chunked_task_dataset_iter(chunked_task_dataset, features, labels):

@@ -2,7 +2,7 @@
 
 import math
 import pathlib
-from typing import Iterator, Tuple
+from typing import Iterator, Optional, Tuple
 
 import h5py
 import torch
@@ -107,8 +107,12 @@ class TaskDataset(data.Dataset):
 
         """
         self.file = h5py.File(path, 'r')
+
         assert 'features' in self.file, 'no features?'
+        self.features = self.file['features']
+
         assert 'labels' in self.file, 'no labels?'
+        self.labels = self.file['labels']
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Returns the (features, label) pair at the given index.
@@ -122,8 +126,8 @@ class TaskDataset(data.Dataset):
         """
         if index < 0 or index >= len(self):
             raise IndexError(f'index out of bounds: {index}')
-        features = torch.tensor(self.file['features'][index])
-        labels = torch.tensor(self.file['labels'][index], dtype=torch.long)
+        features = torch.tensor(self.features[index])
+        labels = torch.tensor(self.labels[index], dtype=torch.long)
         return features, labels
 
     def __len__(self) -> int:
@@ -133,33 +137,41 @@ class TaskDataset(data.Dataset):
     @property
     def nfeatures(self) -> int:
         """Returns the number of features in each sample."""
-        return self.file['features'].shape[-1]
+        return self.features.shape[-1]
 
     @property
     def nlabels(self) -> int:
         """Returns the number of unique labels in the dataset."""
-        return self.file['labels'].attrs['nlabels']
+        return self.labels.attrs['nlabels']
 
 
 class ChunkedTaskDataset(data.IterableDataset):
     """Iterable wrapper for TaskDataset that pre-collates chunks."""
 
-    def __init__(self, dataset: TaskDataset, chunks: int = 1):
+    def __init__(self,
+                 dataset: TaskDataset,
+                 chunks: int = 1,
+                 device: Optional[torch.device] = None):
         """Chunk the dataset for later iteration.
 
         Args:
             dataset (TaskDataset): The dataset to chunk.
             chunks (int, optional): Number of chunks to create. Defaults to 1.
+            device (Optional[torch.device], optional): If set, send chunks to
+                this device. By default chunks are kept on current device.
 
         """
-        features, labels = dataset.file['features'], dataset.file['labels']
         size = math.ceil(len(dataset) / chunks)
         self.chunks = []
         for index in range(chunks):
             start = index * size
             end = start + size
-            chunk = (torch.tensor(features[start:end]),
-                     torch.tensor(labels[start:end], dtype=torch.long))
+            features = torch.tensor(dataset.features[start:end])
+            labels = torch.tensor(dataset.labels[start:end], dtype=torch.long)
+            if device is not None:
+                features = features.to(device)
+                labels = labels.to(device)
+            chunk = (features, labels)
             self.chunks.append(chunk)
 
     def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
