@@ -49,9 +49,8 @@ if cuda.is_available():
 # Launch jobs, one task, layer, and dimension at a time.
 for task in options.tasks:
     for layer in options.layers:
-        path = task / f'elmo-{layer}'
         for dim in options.dims:
-            args = command + [str(path.resolve()), str(dim)]
+            args = command + [str(task.resolve()), str(layer), str(dim)]
             print(' '.join(args))
             process = subprocess.run(args)
             if process.returncode:

@@ -56,11 +56,11 @@ if cuda.is_available():
 for layer in options.layers:
     if options.model_dir.exists():
         shutil.rmtree(options.model_dir)
-    task = options.root / f'elmo-{layer}'
     model_file = f'root-{options.root.name}-l{layer}-d{options.dimension}.pth'
     command = (
         *base,
-        str(task.resolve()),
+        str(options.root.resolve()),
+        str(layer),
         str(options.dimension),
         '--model-file',
         model_file,
@@ -72,10 +72,10 @@ for layer in options.layers:
 
     for dimension in range(2, options.dimension):
         for leaf in options.leaves:
-            task = leaf / f'elmo-{layer}'
             command = (
                 *base,
-                str(task.resolve()),
+                str(leaf.resolve()),
+                str(layer),
                 str(dimension),
                 '--compose',
                 str(options.model_dir / model_file),

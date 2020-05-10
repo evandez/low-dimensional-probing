@@ -60,11 +60,11 @@ if cuda.is_available():
 # Launch jobs, one task, layer, and dimension at a time.
 for task in options.tasks:
     for layer in options.layers:
-        path = task / f'elmo-{layer}'
         for reg in options.regs:
             for weight in options.weights:
                 args = command + [
-                    str(path.resolve()),
+                    str(task.resolve()),
+                    str(layer),
                     str(options.dimension), f'--{reg}',
                     str(weight)
                 ]

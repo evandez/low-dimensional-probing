@@ -16,9 +16,8 @@ from torch.optim import lr_scheduler
 from torch.utils import tensorboard as tb
 
 parser = argparse.ArgumentParser(description='Train a POS tagger.')
-parser.add_argument('data',
-                    type=pathlib.Path,
-                    help='Task directory; output of preprocess script.')
+parser.add_argument('task', type=pathlib.Path, help='Task directory.')
+parser.add_argument('layer', type=int, help='ELMo layer.')
 parser.add_argument('dim', type=int, help='Projection dimensionality.')
 parser_ex = parser.add_mutually_exclusive_group()
 parser_ex.add_argument('--batch-size',
@@ -67,8 +66,12 @@ parser.add_argument('--verbose',
                     help='Print lots of logs to stdout.')
 options = parser.parse_args()
 
-if not options.data.exists():
+# Quick validations.
+if not options.task.exists():
     raise FileNotFoundError(f'data directory does not exist: {options.data}')
+root = options.task / f'elmo-{options.layer}'
+if not root.exists():
+    raise FileNotFoundError(f'layer {options.layer} partition not found')
 for path in options.compose or []:
     if not path.exists():
         raise FileNotFoundError(f'model does not exist: {options.compose}')
@@ -91,7 +94,8 @@ logging.info('using %s', device.type)
 # Identify this run.
 hparams = collections.OrderedDict()
 hparams['proj'] = options.dim
-hparams['task'] = options.data.name
+hparams['task'] = options.task.name
+hparams['layer'] = options.layer
 if options.l1:
     hparams['l1'] = options.l1
 if options.nuc:
@@ -102,7 +106,10 @@ logging.info('job tag is %s', tag)
 # Load data.
 data = {}
 for split in ('train', 'dev', 'test'):
-    data[split] = datasets.TaskDataset(options.data / f'{split}.h5')
+    file = root / f'{split}.h5'
+    if not file.exists():
+        raise FileNotFoundError(f'{split} partition not found')
+    data[split] = datasets.TaskDataset(root / f'{split}.h5')
 
 loaders: Dict[str, Union[torch.utils.data.DataLoader,
                          datasets.ChunkedTaskDataset]] = {}
@@ -135,6 +142,7 @@ if options.compose:
         if model.in_features != dim:
             raise ValueError(
                 f'cannot compose out dim {dim}, in dim {model.in_features}')
+        logging.info('composing with projection at %s', path)
         projections.append(model)
         dim = model.out_features
     compose = nn.Sequential(*projections)
