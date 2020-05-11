@@ -3,6 +3,7 @@
 import argparse
 import collections
 import logging
+import math
 import pathlib
 import sys
 from typing import Dict, List, Union
@@ -222,7 +223,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
     truncated = probes.ProjectedLinear(features, options.dim,
                                        classes).to(device)
     truncated.load_state_dict(probe.state_dict())
-    weights = linalg.truncate(truncated.project.weight.data, int(erank) + 1)
+    weights = linalg.truncate(truncated.project.weight.data, math.ceil(erank))
     truncated.project.weight.data = weights
 
     for name, model in (('full', probe), ('truncated', truncated)):
