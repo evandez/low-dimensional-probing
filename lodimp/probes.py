@@ -24,6 +24,11 @@ class ProjectedLinear(nn.Module):
 
         """
         super().__init__()
+
+        self.input_dimension = input_dimension
+        self.projected_dimension = projected_dimension
+        self.classes = classes
+
         self.project = Projection(input_dimension, projected_dimension)
         self.classify = nn.Linear(projected_dimension, classes)
         # Softmax is implicit in loss functions.
@@ -32,15 +37,84 @@ class ProjectedLinear(nn.Module):
         """Project the inputs to low dimension and predict labels for them.
 
         Args:
-            inputs (torch.Tensor): Shape (B, H) tensor, where B is batch size
-                and H is hidden_dimension.
+            inputs (torch.Tensor): Shape (batch_size, input_dimension) tensor.
 
         Returns:
-            torch.Tensor: Shape (B, C) tensor containing class logits for each
-                sample in batch.
+            torch.Tensor: Shape (batch_size, classes) tensor containing class
+                logits for each sample in batch.
+
+        Raises:
+            ValueError: If input is misshapen.
 
         """
+        if len(inputs.shape) != 2:
+            raise ValueError(f'expected 2D tensor, got {len(inputs.shape)}D')
+
+        if inputs.shape[-1] != self.input_dimension:
+            raise ValueError(f'expected dimension {self.input_dimension}, '
+                             f'got {inputs.shape[-1]}')
+
         return self.classify(self.project(inputs))
+
+
+class ProjectedBilinear(nn.Module):
+    """Bilinear classifier in a low-dimensional subspace.
+
+    This classifier measures the pairwise "compatibility" between
+    input vectors.
+    """
+
+    def __init__(self, input_dimension: int, projected_dimension: int):
+        """Initialize the architecture.
+
+        Args:
+            input_dimension (int): Dimensionality of input vectors.
+            projected_dimension (int): Dimensionality of projected space.
+
+        """
+        super().__init__()
+
+        self.input_dimension = input_dimension
+        self.projected_dimension = projected_dimension
+
+        self.project = Projection(input_dimension, projected_dimension)
+        self.compat = nn.Bilinear(projected_dimension, projected_dimension, 1)
+        # Softmax is implicit in loss functions.
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        """Compute pairwise compatibility between representations.
+
+        Args:
+            inputs (torch.Tensor): Matrix of representations.
+                Must have shape (N, input_dimension), where N is the
+                number of representations to compare.
+
+        Returns:
+            torch.Tensor: Size (N, N) matrix representing pairwise
+                compatibilities.
+
+        Raises:
+            ValueError: If input is misshapen.
+
+        """
+        dims = len(inputs.shape)
+        if dims != 2:
+            raise ValueError(f'expected 2D tensor, got {dims}D')
+
+        length, dimension = inputs.shape
+        if dimension != self.input_dimension:
+            raise ValueError(
+                f'expected dimension {self.input_dimension}, got {dimension}')
+
+        projected = self.project(inputs)
+
+        # For performance, we avoid copying data and construct two views
+        # of the projected representations so that the entire bilinear
+        # operation happens as one big matrix multiplication.
+        left = projected.repeat(1, length).view(length**2,
+                                                self.projected_dimension)
+        right = projected.repeat(length, 1)
+        return self.compat(left, right).view(length, length)
 
 
 class ProjectedMLP(nn.Module):
@@ -62,12 +136,17 @@ class ProjectedMLP(nn.Module):
 
         """
         super().__init__()
+
+        self.input_dimension = input_dimension
+        self.projected_dimension = projected_dimension
+        self.classes = classes
+        self.hidden_dimension = hidden_dimension or projected_dimension
+
         self.project = Projection(input_dimension, projected_dimension)
-        hidden_dimension = hidden_dimension or projected_dimension
         self.classify = nn.Sequential(
-            nn.Linear(projected_dimension, hidden_dimension),
+            nn.Linear(projected_dimension, self.hidden_dimension),
             nn.ReLU(),
-            nn.Linear(hidden_dimension, classes),
+            nn.Linear(self.hidden_dimension, classes),
             # Softmax is implicit in loss functions.
         )
 
@@ -75,12 +154,21 @@ class ProjectedMLP(nn.Module):
         """Project the inputs to low dimension and predict labels with an MLP.
 
         Args:
-            inputs (torch.Tensor): Shape (B, H) tensor, where B is batch size
-                and H is hidden_dimension.
+            inputs (torch.Tensor): Shape (batch_size, input_dimension) tensor.
 
         Returns:
-            torch.Tensor: Shape (B, C) tensor containing class logits for each
-                sample in batch.
+            torch.Tensor: Shape (batch_size, classes) tensor containing class
+                logits for each sample in batch.
+
+        Raises:
+            ValueError: If input is misshapen.
 
         """
+        if len(inputs.shape) != 2:
+            raise ValueError(f'expected 2D tensor, got {len(inputs.shape)}D')
+
+        if inputs.shape[-1] != self.input_dimension:
+            raise ValueError(f'expected dimension {self.input_dimension}, '
+                             f'got {inputs.shape[-1]}')
+
         return self.classify(self.project(inputs))
