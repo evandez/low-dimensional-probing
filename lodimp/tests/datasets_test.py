@@ -150,6 +150,26 @@ def test_chunked_task_dataset_iter(chunked_task_dataset, features, labels):
     assert al.equal(labels[3:])
 
 
+def test_chunked_task_dataset_iter_predefined_chunks(task_dataset, features,
+                                                     labels):
+    """Test ChunkedTaskDataset.__iter__ uses predefined chunks when given."""
+    chunks = (0, 2, 4)
+    chunked_task_dataset = datasets.ChunkedTaskDataset(task_dataset,
+                                                       chunks=chunks)
+    actuals = tuple(chunked_task_dataset)
+    assert len(actuals) == len(chunks)
+
+    expecteds = (
+        (features[:2], labels[:2]),
+        (features[2:4], labels[2:4]),
+        (features[4:], labels[4:]),
+    )
+    for actual, expected in zip(actuals, expecteds):
+        assert len(actual) == 2
+        for (at, et) in zip(actual, expected):
+            assert at.equal(et)
+
+
 def test_chunked_dataset_len(chunked_task_dataset):
     """Test ChunkedTaskDataset.__len__ returns correct length."""
     assert len(chunked_task_dataset) == 2

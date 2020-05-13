@@ -2,7 +2,7 @@
 
 import math
 import pathlib
-from typing import Iterator, Optional, Tuple
+from typing import Iterator, Optional, Sequence, Tuple, Union
 
 import h5py
 import torch
@@ -150,7 +150,7 @@ class ChunkedTaskDataset(data.IterableDataset):
 
     def __init__(self,
                  dataset: TaskDataset,
-                 chunks: int = 1,
+                 chunks: Union[int, Sequence[int]] = 1,
                  device: Optional[torch.device] = None):
         """Chunk the dataset for later iteration.
 
@@ -161,11 +161,15 @@ class ChunkedTaskDataset(data.IterableDataset):
                 this device. By default chunks are kept on current device.
 
         """
-        size = math.ceil(len(dataset) / chunks)
         self.chunks = []
-        for index in range(chunks):
-            start = index * size
-            end = start + size
+        if isinstance(chunks, int):
+            size = math.ceil(len(dataset) / chunks)
+            starts = [index * size for index in range(chunks)]
+        else:
+            starts = list(chunks)
+
+        starts.append(len(dataset))
+        for start, end in zip(starts, starts[1:]):
             features = torch.tensor(dataset.features[start:end])
             labels = torch.tensor(dataset.labels[start:end], dtype=torch.long)
             if device is not None:
