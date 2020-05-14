@@ -20,6 +20,10 @@ parser = argparse.ArgumentParser(description='Train a POS tagger.')
 parser.add_argument('task', type=pathlib.Path, help='Task directory.')
 parser.add_argument('layer', type=int, help='ELMo layer.')
 parser.add_argument('dim', type=int, help='Projection dimensionality.')
+parser.add_argument('--probe',
+                    default='linear',
+                    choices=['linear', 'mlp'],
+                    help='Use MLP probe.')
 parser.add_argument('--no-batch', action='store_true', help='Do not batch.')
 parser.add_argument('--epochs',
                     type=int,
@@ -154,11 +158,19 @@ compose = compose.to(device)
 
 # Initialize model, optimizer, loss, etc.
 projection = nn.Linear(ndims, options.dim)
+
 probe: nn.Module
+input_dimension = ngrams * options.dim
 if nlabels is not None:
-    probe = nn.Linear(ngrams * options.dim, nlabels)
+    if options.probe == 'linear':
+        probe = nn.Linear(input_dimension, nlabels)
+    else:
+        probe = probes.MLP(input_dimension, nlabels)
 else:
-    probe = probes.Bilinear(ngrams * options.dim)
+    if options.probe == 'linear':
+        probe = probes.PairwiseBilinear(input_dimension)
+    else:
+        probe = probes.PairwiseMLP(input_dimension)
 probe = probe.to(device)
 
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
@@ -188,7 +200,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
             reps, tags = reps.to(device), tags.to(device)
             with torch.no_grad():
                 reps = compose(reps)
-            projected = projection(reps).view(-1, ngrams * options.dim)
+            projected = projection(reps).view(-1, input_dimension)
             preds = probe(projected)
             loss = criterion(preds, tags)
             loss.backward()
@@ -206,7 +218,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
             reps, tags = reps.to(device), tags.to(device)
             with torch.no_grad():
                 reps = compose(reps)
-            projected = projection(reps).view(-1, ngrams * options.dim)
+            projected = projection(reps).view(-1, input_dimension)
             preds = probe(projected)
             total += criterion(preds, tags).item() * len(reps)  # Undo mean.
             count += len(reps)
@@ -245,7 +257,7 @@ with tb.SummaryWriter(log_dir=options.log_dir, filename_suffix=tag) as writer:
             reps, tags = reps.to(device), tags.to(device)
             with torch.no_grad():
                 reps = compose(reps)
-            projected = proj(reps).view(-1, ngrams * options.dim)
+            projected = proj(reps).view(-1, input_dimension)
             preds = probe(projected).argmax(dim=1)
             correct += preds.eq(tags).sum().item()
             count += len(reps)
