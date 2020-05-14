@@ -129,9 +129,8 @@ for layer in options.elmo_layers:
             ndims = reps.dimension
             nsamples = sum(len(label) for label in labels)
 
-            logging.info(
-                'found %d sentences, %d samples for task, %d features/sample',
-                nsents, nsamples, ndims)
+            logging.info('found %d sentences, %d samples for task, %dd reps',
+                         nsents, nsamples, ndims)
             breaks_out = h5f.create_dataset('breaks',
                                             shape=(nsents,),
                                             dtype='i')
@@ -149,7 +148,7 @@ for layer in options.elmo_layers:
                 labels_out.attrs['nlabels'] = len(task)
 
             if options.task in BIGRAM_TASKS:
-                logging.info('writing features and labels to %s', file)
+                logging.info('writing reps and labels to %s', file)
                 start = 0
                 for index in range(nsents):
                     logging.info('processing %d of %d', index + 1, nsents)
@@ -171,7 +170,7 @@ for layer in options.elmo_layers:
                     start = end
                 assert start == nsamples
             else:
-                logging.info('writing features to %s', file)
+                logging.info('writing reps to %s', file)
                 start = 0
                 for index in range(nsents):
                     logging.info('processing %d of %d', index + 1, nsents)

@@ -201,8 +201,6 @@ class ChunkedTaskDataset(TaskDataset, data.IterableDataset):
                 this device. By default chunks are kept on current device.
 
         """
-        self.chunks = []
-
         if isinstance(chunks, int):
             size = math.ceil(len(dataset) / chunks)
             starts = [index * size for index in range(chunks)]
@@ -212,6 +210,8 @@ class ChunkedTaskDataset(TaskDataset, data.IterableDataset):
         # Append the index of the end of the dataset so we include the
         # last chunk with the loop below.
         starts.append(len(dataset))
+
+        self.chunks = []
         for start, end in zip(starts, starts[1:]):
             reps = torch.tensor(dataset.representations[start:end])
             labels = torch.tensor(dataset.labels[start:end], dtype=torch.long)
