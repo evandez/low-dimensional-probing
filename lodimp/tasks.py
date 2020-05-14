@@ -163,8 +163,8 @@ class DependencyArcTask(Task):
             sample (ptb.Sample): The sample to label.
 
         Returns:
-            torch.Tensor: For length W sentence, this returns a shape
-                (W, W) 0/1 matrix, where slot (v, w) is 1 iff v depends on w.
+            torch.Tensor: For length W sentence, this returns a length W
+                tensor containing the index of its head.
 
         """
         return torch.tensor([
