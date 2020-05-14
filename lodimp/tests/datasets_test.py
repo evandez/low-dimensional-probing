@@ -66,15 +66,23 @@ def test_elmo_representations_dataset_len(elmo_path):
         assert len(dataset) == len(SEQ_LENGTHS)
 
 
+BREAKS = (0, 3)
 NSAMPLES = 5
-NFEATURES = 10
+NGRAMS = 2
+NDIMS = 10
 NLABELS = 3
 
 
 @pytest.fixture
-def features():
-    """Returns fake features for testing."""
-    return torch.randn(NSAMPLES, NFEATURES)
+def breaks():
+    """Returns fake sentence breaks for testing."""
+    return torch.tensor(BREAKS)
+
+
+@pytest.fixture
+def representations():
+    """Returns fake representations for testing."""
+    return torch.randn(NSAMPLES, NGRAMS, NDIMS)
 
 
 @pytest.fixture
@@ -84,20 +92,21 @@ def labels():
 
 
 @pytest.yield_fixture
-def task_dataset(features, labels):
+def task_dataset(breaks, representations, labels):
     """Yields the path to a fake ELMo h5 file."""
     with tempfile.TemporaryDirectory() as tempdir:
         path = pathlib.Path(tempdir) / 'task.h5'
         with h5py.File(path, 'w') as handle:
-            handle.create_dataset('features', data=features)
+            handle.create_dataset('breaks', data=breaks)
+            handle.create_dataset('representations', data=representations)
             dataset = handle.create_dataset('labels', data=labels)
             dataset.attrs['nlabels'] = NLABELS
         yield datasets.TaskDataset(path)
 
 
-def test_task_dataset_getitem(task_dataset, features, labels):
-    """Test TaskDataset.__getitem__ returns all (feature, label) pairs."""
-    for (af, al), ef, el in zip(task_dataset, features, labels):
+def test_task_dataset_getitem(task_dataset, representations, labels):
+    """Test TaskDataset.__getitem__ returns all (reps, label) pairs."""
+    for (af, al), ef, el in zip(task_dataset, representations, labels):
         assert af.equal(ef)
         assert al.equal(el)
 
@@ -114,14 +123,48 @@ def test_task_dataset_len(task_dataset):
     assert len(task_dataset) == NSAMPLES
 
 
-def test_task_dataset_nfeatures(task_dataset):
-    """Test TaskDataset.nfeatures returns correct number of features."""
-    assert task_dataset.nfeatures == NFEATURES
+def test_task_dataset_ngrams(task_dataset):
+    """Test TaskDataset.ngrams returns correct number of reps per sample."""
+    assert task_dataset.ngrams == NGRAMS
+
+
+def test_task_dataset_ndims(task_dataset):
+    """Test TaskDataset.ndims returns correct number of features."""
+    assert task_dataset.ndims == NDIMS
 
 
 def test_task_dataset_nlabels(task_dataset):
     """Test TaskDataset.nlabels returns correct number of labels."""
     assert task_dataset.nlabels == NLABELS
+
+
+@pytest.fixture
+def sentence_task_dataset(task_dataset):
+    """Returns a SentenceTaskDataset for testing."""
+    return datasets.SentenceTaskDataset(task_dataset)
+
+
+def test_sentence_task_dataset_iter(sentence_task_dataset, representations,
+                                    labels):
+    """Test SentenceTaskDataset.__iter__ yields all samples."""
+    batches = list(sentence_task_dataset)
+    assert len(batches) == 2
+    first, second = batches
+
+    assert len(first) == 2
+    ar, al = first
+    assert ar.equal(representations[0:3])
+    assert al.equal(labels[0:3])
+
+    assert len(second) == 2
+    ar, al = second
+    assert ar.equal(representations[3:])
+    assert al.equal(labels[3:])
+
+
+def test_sentence_task_dataset_len(sentence_task_dataset):
+    """Test SentenceTaskDataset.__len__ returns number of sentences."""
+    assert len(sentence_task_dataset) == len(BREAKS)
 
 
 @pytest.fixture
@@ -132,7 +175,8 @@ def chunked_task_dataset(task_dataset):
                                        device=torch.device('cpu'))
 
 
-def test_chunked_task_dataset_iter(chunked_task_dataset, features, labels):
+def test_chunked_task_dataset_iter(chunked_task_dataset, representations,
+                                   labels):
     """Test ChunkedTaskDataset.__iter__ yields all chunks."""
     chunks = list(iter(chunked_task_dataset))
     assert len(chunks) == 2
@@ -142,16 +186,16 @@ def test_chunked_task_dataset_iter(chunked_task_dataset, features, labels):
     assert len(second) == 2
 
     af, al = first
-    assert af.equal(features[:3])
+    assert af.equal(representations[:3])
     assert al.equal(labels[:3])
 
     af, al = second
-    assert af.equal(features[3:])
+    assert af.equal(representations[3:])
     assert al.equal(labels[3:])
 
 
-def test_chunked_task_dataset_iter_predefined_chunks(task_dataset, features,
-                                                     labels):
+def test_chunked_task_dataset_iter_predefined_chunks(task_dataset,
+                                                     representations, labels):
     """Test ChunkedTaskDataset.__iter__ uses predefined chunks when given."""
     chunks = (0, 2, 4)
     chunked_task_dataset = datasets.ChunkedTaskDataset(task_dataset,
@@ -160,9 +204,9 @@ def test_chunked_task_dataset_iter_predefined_chunks(task_dataset, features,
     assert len(actuals) == len(chunks)
 
     expecteds = (
-        (features[:2], labels[:2]),
-        (features[2:4], labels[2:4]),
-        (features[4:], labels[4:]),
+        (representations[:2], labels[:2]),
+        (representations[2:4], labels[2:4]),
+        (representations[4:], labels[4:]),
     )
     for actual, expected in zip(actuals, expecteds):
         assert len(actual) == 2

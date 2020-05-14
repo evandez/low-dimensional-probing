@@ -17,7 +17,6 @@ import argparse
 import functools as ft
 import logging
 import pathlib
-import random
 import sys
 from typing import Callable, Dict, List, Sequence
 
@@ -27,6 +26,8 @@ import h5py
 import torch
 
 TaskFactory = Callable[[Sequence[ptb.Sample]], tasks.Task]
+
+# Unigram tasks map single words to labels.
 UNIGRAM_TASKS: Dict[str, TaskFactory] = {
     'pos': tasks.POSTask,
     'pos-verb': ft.partial(tasks.POSTask, tags=tasks.POS_VERBS),
@@ -34,11 +35,14 @@ UNIGRAM_TASKS: Dict[str, TaskFactory] = {
     'pos-adj': ft.partial(tasks.POSTask, tags=tasks.POS_ADJECTIVES),
     'pos-adv': ft.partial(tasks.POSTask, tags=tasks.POS_ADVERBS),
     'pos-control': tasks.ControlPOSTask,
-}
-BIGRAM_TASKS: Dict[str, TaskFactory] = {
     'dep-arc': tasks.DependencyArcTask,
+}
+
+# Bigram tasks map pairs of words to labels.
+BIGRAM_TASKS: Dict[str, TaskFactory] = {
     'dep-label': tasks.DependencyLabelTask,
 }
+
 ELMO_LAYERS = (0, 1, 2)
 
 parser = argparse.ArgumentParser(description='Preprocess PTB for some task.')
@@ -121,67 +125,62 @@ for layer in options.elmo_layers:
             labels = [task(sample) for sample in ptbs[split]]
 
             # Determine important dimensions.
-            nfeatures, nlabels = reps.dimension, len(task)
-            if options.task in BIGRAM_TASKS:
-                nfeatures *= 2
+            nsents = len(reps)
+            ndims = reps.dimension
+            nsamples = sum(len(label) for label in labels)
 
-            lens = [len(label) for label in labels]
-            if options.task == 'dep-arc':
-                # Unfortunately, the DependencyArcTask is a special snowflake
-                # and requires us to select O(n) negative samples of the O(n^2)
-                # possible negative samples. So double the lengths where
-                # negative examples actually exist.
-                lens = [length * 2 if length > 1 else 1 for length in lens]
-            nsamples = sum(lens)
-            logging.info('found %d samples, %d features/sample, %d classes',
-                         nsamples, nfeatures, nlabels)
-
-            features_out = h5f.create_dataset('features',
-                                              shape=(nsamples, nfeatures),
-                                              dtype='f')
+            logging.info(
+                'found %d sentences, %d samples for task, %d features/sample',
+                nsents, nsamples, ndims)
+            breaks_out = h5f.create_dataset('breaks',
+                                            shape=(nsents,),
+                                            dtype='i')
+            reps_out = h5f.create_dataset(
+                'representations',
+                shape=(nsamples, 2 if options.task in BIGRAM_TASKS else 1,
+                       ndims),
+                dtype='f')
             labels_out = h5f.create_dataset('labels',
                                             shape=(nsamples,),
                                             dtype='i')
-            labels_out.attrs['nlabels'] = nlabels
-            if options.task in UNIGRAM_TASKS:
-                logging.info('writing features to %s', file)
-                start = 0
-                for index in range(len(reps)):
-                    logging.info('processing %d of %d', index + 1, len(reps))
-                    current = reps[index]
-                    features_out[start:start + len(current)] = current.numpy()
-                    start += len(current)
-                assert start == len(features_out)
+            if isinstance(task, tasks.SizedTask):
+                # Write out how many valid labels there are, if that quantity
+                # is defined for the task.
+                labels_out.attrs['nlabels'] = len(task)
 
-                logging.info('writing labels to %s', file)
-                labels_out[:] = torch.cat(labels).numpy()
-            else:
+            if options.task in BIGRAM_TASKS:
                 logging.info('writing features and labels to %s', file)
                 start = 0
-                for index in range(len(reps)):
-                    logging.info('processing %d of %d', index + 1, len(reps))
+                for index in range(nsents):
+                    logging.info('processing %d of %d', index + 1, nsents)
                     rep, label = reps[index], labels[index]
                     assert label.shape == (len(rep), len(rep))
 
-                    # Take all positive examples, and O(n) negative examples.
-                    # We assume negative examples have label 0.
+                    # Take only positive examples.
                     idxs = set(range(len(rep)))
                     pairs = [(i, j) for i in idxs for j in idxs if label[i, j]]
                     assert pairs and len(pairs) == len(rep)
-                    if options.task == 'dep-arc' and len(rep) > 1:
-                        negatives = []
-                        for i, j in pairs:
-                            choices = tuple(idxs - {j})
-                            negative = (i, random.choice(choices))
-                            negatives.append(negative)
-                        pairs += negatives
-                        assert len(pairs) == 2 * len(rep)
 
                     # Write the results to the file.
+                    breaks_out[index] = start
                     end = start + len(pairs)
-                    features = [torch.cat((rep[i], rep[j])) for i, j in pairs]
-                    features_out[start:end] = torch.stack(features).numpy()
+                    bigrams = [torch.stack((rep[i], rep[j])) for i, j in pairs]
+                    reps_out[start:end] = torch.stack(bigrams).numpy()
                     labels_out[start:end] = torch.stack(
                         [label[i, j] for i, j in pairs]).numpy()
                     start = end
                 assert start == nsamples
+            else:
+                logging.info('writing features to %s', file)
+                start = 0
+                for index in range(nsents):
+                    logging.info('processing %d of %d', index + 1, nsents)
+                    breaks_out[index] = start
+                    current = reps[index]
+                    current = current.view(len(current), 1, ndims)
+                    reps_out[start:start + len(current)] = current.numpy()
+                    start += len(current)
+                assert start == len(reps_out)
+
+                logging.info('writing labels to %s', file)
+                labels_out[:] = torch.cat(labels).numpy()

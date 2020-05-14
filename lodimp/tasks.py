@@ -40,12 +40,16 @@ class Task:
         """
         raise NotImplementedError
 
+
+class SizedTask(Task):
+    """A task with a predefined label set."""
+
     def __len__(self) -> int:
         """Returns the number of valid labels in this task."""
         raise NotImplementedError
 
 
-class POSTask(Task):
+class POSTask(SizedTask):
     """Indexes PTB POS tags."""
 
     def __init__(self,
@@ -92,7 +96,7 @@ class POSTask(Task):
 
 
 # TODO(evandez): Allow restricting # of tags in control task.
-class ControlPOSTask(Task):
+class ControlPOSTask(SizedTask):
     """Maps words to arbitrary POS tags."""
 
     def __init__(self,
@@ -147,12 +151,13 @@ class ControlPOSTask(Task):
 
 
 class DependencyArcTask(Task):
-    """Maps pairs words to a boolean "depends on" label."""
+    """Maps dependents to heads."""
 
     def __call__(self, sample: ptb.Sample) -> torch.Tensor:
-        """Map all possible (word, word) pairs to boolean labels.
+        """Map dependents to heads.
 
-        The label for (v, w) is 1 if v depends on w, and 0 otherwise.
+        The label for word w is the index of word v in the sentence if word v
+        is the head of word w. Note that if w is the root, it's head is w.
 
         Args:
             sample (ptb.Sample): The sample to label.
@@ -162,19 +167,13 @@ class DependencyArcTask(Task):
                 (W, W) 0/1 matrix, where slot (v, w) is 1 iff v depends on w.
 
         """
-        labels = torch.zeros(len(sample.heads),
-                             len(sample.heads),
-                             dtype=torch.long)
-        for word, head in enumerate(sample.heads):
-            labels[word, head if head != -1 else word] = 1
-        return labels
-
-    def __len__(self) -> int:
-        """Returns 2, since this is a binary classification task."""
-        return 2
+        return torch.tensor([
+            head if head != -1 else word
+            for word, head in enumerate(sample.heads)
+        ])
 
 
-class DependencyLabelTask(Task):
+class DependencyLabelTask(SizedTask):
     """Maps pairs of words to their syntactic relationship, if any."""
 
     def __init__(self,

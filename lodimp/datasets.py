@@ -108,8 +108,11 @@ class TaskDataset(data.Dataset):
         """
         self.file = h5py.File(path, 'r')
 
-        assert 'features' in self.file, 'no features?'
-        self.features = self.file['features']
+        assert 'breaks' in self.file, 'no sentence breaks?'
+        self.breaks = list(self.file['breaks'][:])
+
+        assert 'representations' in self.file, 'no representations?'
+        self.representations = self.file['representations']
 
         assert 'labels' in self.file, 'no labels?'
         self.labels = self.file['labels']
@@ -126,27 +129,64 @@ class TaskDataset(data.Dataset):
         """
         if index < 0 or index >= len(self):
             raise IndexError(f'index out of bounds: {index}')
-        features = torch.tensor(self.features[index])
+        features = torch.tensor(self.representations[index])
         labels = torch.tensor(self.labels[index], dtype=torch.long)
         return features, labels
 
     def __len__(self) -> int:
         """Returns the number of samples in this dataset."""
-        return len(self.file['features'])
+        return len(self.representations)
 
     @property
-    def nfeatures(self) -> int:
-        """Returns the number of features in each sample."""
-        return self.features.shape[-1]
+    def ngrams(self) -> int:
+        """Returns number of representations in each sample."""
+        return self.representations.shape[1]
 
     @property
-    def nlabels(self) -> int:
-        """Returns the number of unique labels in the dataset."""
-        return self.labels.attrs['nlabels']
+    def ndims(self) -> int:
+        """Returns the representation dimensionality."""
+        return self.representations.shape[-1]
+
+    @property
+    def nlabels(self) -> Optional[int]:
+        """Returns the number of unique labels in the dataset.
+
+        If this quantity is not defined for the task, returns None.
+        """
+        return self.labels.attrs.get('nlabels')
 
 
-class ChunkedTaskDataset(data.IterableDataset):
-    """Iterable wrapper for TaskDataset that pre-collates chunks."""
+class SentenceTaskDataset(data.IterableDataset):
+    """Wrapper for TaskDataset that iterates at the sentence level."""
+
+    def __init__(self, dataset: TaskDataset):
+        """Initialize the dataset."""
+        self.dataset = dataset
+
+    def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
+        """Iterate over (sentence representations, sentence labels) pairs."""
+        starts = self.dataset.breaks
+        ends = starts[1:] + [len(self.dataset)]
+        for start, end in zip(starts, ends):
+            reps = torch.tensor(self.dataset.representations[start:end])
+            labels = torch.tensor(self.dataset.labels[start:end],
+                                  dtype=torch.long)
+            yield reps, labels
+
+    def __len__(self) -> int:
+        """Returns the number of sentences in the dataset."""
+        return len(self.dataset.breaks)
+
+
+class ChunkedTaskDataset(TaskDataset, data.IterableDataset):
+    """Iterable wrapper around TaskDataset that pre-collates chunks in memory.
+
+    Unlike SentenceTaskDataset above, this class can batch the data
+    arbitrarily and, importantly, it loads the entire dataset into memory
+    immediately upon construction and then batches it. The intention is for
+    this class to be used when running on high-memory, high-throughput devices
+    on which I/O and collation become the bottleneck during training.
+    """
 
     def __init__(self,
                  dataset: TaskDataset,
@@ -162,20 +202,22 @@ class ChunkedTaskDataset(data.IterableDataset):
 
         """
         self.chunks = []
+
         if isinstance(chunks, int):
             size = math.ceil(len(dataset) / chunks)
             starts = [index * size for index in range(chunks)]
         else:
             starts = list(chunks)
 
+        # Append the index of the end of the dataset so we include the
+        # last chunk with the loop below.
         starts.append(len(dataset))
         for start, end in zip(starts, starts[1:]):
-            features = torch.tensor(dataset.features[start:end])
+            reps = torch.tensor(dataset.representations[start:end])
             labels = torch.tensor(dataset.labels[start:end], dtype=torch.long)
             if device is not None:
-                features = features.to(device)
-                labels = labels.to(device)
-            chunk = (features, labels)
+                reps, labels = reps.to(device), labels.to(device)
+            chunk = (reps, labels)
             self.chunks.append(chunk)
 
     def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:

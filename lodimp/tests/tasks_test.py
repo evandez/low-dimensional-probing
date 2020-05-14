@@ -8,13 +8,13 @@ SAMPLES = [
     ptb.Sample(
         ('foo', 'bar', 'baz'),
         ('A', 'B', 'C'),
-        (-1, 0, 0),
+        (2, 0, -1),
         ('root', 'first', 'second'),
     ),
     ptb.Sample(
         ('boof', 'biff'),
         ('D', 'A'),
-        (1, -1),
+        (-1, 0),
         ('first', 'root'),
     ),
 ]
@@ -85,14 +85,7 @@ def test_control_pos_task_len():
     assert len(task) == 4
 
 
-DEPENDENCY_ARCS = (torch.tensor([
-    [1, 0, 0],
-    [1, 0, 0],
-    [1, 0, 0],
-]), torch.tensor([
-    [0, 1],
-    [0, 1],
-]))
+DEPENDENCY_ARCS = (torch.tensor([2, 0, 2]), torch.tensor([0, 0]))
 
 
 def test_dependency_arc_task_call():
@@ -103,21 +96,15 @@ def test_dependency_arc_task_call():
         assert torch.equal(actual, expected)
 
 
-def test_dependency_arc_task_len():
-    """Test DependencyArcTask.__len__ returns 2."""
-    task = tasks.DependencyArcTask(SAMPLES)
-    assert len(task) == 2
-
-
 DEPENDENCY_LABELS = (
     torch.tensor([
-        [2, 0, 0],
+        [0, 0, 2],
         [1, 0, 0],
-        [3, 0, 0],
+        [0, 0, 3],
     ]),
     torch.tensor([
-        [0, 1],
-        [0, 2],
+        [1, 0],
+        [2, 0],
     ]),
 )
 
