@@ -1,9 +1,101 @@
-"""Defines probe architectures."""
+"""Defines model architectures."""
 
-from typing import Optional
+from typing import Optional, Sequence
 
 import torch
 from torch import nn
+
+
+class Projection(nn.Module):
+    """A linear projection composed of one or more distinct linear projections.
+
+    Importantly, only the last projection in the composition has trainable
+    parameters. The other projections are assumed to be fixed.
+    """
+
+    def __init__(self,
+                 in_features: int,
+                 out_features: int,
+                 compose: Optional[Sequence[nn.Linear]] = None):
+        """Initialize the model architecture.
+
+        Args:
+            in_features (int): Number of input features, i.e. dimensionality of
+                the input space.
+            out_features (int): Number of output features, i.e. dimensionality
+                of the output space.
+            compose (Optional[Sequence[nn.Linear]], optional): Linear
+                projections to apply before the final projection. The first
+                projection in this sequence must expect in_features features.
+                Importantly, the projections specified in this argument will
+                NEVER have gradients because they are assumed to be fixed.
+                By default, only one linear projection is used.
+
+        Raises:
+            ValueError: If any of the composed projections have mismatching
+                input and output shapes.
+
+        """
+        super().__init__()
+
+        self.in_features = in_features
+        self.out_features = out_features
+
+        self.preprocess: Optional[nn.Sequential] = None
+        if compose is not None:
+            for module in compose:
+                if module.in_features != in_features:
+                    raise ValueError(f'cannot compose {in_features}d '
+                                     f'with {module.in_features}d')
+                in_features = module.out_features
+            self.preprocess = nn.Sequential(*compose)
+
+        self.project = nn.Linear(in_features, out_features)
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        """Project the inputs.
+
+        Args:
+            inputs (torch.Tensor): Tensor of shape (*, in_features), where
+                * is an arbitrary shape.
+
+        Raises:
+            ValueError: If the last dimension of the input does not match
+                expected number of input features.
+
+        Returns:
+            torch.Tensor: Shape (*, out_features) projected tensor.
+
+        """
+        features = inputs.shape[-1]
+        if features != self.in_features:
+            raise ValueError(f'expected {self.in_features} input features, '
+                             f'got {features}')
+
+        if self.preprocess is not None:
+            with torch.no_grad():
+                inputs = self.preprocess(inputs)
+
+        return self.project(inputs)
+
+    def extend(self, out_features: int) -> 'Projection':
+        """Extend this projection by composing with it a new projection.
+
+        Args:
+            out_features (int): Number of output features for the linear
+                projection that will be applied to the output of this one.
+
+        Returns:
+            Projection: The extended projection.
+
+        """
+        compose = []
+        if self.preprocess is not None:
+            for module in self.preprocess:
+                assert isinstance(module, nn.Linear), 'non-linear composition?'
+                compose.append(module)
+        compose.append(self.project)
+        return Projection(self.in_features, out_features, compose=compose)
 
 
 class MLP(nn.Sequential):
