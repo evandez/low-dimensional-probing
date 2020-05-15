@@ -239,7 +239,7 @@ for name, model_file, model in (('proj', options.projection_file, proj),
                                 ('probe', options.probe_file, probe)):
     model_file = model_file or f'{name}.pth'
     model_path = options.model_dir / model_file
-    torch.save(proj, model_path)
+    torch.save(model, model_path)
     wandb.save(str(model_path))
     logging.info('%s saved to %s', name, model_path)
 
