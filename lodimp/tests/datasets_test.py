@@ -139,6 +139,19 @@ def test_task_dataset_nlabels(task_dataset):
 
 
 @pytest.fixture
+def test_task_dataset_ngrams_unigram_dataset(breaks, representations, labels):
+    """Test TaskDataset.ngrams returns 1 when dataset is unigram."""
+    with tempfile.TemporaryDirectory() as tempdir:
+        path = pathlib.Path(tempdir) / 'task.h5'
+        with h5py.File(path, 'w') as handle:
+            handle.create_dataset('breaks', data=breaks)
+            handle.create_dataset('representations', data=representations)
+            handle.create_dataset('labels', data=labels)
+        dataset = datasets.TaskDataset(path)
+        assert dataset.ngrams == 1
+
+
+@pytest.fixture
 def sentence_task_dataset(task_dataset):
     """Returns a SentenceTaskDataset for testing."""
     return datasets.SentenceTaskDataset(task_dataset)

@@ -136,8 +136,8 @@ for layer in options.elmo_layers:
                                             dtype='i')
             reps_out = h5f.create_dataset(
                 'representations',
-                shape=(nsamples, 2 if options.task in BIGRAM_TASKS else 1,
-                       ndims),
+                shape=(nsamples, 2, ndims) if options.task in BIGRAM_TASKS else
+                (nsamples, ndims),
                 dtype='f')
             labels_out = h5f.create_dataset('labels',
                                             shape=(nsamples,),
@@ -176,7 +176,6 @@ for layer in options.elmo_layers:
                     logging.info('processing %d of %d', index + 1, nsents)
                     breaks_out[index] = start
                     current = reps[index]
-                    current = current.view(len(current), 1, ndims)
                     reps_out[start:start + len(current)] = current.numpy()
                     start += len(current)
                 assert start == len(reps_out)

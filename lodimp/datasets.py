@@ -140,7 +140,12 @@ class TaskDataset(data.Dataset):
     @property
     def ngrams(self) -> int:
         """Returns number of representations in each sample."""
-        return self.representations.shape[1]
+        if len(self.representations.shape) == 2:
+            # Shape must be (nsamples, nfeatures), so only unigrams.
+            return 1
+        else:
+            assert len(self.representations.shape) == 3
+            return self.representations.shape[1]
 
     @property
     def ndims(self) -> int:
