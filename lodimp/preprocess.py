@@ -74,12 +74,12 @@ parser.add_argument(
     choices=ELMO_LAYERS,
     default=ELMO_LAYERS,
     help='ELMo layers to use. Separate files generated for each.')
-parser.add_argument('--verbose',
+parser.add_argument('--quiet',
                     dest='log_level',
                     action='store_const',
-                    const=logging.INFO,
-                    default=logging.WARNING,
-                    help='Print lots of logs to stdout.')
+                    const=logging.WARNING,
+                    default=logging.INFO,
+                    help='Only print warning and errors to stdout.')
 options = parser.parse_args()
 
 logging.basicConfig(stream=sys.stdout,
