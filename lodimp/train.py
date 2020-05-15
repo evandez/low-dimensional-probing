@@ -2,6 +2,7 @@
 
 import argparse
 import copy
+import itertools
 import logging
 import math
 import pathlib
@@ -35,14 +36,6 @@ parser.add_argument('--epochs',
 parser.add_argument('--l1', type=float, help='Add L1 norm penalty.')
 parser.add_argument('--nuc', type=float, help='Add nuclear norm penalty')
 parser.add_argument('--lr', default=1e-3, type=float, help='Learning rate.')
-parser.add_argument('--lr-reduce',
-                    type=float,
-                    default=0.5,
-                    help='Shrink LR at this rate when --lr-patience exceeded.')
-parser.add_argument('--lr-patience',
-                    type=int,
-                    default=1,
-                    help='Shrink LR after this many epochs dev loss decrease.')
 parser.add_argument('--patience',
                     type=int,
                     default=4,
@@ -185,7 +178,8 @@ else:
     probe = models.PairwiseMLP(input_dimension)
 probe = probe.to(device)
 
-optimizer = optim.Adam(probe.parameters(), lr=options.lr)
+parameters = itertools.chain(proj.parameters(), probe.parameters())
+optimizer = optim.Adam(parameters, lr=options.lr)
 ce = nn.CrossEntropyLoss().to(device)
 
 
