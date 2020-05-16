@@ -1,13 +1,13 @@
 """Defines model architectures."""
 
-from typing import Optional, Sequence
+from typing import Optional, Tuple
 
 import torch
 from torch import nn
 
 
 class Projection(nn.Module):
-    """A linear projection composed of one or more distinct linear projections.
+    """A linear projection, potentially composed with other projections.
 
     Importantly, only the last projection in the composition has trainable
     parameters. The other projections are assumed to be fixed.
@@ -16,7 +16,7 @@ class Projection(nn.Module):
     def __init__(self,
                  in_features: int,
                  out_features: int,
-                 compose: Optional[Sequence[nn.Linear]] = None):
+                 compose: Optional['Projection'] = None):
         """Initialize the model architecture.
 
         Args:
@@ -24,16 +24,13 @@ class Projection(nn.Module):
                 the input space.
             out_features (int): Number of output features, i.e. dimensionality
                 of the output space.
-            compose (Optional[Sequence[nn.Linear]], optional): Linear
-                projections to apply before the final projection. The first
-                projection in this sequence must expect in_features features.
-                Importantly, the projections specified in this argument will
-                NEVER have gradients because they are assumed to be fixed.
-                By default, only one linear projection is used.
+            compose (Optional[Projection], optional): Projection to apply
+                before this one. Its in_features must equal the one specified
+                in this constructor. Importantly, this projection will
+                NEVER have gradients.
 
         Raises:
-            ValueError: If any of the composed projections have mismatching
-                input and output shapes.
+            ValueError: If the composed projection misaligns with this one.
 
         """
         super().__init__()
@@ -41,14 +38,13 @@ class Projection(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
 
-        self.preprocess: Optional[nn.Sequential] = None
+        self.compose = compose
         if compose is not None:
-            for module in compose:
-                if module.in_features != in_features:
-                    raise ValueError(f'cannot compose {in_features}d '
-                                     f'with {module.in_features}d')
-                in_features = module.out_features
-            self.preprocess = nn.Sequential(*compose)
+            if in_features != compose.in_features:
+                raise ValueError(
+                    f'composed projection expects {compose.in_features} '
+                    f'features, but new one expects {in_features}')
+            in_features = compose.out_features
 
         self.project = nn.Linear(in_features, out_features)
 
@@ -72,74 +68,187 @@ class Projection(nn.Module):
             raise ValueError(f'expected {self.in_features} input features, '
                              f'got {features}')
 
-        if self.preprocess is not None:
+        if self.compose is not None:
             with torch.no_grad():
-                inputs = self.preprocess(inputs)
+                inputs = self.compose(inputs)
 
         return self.project(inputs)
 
-    def extend(self, out_features: int) -> 'Projection':
-        """Extend this projection by composing with it a new projection.
 
-        Args:
-            out_features (int): Number of output features for the linear
-                projection that will be applied to the output of this one.
-
-        Returns:
-            Projection: The extended projection.
-
-        """
-        compose = []
-        if self.preprocess is not None:
-            for module in self.preprocess:
-                assert isinstance(module, nn.Linear), 'non-linear composition?'
-                compose.append(module)
-        compose.append(self.project)
-        return Projection(self.in_features, out_features, compose=compose)
-
-
-class MLP(nn.Sequential):
-    """MLP probe in a low-dimensional subspace of the representation."""
+class Linear(nn.Module):
+    """A linear probe."""
 
     def __init__(self,
-                 input_dimension: int,
-                 classes: int,
-                 hidden_dimension: Optional[int] = None):
+                 in_features: int,
+                 out_features: int,
+                 project: Optional[Projection] = None):
+        """Initialize model architecture.
+
+        Args:
+            in_features (int): Number of input features.
+            out_features (int): Number of output features.
+            project (Optional[Projection], optional): Apply this
+                transformation to inputs first. By default, no transformation.
+
+        """
+        super().__init__()
+        self.project = project
+        self.classify = nn.Linear(in_features, out_features)
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        """Linearly transform inputs, potentially after a projection.
+
+        Args:
+            inputs (torch.Tensor): Model inputs. If projecting,
+                shape must be coercible to (*, project.in_features)
+                and the projected inputs must be coercible to (*, in_features).
+                Otherwise must have shape (*, in_features) to start.
+
+        Returns:
+            torch.Tensor: Transformation outputs of shape (N, out_features),
+                where N is the same as it was described above.
+
+        """
+        if self.project is not None:
+            inputs = inputs.view(-1, self.project.in_features)
+            inputs = self.project(inputs)
+            inputs = inputs.view(-1, self.classify.in_features)
+        return self.classify(inputs)
+
+
+class MLP(nn.Module):
+    """A 2-layer MLP probe."""
+
+    def __init__(self,
+                 in_features: int,
+                 out_features: int,
+                 hidden_features: Optional[int] = None,
+                 project: Optional[Projection] = None):
         """Initilize the architecture.
 
         Args:
-            input_dimension (int): Dimensionality of input vectors.
-            classes (int): Number of classes to predict for each vector.
-            hidden_dimension (Optional[int], optional): Dimensionality of
-                MLP hidden layer. Defaults to input_dimension.
+            in_features (int): Number of input features.
+            out_features (int): Number of output features.
+            hidden_features (Optional[int], optional): Number of
+                features in MLP hidden layer. Defaults to in_feaures.
+            project (Optional[Projection], optional): Apply this
+                transformation to inputs first. By default, no transformation.
 
         """
-        hidden_dimension = hidden_dimension or input_dimension
-        super().__init__(nn.Linear(input_dimension, hidden_dimension),
-                         nn.ReLU(), nn.Linear(hidden_dimension, classes))
+        super().__init__()
 
-        self.input_dimension = input_dimension
-        self.hidden_dimension = hidden_dimension
-        self.classes = classes
+        self.in_features = in_features
+        self.hidden_features = hidden_features or in_features
+        self.out_features = out_features
+
+        self.project = project
+        self.mlp = nn.Sequential(
+            nn.Linear(in_features, self.hidden_features), nn.ReLU(),
+            nn.Linear(self.hidden_features, self.out_features))
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        """Send inputs through MLP, projecting first if necessary.
+
+        Args:
+            inputs (torch.Tensor): Model inputs. If projecting,
+                shape must be coercible to (*, project.in_features)
+                and the projected inputs must be coercible to (*, in_features).
+                Otherwise must have shape (*, in_features) to start.
+
+        Returns:
+            torch.Tensor: MLP output.
+
+        """
+        if self.project is not None:
+            inputs = inputs.view(-1, self.project.in_features)
+            inputs = self.project(inputs)
+            inputs = inputs.view(-1, self.in_features)
+        return self.mlp(inputs)
+
+
+class PairwiseProjection(nn.Module):
+    """Projection applied to pairs of tensors.
+
+    Can apply the same projection to both, or separate projections
+    for each.
+    """
+
+    def __init__(self, left: Projection, right: Optional[Projection] = None):
+        """Initialize the projection.
+
+        Args:
+            left (Projection): Transformation to apply to left inputs.
+            right (Optional[Projection], optional): Transformation to apply to
+                right inputs. Defaults to same as left transformation.
+
+        """
+        super().__init__()
+
+        if right is not None:
+            # We won't experiment with pairwise projections in which the
+            # projections do not share the same rank, so disallow this.
+            left_shape = (left.in_features, left.out_features)
+            right_shape = (right.in_features, right.out_features)
+            if left_shape != right_shape:
+                raise ValueError(f'projections must have same shape, '
+                                 f'got {left_shape} vs. {right_shape}')
+
+        self.in_features = left.in_features
+        self.out_features = left.out_features
+
+        self.left = left
+        self.right = right or left
+
+    def forward(
+        self,
+        lefts: torch.Tensor,
+        rights: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Project the given tensor pairs.
+
+        Args:
+            lefts (torch.Tensor): Left elements in the pair.
+            rights (torch.Tensor): Right elements in the pair.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Projected left/right elements.
+
+        """
+        return self.left(lefts), self.right(rights)
 
 
 class PairwiseBilinear(nn.Module):
     """Pairwise bilinear classifier.
 
-    This classifier measures the pairwise "compatibility" between
+    This classifier measures the pairwise "compatibility" between pairs of
     input vectors.
     """
 
-    def __init__(self, dimension: int):
+    def __init__(self,
+                 features: int,
+                 project: Optional[PairwiseProjection] = None):
         """Initialize the architecture.
 
         Args:
-            dimension (int): Dimensionality of input vectors.
+            features (int): Number of features in input vectors.
+            project (Optional[PairwiseProjection], optional): Transform each
+                pair of inputs with either one projection for both, or separate
+                projections for each. By default, no transformation.
 
         """
         super().__init__()
-        self.dimension = dimension
-        self.compat = nn.Bilinear(dimension, dimension, 1)
+
+        if project is not None:
+            # Our pairwise models will not support shape coercion, so enforce
+            # output features are what the bilinear module expects.
+            if project.out_features != features:
+                raise ValueError(f'projection must output {features} '
+                                 f'features, got {project.out_features}')
+
+        self.features = features
+
+        self.project = project
+        self.compat = nn.Bilinear(features, features, 1)
         # Softmax is implicit in loss functions.
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
@@ -147,7 +256,7 @@ class PairwiseBilinear(nn.Module):
 
         Args:
             inputs (torch.Tensor): Matrix of representations.
-                Must have shape (N, dimension), where N is the
+                Must have shape (N, features), where N is the
                 number of representations to compare.
 
         Returns:
@@ -158,46 +267,59 @@ class PairwiseBilinear(nn.Module):
             ValueError: If input is misshapen.
 
         """
-        dims = len(inputs.shape)
-        if dims != 2:
-            raise ValueError(f'expected 2D tensor, got {dims}D')
-
-        length, dimension = inputs.shape
-        if dimension != self.dimension:
-            raise ValueError(
-                f'expected dimension {self.dimension}, got {dimension}')
+        if len(inputs.shape) != 2:
+            raise ValueError(f'expected 2D tensor, got {len(inputs.shape)}D')
 
         # For performance, we avoid copying data and construct two views
         # of the projected representations so that the entire bilinear
         # operation happens as one big matrix multiplication.
-        left = inputs.repeat(1, length).view(length**2, self.dimension)
+        length, features = inputs.shape
+        left = inputs.repeat(1, length).view(length**2, features)
         right = inputs.repeat(length, 1)
+        if self.project is not None:
+            left, right = self.project(left, right)
         return self.compat(left, right).view(length, length)
 
 
-class PairwiseMLP(MLP):
+class PairwiseMLP(nn.Module):
     """MLP that computes pairwise compatibilities between representations."""
 
     def __init__(self,
-                 input_dimension: int,
-                 hidden_dimension: Optional[int] = None):
+                 in_features: int,
+                 hidden_features: Optional[int] = None,
+                 project: Optional[PairwiseProjection] = None):
         """Initialize the network.
 
         Args:
-            input_dimension (int): Dimensionality of input representations.
-            hidden_dimension (Optional[int], optional): Dimensionality of MLP
-                hidden layer. Defaults to input_dimension.
+            in_features (int): Number of features in inputs.
+            hidden_features (Optional[int], optional): Number of features in
+                MLP hidden layer. Defaults to the same as MLP's input features.
+            project (Optional[PairwiseProjection], optional): See
+                PairwiseBilinear.__init__ docstring.
 
         """
-        super().__init__(input_dimension * 2,
-                         1,
-                         hidden_dimension=hidden_dimension)
+        super().__init__()
+
+        if project is not None:
+            # Our pairwise models will not support shape coercion, so enforce
+            # output features are what the bilinear module expects.
+            if project.out_features != in_features:
+                raise ValueError(f'projection must output {in_features} '
+                                 f'features, got {project.out_features}')
+
+        self.in_features = in_features
+        self.hidden_features = hidden_features or in_features
+
+        self.project = project
+        self.mlp = nn.Sequential(
+            nn.Linear(in_features * 2, self.hidden_features), nn.ReLU(),
+            nn.Linear(self.hidden_features, 1))
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """Compute pairwise compatibilities for given matrix.
 
         Args:
-            inputs (torch.Tensor): Shape (N, input_dimension) matrix,
+            inputs (torch.Tensor): Shape (N, in_features) matrix,
                 where N is the number of representations to compare.
 
         Raises:
@@ -208,17 +330,13 @@ class PairwiseMLP(MLP):
                 compatibilities.
 
         """
-        dims = len(inputs.shape)
-        if dims != 2:
-            raise ValueError(f'expected 2D tensor, got {dims}D')
+        if len(inputs.shape) != 2:
+            raise ValueError(f'expected 2D tensor, got {len(inputs.shape)}D')
 
-        length, dimension = inputs.shape
-        expected_dimension = self.hidden_dimension // 2
-        if dimension != expected_dimension:
-            raise ValueError(
-                f'expected {expected_dimension}d, got {dimension}d')
-
-        lefts = inputs.repeat(1, length).view(length**2, dimension)
+        length, features = inputs.shape
+        lefts = inputs.repeat(1, length).view(length**2, features)
         rights = inputs.repeat(length, 1)
+        if self.project is not None:
+            lefts, rights = self.project(lefts, rights)
         pairs = torch.cat((lefts, rights), dim=-1)
-        return super().forward(pairs).view(length, length)
+        return self.mlp(pairs).view(length, length)
