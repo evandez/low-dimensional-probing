@@ -26,6 +26,8 @@ parser.add_argument('--epochs',
                     type=int,
                     default=100,
                     help='Passes to make through dataset during training.')
+parser.add_argument('--l1', type=float, help='Add L1 norm penalty.')
+parser.add_argument('--nuc', type=float, help='Add nuclear norm penalty')
 parser.add_argument('--lr', default=1e-3, type=float, help='Learning rate.')
 parser.add_argument('--patience',
                     type=int,
@@ -76,6 +78,10 @@ wandb.init(project='lodimp',
                    'batched': not options.no_batch,
                    'lr': options.lr,
                    'patience': options.patience,
+                   'regularization': {
+                       'l1': options.l1,
+                       'nuc': options.nuc,
+                   },
                },
            },
            dir=str(options.wandb_dir))
@@ -148,7 +154,19 @@ else:
 probe = probe.to(device)
 
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
-criterion = nn.CrossEntropyLoss().to(device)
+ce = nn.CrossEntropyLoss().to(device)
+
+
+def criterion(*args: torch.Tensor) -> torch.Tensor:
+    """Returns CE loss with regularizers."""
+    loss = ce(*args)
+    for subproj in (projection.left, projection.right):
+        if options.l1:
+            loss += options.l1 * subproj.project.weight.data.norm(p=1)
+        if options.nuc:
+            loss += options.l1 * subproj.project.weight.data.norm(p='nuc')
+    return loss
+
 
 # Train the model.
 best_dev_loss, bad_epochs = float('inf'), 0
