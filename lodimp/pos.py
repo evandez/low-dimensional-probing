@@ -246,6 +246,7 @@ logging.info('test accuracy %.3f', accuracy)
 
 # Measure whether or not the projection is axis aligned.
 if options.ablate:
+    logging.info('will ablate axes one by one and retest')
     axes = set(range(projection.project.in_features))
     ablated: Set[int] = set()
     accuracies = []
