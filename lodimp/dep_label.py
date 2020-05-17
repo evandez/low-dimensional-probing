@@ -1,10 +1,11 @@
 """Train and evaluate a probe on the dependency label task."""
 
 import argparse
+import copy
 import logging
 import pathlib
 import sys
-from typing import Dict, Union
+from typing import Dict, Set, Union
 
 from lodimp import datasets, models
 
@@ -47,6 +48,9 @@ parser.add_argument('--model-dir',
 parser.add_argument('--model-file',
                     default='probe.pth',
                     help='Model file name.')
+parser.add_argument('--ablate',
+                    action='store_true',
+                    help='Also test ablated model.')
 parser.add_argument('--quiet',
                     dest='log_level',
                     action='store_const',
@@ -113,12 +117,11 @@ for split in ('train', 'dev', 'test'):
     if not file.exists():
         raise FileNotFoundError(f'{split} partition not found')
     data[split] = datasets.TaskDataset(root / f'{split}.h5')
-train, dev, test = data['train'], data['dev'], data['test']
 
-ndims = train.ndims
+ndims = data['train'].ndims
 logging.info('reps have %d dimensions', ndims)
 
-nlabels = train.nlabels
+nlabels = data['train'].nlabels
 assert nlabels is not None, 'no label count?'
 logging.info('task has %d labels', nlabels)
 
@@ -144,7 +147,7 @@ if options.share_projection:
 else:
     projection = models.Projection(2 * ndims, 2 * options.dim)
 
-probe: nn.Module
+probe: Union[models.Linear, models.MLP]
 if options.probe == 'linear':
     probe = models.Linear(2 * options.dim, nlabels, project=projection)
 else:
@@ -208,13 +211,48 @@ torch.save(probe, model_path)
 wandb.save(str(model_path))
 logging.info('model saved to %s', model_path)
 
+
 # Evaluate the models.
-correct, count = 0., 0
-for reps, tags in loaders['test']:
-    reps, tags = reps.to(device), tags.to(device)
-    preds = probe(reps).argmax(dim=1)
-    correct += preds.eq(tags).sum().item()
-    count += len(reps)
-accuracy = correct / count
-wandb.log({f'accuracy': accuracy})
-logging.info('accuracy %.3f', accuracy)
+def test(model: nn.Module) -> float:
+    """Evaluate model accuracy on the test set.
+
+    Args:
+        model (nn.Module): The module to evaluate.
+
+    Returns:
+        float: Fraction of test set correctly classified.
+
+    """
+    correct, count = 0., 0
+    for reps, tags in loaders['test']:
+        reps, tags = reps.to(device), tags.to(device)
+        preds = model(reps).argmax(dim=1)
+        correct += preds.eq(tags).sum().item()
+        count += len(reps)
+    return correct / count
+
+
+accuracy = test(probe)
+wandb.run.summary['accuracy'] = accuracy
+logging.info('test accuracy %.3f', accuracy)
+
+# Measure whether or not the projection is axis aligned.
+if options.ablate:
+    axes = set(range(projection.project.in_features))
+    ablated: Set[int] = set()
+    accuracies = []
+    while axes:
+        best_axis, best_accuracy = 0, 0.
+        for axis in axes:
+            model = copy.deepcopy(probe)
+            assert model.project is not None, 'no projection?'
+            model.project.project.weight.data[:, sorted(ablated | {axis})] = 0
+            accuracy = test(model)
+            if accuracy > best_accuracy:
+                best_axis = axis
+                best_accuracy = accuracy
+        logging.info('ablating axis %d, accuracy %f', best_axis, best_accuracy)
+        axes.remove(best_axis)
+        ablated.add(best_axis)
+        accuracies.append(best_accuracy)
+    wandb.run.summary['ablated accuracies'] = torch.tensor(accuracies)
