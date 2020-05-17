@@ -1,10 +1,11 @@
 """Train and evaluate a probe on the dependency arc prediction task."""
 
 import argparse
+import copy
 import logging
 import pathlib
 import sys
-from typing import Dict, Union
+from typing import Dict, Set, Union
 
 from lodimp import datasets, models
 
@@ -47,6 +48,9 @@ parser.add_argument('--model-dir',
 parser.add_argument('--model-file',
                     default='probe.pth',
                     help='Model file name.')
+parser.add_argument('--ablate',
+                    action='store_true',
+                    help='Also test ablated model.')
 parser.add_argument('--quiet',
                     dest='log_level',
                     action='store_const',
@@ -113,9 +117,8 @@ for split in ('train', 'dev', 'test'):
     if not file.exists():
         raise FileNotFoundError(f'{split} partition not found')
     data[split] = datasets.TaskDataset(root / f'{split}.h5')
-train, dev, test = data['train'], data['dev'], data['test']
 
-ndims = train.ndims
+ndims = data['train'].ndims
 logging.info('reps have %d dimensions', ndims)
 
 # Batch data.
@@ -145,7 +148,7 @@ else:
         models.Projection(ndims, options.dim),
         models.Projection(ndims, options.dim))
 
-probe: nn.Module
+probe: Union[models.PairwiseBilinear, models.PairwiseMLP]
 if options.probe == 'bilinear':
     probe = models.PairwiseBilinear(options.dim, project=projection)
 else:
@@ -210,13 +213,68 @@ torch.save(probe, model_path)
 wandb.save(str(model_path))
 logging.info('model saved to %s', model_path)
 
-# Evaluate the model.
-correct, count = 0., 0
-for reps, tags in loaders['test']:
-    reps, tags = reps.to(device), tags.to(device)
-    preds = probe(reps).argmax(dim=1)
-    correct += preds.eq(tags).sum().item()
-    count += len(reps)
-accuracy = correct / count
-wandb.log({f'accuracy': accuracy})
-logging.info('accuracy %.3f', accuracy)
+
+# Evaluate the models.
+def test(model: nn.Module) -> float:
+    """Evaluate model accuracy on the test set.
+
+    Args:
+        model (nn.Module): The module to evaluate.
+
+    Returns:
+        float: Fraction of test set correctly classified.
+
+    """
+    correct, count = 0., 0
+    for reps, tags in loaders['test']:
+        reps, tags = reps.to(device), tags.to(device)
+        preds = model(reps).argmax(dim=1)
+        correct += preds.eq(tags).sum().item()
+        count += len(reps)
+    return correct / count
+
+
+accuracy = test(probe)
+wandb.run.summary['accuracy'] = accuracy
+logging.info('test accuracy %.3f', accuracy)
+
+# Measure whether or not the projection is axis aligned.
+if options.ablate:
+    multiplier = 1 if options.share_projection else 2
+    axes = set(range(multiplier * projection.in_features))
+    ablated: Set[int] = set()
+    accuracies = []
+    while axes:
+        best_axis, best_accuracy = 0, 0.
+        for axis in axes:
+            model = copy.deepcopy(probe)
+            assert model.project is not None, 'no projection?'
+
+            indices = ablated | {axis}
+            if options.share_projection:
+                # If we are sharing projections, then ablating the left also
+                # ablates the right. Easy!
+                model.project.left.project.weight.data[:, sorted(indices)] = 0
+            else:
+                # If we are not sharing projections, then the "left" and
+                # "right" projections contain disjoint axes. we have to
+                # manually determine which axis belongs to which projection.
+                coordinates = {(i // projection.in_features,
+                                i % projection.in_features) for i in indices}
+                lefts = {ax for (proj, ax) in coordinates if not proj}
+                rights = {ax for (proj, ax) in coordinates if proj}
+                assert len(lefts) + len(rights) == len(indices), 'bad mapping?'
+                model.project.left.project.weight.data[:, sorted(lefts)] = 0
+                model.project.right.project.weight.data[:, sorted(rights)] = 0
+
+            accuracy = test(model)
+            if accuracy > best_accuracy:
+                best_axis = axis
+                best_accuracy = accuracy
+
+        logging.info('ablating axis %d, accuracy %f', best_axis, best_accuracy)
+        axes.remove(best_axis)
+        ablated.add(best_axis)
+        accuracies.append(best_accuracy)
+
+    wandb.run.summary['ablated accuracies'] = torch.tensor(accuracies)
