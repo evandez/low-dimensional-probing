@@ -49,6 +49,7 @@ parser.add_argument('--wandb-dir',
                     type=pathlib.Path,
                     default='/tmp/lodimp',
                     help='Path to write Weights and Biases data.')
+parser.add_argument('--wandb-id', help='Experiment ID. Use with caution!')
 parser.add_argument('--wandb-group', help='Experiment group.')
 parser.add_argument('--wandb-name', help='Experiment name.')
 parser.add_argument('--model-dir',
@@ -69,6 +70,7 @@ options = parser.parse_args()
 # Initialize wandb so we can track any failures right away.
 options.wandb_dir.mkdir(parents=True, exist_ok=True)
 wandb.init(project='lodimp',
+           id=options.wandb_id,
            name=options.wandb_name,
            group=options.wandb_group,
            config={
