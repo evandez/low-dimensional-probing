@@ -31,7 +31,7 @@ parser.add_argument('--ablate',
                     help='Ablate axes and retest after every run.')
 parser.add_argument('--epochs',
                     type=int,
-                    default=2500,
+                    default=500,
                     help='Total passes through training dataset.')
 parser.add_argument('--wandb-dir',
                     type=pathlib.Path,
