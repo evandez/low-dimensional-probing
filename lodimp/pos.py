@@ -106,9 +106,8 @@ root = options.data / f'elmo-{options.layer}'
 if not root.exists():
     raise FileNotFoundError(f'layer {options.layer} partition not found')
 
-for path in options.compose or []:
-    if not path.exists():
-        raise FileNotFoundError(f'model does not exist: {path}')
+if options.compose and not options.compose.exists():
+    raise FileNotFoundError(f'model does not exist: {options.compose}')
 
 # Set up.
 logging.basicConfig(stream=sys.stdout,
@@ -155,7 +154,7 @@ for split, dataset in data.items():
 
 # Initialize the projection.
 if options.compose:
-    compose = torch.load(options.compose, map_location=device)
+    compose = torch.load(options.compose, map_location=device).project
     projection = models.Projection(ndims, options.dimension, compose=compose)
 else:
     projection = models.Projection(ndims, options.dimension)
