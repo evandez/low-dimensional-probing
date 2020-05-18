@@ -31,7 +31,11 @@ TaskFactory = Callable[[Sequence[ptb.Sample]], tasks.Task]
 UNIGRAM_TASKS: Dict[str, TaskFactory] = {
     'pos': tasks.POSTask,
     'pos-verb': ft.partial(tasks.POSTask, tags=tasks.POS_VERBS),
+    'pos-verb-pres': ft.partial(tasks.POSTask, tags=tasks.POS_VERBS_PRESENT),
+    'pos-verb-past': ft.partial(tasks.POSTask, tags=tasks.POS_VERBS_PAST),
     'pos-noun': ft.partial(tasks.POSTask, tags=tasks.POS_NOUNS),
+    'pos-noun-proper': ft.partial(tasks.POSTask, tags=tasks.POS_NOUNS_PROPER),
+    'pos-noun-plural': ft.partial(tasks.POSTask, tags=tasks.POS_NOUNS_PLURAL),
     'pos-adj': ft.partial(tasks.POSTask, tags=tasks.POS_ADJECTIVES),
     'pos-adv': ft.partial(tasks.POSTask, tags=tasks.POS_ADVERBS),
     'pos-control': tasks.ControlPOSTask,

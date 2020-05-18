@@ -10,7 +10,11 @@ import numpy as np
 import torch
 
 POS_NOUNS = {'NN', 'NNS', 'NNP', 'NNPS'}
+POS_NOUNS_PROPER = {'NNP', 'NNPS'}
+POS_NOUNS_PLURAL = {'NNS', 'NNPS'}
 POS_VERBS = {'VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ'}
+POS_VERBS_PRESENT = {'VBZ', 'VBP', 'VBG'}
+POS_VERBS_PAST = {'VBD', 'VBN'}
 POS_ADJECTIVES = {'JJ', 'JJR', 'JJS'}
 POS_ADVERBS = {'RB', 'RBR', 'RBS'}
 
