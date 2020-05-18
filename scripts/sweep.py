@@ -33,6 +33,7 @@ parser.add_argument('--epochs',
                     type=int,
                     default=500,
                     help='Total passes through training dataset.')
+parser.add_argument('--wandb-group', help='Wandb group. Default is task name.')
 parser.add_argument('--wandb-dir',
                     type=pathlib.Path,
                     default='/tmp/lodimp/wandb',
@@ -60,7 +61,7 @@ base = [
     str(options.data.resolve())
 ]
 base += ['--model-dir', str(options.model_dir.resolve())]
-base += ['--wandb-group', options.task]
+base += ['--wandb-group', options.wandb_group or options.task]
 base += ['--wandb-dir', str(options.wandb_dir.resolve())]
 base += ['--epochs', str(options.epochs)]
 if options.ablate:
