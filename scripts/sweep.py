@@ -88,6 +88,13 @@ for layer in options.layers:
             command += ['--probe', probe]
             run(command + ['--wandb-name', tag])
 
+            # TODO(evandez): Okay, this script needs to be broken up.
+            if options.task in ('dep_arc', 'dep_label'):
+                shared = command.copy()
+                shared += ['--share-projection']
+                shared += ['--wandb-name', tag + '-shared']
+                run(shared)
+
             # Run regularized variants if requested.
             for reg, lams in (('l1', options.l1), ('nuc', options.nuc)):
                 for lam in lams or []:
