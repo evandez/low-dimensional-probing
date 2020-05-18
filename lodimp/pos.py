@@ -16,9 +16,15 @@ from torch import nn, optim
 
 parser = argparse.ArgumentParser(description='Train a POS tagger.')
 parser.add_argument('data', type=pathlib.Path, help='Data directory.')
-parser.add_argument('layer', type=int, help='ELMo layer.')
-parser.add_argument('dim', type=int, help='Projection dimensionality.')
-parser.add_argument('probe', choices=('linear', 'mlp'), help='Probe model.')
+parser.add_argument('--layer', type=int, default=0, help='ELMo layer.')
+parser.add_argument('--dimension',
+                    type=int,
+                    default=64,
+                    help='Projection dimensionality.')
+parser.add_argument('--probe',
+                    choices=('linear', 'mlp'),
+                    default='linear',
+                    help='Probe architecture.')
 parser.add_argument('--no-batch', action='store_true', help='Do not batch.')
 parser.add_argument('--epochs',
                     type=int,
@@ -35,6 +41,9 @@ parser.add_argument('--compose',
                     nargs='+',
                     type=pathlib.Path,
                     help='Compose these projections with learned projection.')
+parser.add_argument('--ablate',
+                    action='store_true',
+                    help='Also test axis-ablated projection.')
 parser.add_argument('--cuda', action='store_true', help='Use CUDA device.')
 parser.add_argument('--wandb-dir',
                     type=pathlib.Path,
@@ -49,9 +58,6 @@ parser.add_argument('--model-dir',
 parser.add_argument('--model-file',
                     default='probe.pth',
                     help='Model file name.')
-parser.add_argument('--ablate',
-                    action='store_true',
-                    help='Also test ablated model.')
 parser.add_argument('--quiet',
                     dest='log_level',
                     action='store_const',
@@ -72,7 +78,7 @@ wandb.init(project='lodimp',
                    'layer': options.layer,
                },
                'projection': {
-                   'dimension': options.dim,
+                   'dimension': options.dimension,
                    'compositions': len(options.compose or []),
                },
                'probe': {
@@ -149,17 +155,17 @@ for split, dataset in data.items():
 # Initialize the projection.
 if options.compose:
     compose = torch.load(options.compose, map_location=device)
-    projection = models.Projection(ndims, options.dim, compose=compose)
+    projection = models.Projection(ndims, options.dimension, compose=compose)
 else:
-    projection = models.Projection(ndims, options.dim)
+    projection = models.Projection(ndims, options.dimension)
 
 probe: Union[models.Linear, models.MLP]
 if options.probe == 'linear':
     assert nlabels is not None
-    probe = models.Linear(options.dim, nlabels, project=projection)
+    probe = models.Linear(options.dimension, nlabels, project=projection)
 else:
     assert options.probe == 'mlp', 'unknown model?'
-    probe = models.MLP(options.dim, nlabels, project=projection)
+    probe = models.MLP(options.dimension, nlabels, project=projection)
 probe = probe.to(device)
 
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)

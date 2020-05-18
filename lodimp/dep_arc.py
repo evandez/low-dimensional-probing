@@ -16,9 +16,15 @@ from torch import nn, optim
 
 parser = argparse.ArgumentParser(description='Train on dependency arc task.')
 parser.add_argument('data', type=pathlib.Path, help='Data directory.')
-parser.add_argument('layer', type=int, help='ELMo layer.')
-parser.add_argument('dim', type=int, help='Projection dimensionality.')
-parser.add_argument('probe', choices=('bilinear', 'mlp'), help='Probe model.')
+parser.add_argument('--layer', type=int, default=0, help='ELMo layer.')
+parser.add_argument('--dimension',
+                    type=int,
+                    default=64,
+                    help='Projection dimensionality.')
+parser.add_argument('--probe',
+                    choices=('bilinear', 'mlp'),
+                    default='bilinear',
+                    help='Probe architecture.')
 parser.add_argument('--share-projection',
                     action='store_true',
                     help='When comparing reps, project both with same matrix.')
@@ -34,6 +40,9 @@ parser.add_argument('--patience',
                     type=int,
                     default=4,
                     help='Epochs for dev loss to decrease to stop training.')
+parser.add_argument('--ablate',
+                    action='store_true',
+                    help='Also test ablated model.')
 parser.add_argument('--cuda', action='store_true', help='Use CUDA device.')
 parser.add_argument('--wandb-dir',
                     type=pathlib.Path,
@@ -48,9 +57,6 @@ parser.add_argument('--model-dir',
 parser.add_argument('--model-file',
                     default='probe.pth',
                     help='Model file name.')
-parser.add_argument('--ablate',
-                    action='store_true',
-                    help='Also test ablated model.')
 parser.add_argument('--quiet',
                     dest='log_level',
                     action='store_const',
@@ -71,7 +77,7 @@ wandb.init(project='lodimp',
                    'layer': options.layer,
                },
                'projection': {
-                   'dimension': options.dim,
+                   'dimension': options.dimension,
                    'shared': options.share_projection,
                },
                'probe': {
@@ -142,18 +148,18 @@ for split, dataset in data.items():
 # Initialize the projection(s).
 if options.share_projection:
     projection = models.PairwiseProjection(
-        models.Projection(ndims, options.dim),)
+        models.Projection(ndims, options.dimension),)
 else:
     projection = models.PairwiseProjection(
-        models.Projection(ndims, options.dim),
-        models.Projection(ndims, options.dim))
+        models.Projection(ndims, options.dimension),
+        models.Projection(ndims, options.dimension))
 
 probe: Union[models.PairwiseBilinear, models.PairwiseMLP]
 if options.probe == 'bilinear':
-    probe = models.PairwiseBilinear(options.dim, project=projection)
+    probe = models.PairwiseBilinear(options.dimension, project=projection)
 else:
     assert options.probe == 'mlp'
-    probe = models.PairwiseMLP(options.dim, project=projection)
+    probe = models.PairwiseMLP(options.dimension, project=projection)
 probe = probe.to(device)
 
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
