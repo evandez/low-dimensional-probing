@@ -38,9 +38,8 @@ parser.add_argument('--patience',
                     default=4,
                     help='Epochs for dev loss to decrease to stop training.')
 parser.add_argument('--compose',
-                    nargs='+',
                     type=pathlib.Path,
-                    help='Compose these projections with learned projection.')
+                    help='Compose this projection with learned projection.')
 parser.add_argument('--ablate',
                     action='store_true',
                     help='Also test axis-ablated projection.')

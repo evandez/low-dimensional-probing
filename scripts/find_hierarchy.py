@@ -76,8 +76,7 @@ for layer in options.layers:
             command += ['--model-file', f'{tag}.pth']
 
             if compose_paths:
-                command += ['--compose']
-                command += [str(path) for path in compose_paths]
+                command += ['--compose', str(compose_paths[-1])]
 
             print(' '.join(command))
             proc = subprocess.run(command)
