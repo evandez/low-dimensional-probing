@@ -80,7 +80,7 @@ wandb.init(project='lodimp',
                },
                'projection': {
                    'dimension': options.dimension,
-                   'compositions': len(options.compose or []),
+                   'composed': bool(options.compose),
                },
                'probe': {
                    'model': options.probe,
