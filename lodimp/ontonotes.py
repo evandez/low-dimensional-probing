@@ -11,6 +11,43 @@ class Sample(NamedTuple):
     roles: Sequence[Sequence[str]]
 
 
+def unparse(labeling: Sequence[str]) -> Sequence[str]:
+    """Map role parse to a sequence of tags.
+
+    Example input:  (*Arg1 *    *    *)   (V*) * (Arg2*   *)
+    Example output: Arg1   Arg1 Arg1 Arg1 V    * Arg2     Arg2
+
+    Args:
+        labeling (Sequence[str]): The parsed role labeling.
+
+    Returns:
+        Sequence[str]: The unparsed labeling.
+
+    """
+    current = None
+    unparsed = []
+    for label in labeling:
+        if label == '*':
+            unparsed.append(current or '*')
+        elif label.startswith('('):
+            assert current is None, 'nested labeling?'
+            if label.endswith('*)'):
+                unparsed.append(label[1:-2])
+            else:
+                assert label.endswith('*'), 'irregular label start?'
+                current = label[1:-1]
+                assert current, 'no label name?'
+                unparsed.append(current)
+        elif label.endswith(')'):
+            assert label == '*)', 'irregular label end?'
+            assert current is not None, 'no label to end?'
+            unparsed.append(current)
+            current = None
+    assert current is None, 'unfinished label?'
+    assert len(unparsed) == len(labeling)
+    return unparsed
+
+
 def load(path: pathlib.Path) -> Sequence[Sample]:
     """Load the given Ontonotes .conll file.
 
@@ -35,8 +72,11 @@ def load(path: pathlib.Path) -> Sequence[Sample]:
 
         """
         assert len(sentence) == len(roles), 'more words than roles?'
-        assert len({len(role) for role in roles}) == 1, 'missing roles?'
-        samples.append(Sample(tuple(sentence), tuple(zip(*roles))))
+        assert len({len(role) for role in roles}) == 1, 'incomplete labelings?'
+        sentence = tuple(sentence)
+        roles = tuple(zip(*roles))
+        labelings = tuple(tuple(unparse(labeling)) for labeling in roles)
+        samples.append(Sample(sentence, labelings))
 
     with path.open() as file:
         sentence: List[str] = []
