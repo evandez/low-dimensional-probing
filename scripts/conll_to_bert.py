@@ -1,12 +1,14 @@
 """Embed all sentences in the .conllx file with BERT."""
 
 import argparse
+import json
 import logging
 import pathlib
 import sys
 from typing import List
 
 import h5py
+import numpy as np
 import torch
 import transformers
 from torch import cuda
@@ -64,6 +66,7 @@ model.eval()
 with h5py.File(options.out, 'w') as out:
     logging.info('will write %d embeddings to %s', len(sentences), options.out)
     for index, sentence in enumerate(sentences):
+        break
         tokens = tokenizer.encode(sentence, add_special_tokens=False)
         dataset = out.create_dataset(
             str(index),
@@ -77,3 +80,10 @@ with h5py.File(options.out, 'w') as out:
             embedded, *_ = model(inputs)
         dataset[:] = embedded.cpu().numpy()
         logging.info('encoded sentence %d', index)
+
+    # Create a sentence_to_index item so bert hdf5 files look like ELMo ones.
+    joined = [' '.join(sentence) for sentence in sentences]
+    sentence_to_index = {sentence: i for i, sentence in enumerate(joined)}
+    sentence_to_index_str = json.dumps(sentence_to_index).encode()
+    out.create_dataset('sentence_to_index',
+                       data=np.array([sentence_to_index_str]))
