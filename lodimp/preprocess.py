@@ -106,7 +106,7 @@ else:
 
 root = (options.out or options.data) / options.task
 for layer in range(NLAYERS[options.model]):
-    directory = root / f'elmo-{layer}'
+    directory = root / f'{options.model}-{layer}'
     directory.mkdir(parents=True, exist_ok=True)
     logging.info('writing splits for layer %d to %s', layer, directory)
 
