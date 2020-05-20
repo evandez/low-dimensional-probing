@@ -227,18 +227,19 @@ logging.info('model saved to %s', model_path)
 
 
 # Evaluate the model.
-def test(model: nn.Module) -> float:
+def test(model: nn.Module, loader: str = 'test') -> float:
     """Evaluate model accuracy on the test set.
 
     Args:
         model (nn.Module): The module to evaluate.
+        loader (str): Key for the dataset to evaluate on.
 
     Returns:
         float: Fraction of test set correctly classified.
 
     """
     correct, count = 0., 0
-    for reps, tags in loaders['test']:
+    for reps, tags in loaders[loader]:
         reps, tags = reps.to(device), tags.to(device)
         preds = model(reps).argmax(dim=1)
         correct += preds.eq(tags).sum().item()
@@ -257,17 +258,19 @@ if options.ablate:
     ablated: Set[int] = set()
     accuracies = []
     while axes:
-        best_axis, best_accuracy = 0, 0.
+        best_model, best_axis, best_accuracy = probe, -1, -1.
         for axis in axes:
-            model = copy.deepcopy(probe)
+            model = copy.deepcopy(best_model)
             assert model.project is not None, 'no projection?'
             model.project.project.weight.data[:, sorted(ablated | {axis})] = 0
-            accuracy = test(model)
+            accuracy = test(model, loader='dev')
             if accuracy > best_accuracy:
+                best_model = model
                 best_axis = axis
                 best_accuracy = accuracy
-        logging.info('ablating axis %d, accuracy %f', best_axis, best_accuracy)
+        accuracy = test(best_model)
+        logging.info('ablating axis %d, test accuracy %f', best_axis, accuracy)
         axes.remove(best_axis)
         ablated.add(best_axis)
-        accuracies.append(best_accuracy)
+        accuracies.append(accuracy)
     wandb.run.summary['ablated accuracies'] = torch.tensor(accuracies)
