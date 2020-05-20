@@ -66,7 +66,6 @@ model.eval()
 with h5py.File(options.out, 'w') as out:
     logging.info('will write %d embeddings to %s', len(sentences), options.out)
     for index, sentence in enumerate(sentences):
-        break
         tokens = tokenizer.encode(sentence, add_special_tokens=False)
         dataset = out.create_dataset(
             str(index),
