@@ -66,6 +66,10 @@ parser.add_argument(
     default='elmo',
     help='Representation model to use.',
 )
+parser.add_argument('--layers',
+                    nargs='+',
+                    type=int,
+                    help='Layers to preprocess. Defaults to all.')
 parser.add_argument('--out', type=pathlib.Path, help='Path to output h5 file.')
 parser.add_argument('--quiet',
                     dest='log_level',
@@ -90,7 +94,7 @@ for split in SPLITS:
     logging.info('reading %s %s set from %s', options.model, split, h5)
     reps_by_split[split] = [
         datasets.RepresentationsDataset(h5, layer)
-        for layer in range(NLAYERS[options.model])
+        for layer in options.layers or range(NLAYERS[options.model])
     ]
 
 samples: List[ptb.Sample] = []
@@ -105,7 +109,7 @@ else:
     logging.info('will prepare for bigram task "%s"', options.task)
 
 root = (options.out or options.data) / options.task
-for layer in range(NLAYERS[options.model]):
+for layer in options.layers or range(NLAYERS[options.model]):
     directory = root / f'{options.model}-{layer}'
     directory.mkdir(parents=True, exist_ok=True)
     logging.info('writing splits for layer %d to %s', layer, directory)
