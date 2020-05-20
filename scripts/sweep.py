@@ -33,6 +33,9 @@ parser.add_argument('--epochs',
                     type=int,
                     default=500,
                     help='Total passes through training dataset.')
+parser.add_argument('--force-batch',
+                    action='store_true',
+                    help='Force batching, even if CUDA available.')
 parser.add_argument('--wandb-group', help='Wandb group. Default is task name.')
 parser.add_argument('--wandb-dir',
                     type=pathlib.Path,
@@ -67,7 +70,9 @@ base += ['--epochs', str(options.epochs)]
 if options.ablate:
     base += ['--ablate']
 if cuda.is_available():
-    base += ['--cuda', '--no-batch']
+    base += ['--cuda']
+    if not options.force_batch:
+        base += ['--no-batch']
 
 
 def run(command: Sequence[str]) -> None:
