@@ -75,5 +75,5 @@ with h5py.File(options.out, 'w') as out:
         inputs = torch.tensor([tokens], device=device)
         with torch.no_grad():
             embedded, *_ = model(inputs)
-        dataset[:] = embedded
+        dataset[:] = embedded.cpu().numpy()
         logging.info('encoded sentence %d', index)
