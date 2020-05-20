@@ -16,7 +16,13 @@ from torch import nn, optim
 
 parser = argparse.ArgumentParser(description='Train on dependency arc task.')
 parser.add_argument('data', type=pathlib.Path, help='Data directory.')
-parser.add_argument('--layer', type=int, default=0, help='ELMo layer.')
+parser.add_argument(
+    '--model',
+    choices=('bert-base-uncased', 'bert-large-uncased', 'elmo'),
+    default='elmo',
+    help='Representation model to use.',
+)
+parser.add_argument('--layer', type=int, default=0, help='Model layer.')
 parser.add_argument('--dimension',
                     type=int,
                     default=64,
@@ -73,7 +79,7 @@ wandb.init(project='lodimp',
            config={
                'task': 'dep-arc',
                'representations': {
-                   'model': 'elmo',
+                   'model': options.model,
                    'layer': options.layer,
                },
                'projection': {
@@ -100,7 +106,7 @@ wandb.init(project='lodimp',
 if not options.data.exists():
     raise FileNotFoundError(f'data directory does not exist: {options.data}')
 
-root = options.data / f'elmo-{options.layer}'
+root = options.data / f'{options.model}-{options.layer}'
 if not root.exists():
     raise FileNotFoundError(f'layer {options.layer} partition not found')
 
