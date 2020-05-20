@@ -18,7 +18,7 @@ for split in ('train', 'dev', 'test'):
         'python3',
         str(script),
         str(options.data / f'ptb3-wsj-{split}.conllx'),
-        str(options.data / f'raw.{options.pretrained}-layers.{split}.hdf5'),
+        str(options.data / f'raw.{split}.{options.pretrained}-layers.hdf5'),
         '--pretrained', options.pretrained
     ]
     print(' '.join(command))
