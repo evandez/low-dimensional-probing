@@ -3,6 +3,8 @@
 import pathlib
 from typing import List, NamedTuple, Sequence
 
+IGNORE = 'IGNORE'
+
 
 class Sample(NamedTuple):
     """Defines an Ontonotes sample. Here, we need only SRL labels."""
@@ -93,7 +95,11 @@ def load(path: pathlib.Path) -> Sequence[Sample]:
             components = line.split()
             assert len(components) > 12, 'no semantic roles?'
             sentence.append(components[3])
-            roles.append(components[11:-1])
+
+            if len(components) >= 12:
+                roles.append(components[11:-1])
+            else:
+                roles.append([IGNORE])
 
     if sentence:
         add(sentence, roles)
