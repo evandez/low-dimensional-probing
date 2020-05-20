@@ -10,63 +10,30 @@ from torch.utils import data
 
 
 class RepresentationsDataset(data.Dataset):
-    """Abstract dataset of word representations."""
-
-    @property
-    def dimension(self) -> int:
-        """Returns the dimensionality of the representations."""
-        raise NotImplementedError
-
-    def length(self, index: int) -> int:
-        """Returns the length of the index'th sequence.
-
-        This is generally much faster than reading the sequence from disk.
-        Useful for preprocessing.
-        """
-        raise NotImplementedError
-
-
-class ELMoRepresentationsDataset(RepresentationsDataset):
     """Iterates through a dataset of word representations."""
 
     def __init__(self, path: pathlib.Path, layer: int):
-        """Load the h5 file contained pre-computed ELMo representations.
+        """Load the h5 file contained pre-computed representations.
 
         Args:
             path (str): Path to h5 file containing pre-computed reps.
-            layer (int): Which ELMo layer to use.
+            layer (int): Which layer to use.
 
         """
-        super(ELMoRepresentationsDataset, self).__init__()
-        if layer not in (0, 1, 2):
-            raise ValueError(f'invalid layer: {layer}')
+        super(RepresentationsDataset, self).__init__()
         self.file = h5py.File(path, 'r')
         self.layer = layer
+
+        assert '0' in self.file, 'reps file has no 0th element?'
+        layers = self.file['0'].shape[0]
+        if layer < 0 or layer >= layers:
+            raise IndexError(f'expected layer in [0, {layers}), got {layer}')
 
     @property
     def dimension(self) -> int:
         """Returns the dimensionality of the ELMo representations."""
-        assert '0' in self.file, 'ELMo reps file has no 0th element?'
+        assert '0' in self.file, 'reps file has no 0th element?'
         return self.file['0'].shape[-1]
-
-    def length(self, index: int) -> int:
-        """Determines the length of the index'th sequence.
-
-        Only looks at file metadata, so this function is fast.
-
-        Args:
-            index: The sequence to find the length of.
-
-        Returns:
-            The index'th sequence length.
-
-        Raises:
-            IndexError: If the index is out of bounds.
-
-        """
-        if index < 0 or index >= len(self):
-            raise IndexError()
-        return self.file[str(index)].shape[1]
 
     def __getitem__(self, index: int) -> torch.Tensor:
         """Returns the ELMo represenations for the sentence at the given index.

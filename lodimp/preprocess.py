@@ -47,37 +47,26 @@ BIGRAM_TASKS: Dict[str, TaskFactory] = {
     'dep-label': tasks.DependencyLabelTask,
 }
 
-ELMO_LAYERS = (0, 1, 2)
+NLAYERS = {
+    'elmo': 3,
+    'bert-base-uncased': 12,
+    'bert-large-uncased': 24,
+}
+
+SPLITS = ('train', 'dev', 'test')
 
 parser = argparse.ArgumentParser(description='Preprocess PTB for some task.')
 parser.add_argument('data', type=pathlib.Path, help='Path to PTB directory.')
 parser.add_argument('task',
                     choices=(*UNIGRAM_TASKS.keys(), *BIGRAM_TASKS.keys()),
                     help='Task to preproces.')
-parser.add_argument('--out', type=pathlib.Path, help='Path to output h5 file.')
-parser.add_argument('--splits',
-                    nargs='+',
-                    default=('train', 'dev', 'test'),
-                    help='Dataset splits to preprocess.')
-parser.add_argument('--ptb-prefix',
-                    default='ptb3-wsj-',
-                    help='Prefix of PTB files.')
-parser.add_argument('--ptb-suffix',
-                    default='.conllx',
-                    help='Suffix of PTB files.')
-parser.add_argument('--elmo-prefix',
-                    default='raw.',
-                    help='Prefix of ELMo files.')
-parser.add_argument('--elmo-suffix',
-                    default='.elmo-layers.hdf5',
-                    help='Suffix of ELMo files.')
 parser.add_argument(
-    '--elmo-layers',
-    type=int,
-    nargs='+',
-    choices=ELMO_LAYERS,
-    default=ELMO_LAYERS,
-    help='ELMo layers to use. Separate files generated for each.')
+    '--model',
+    choices=NLAYERS.keys(),
+    default='elmo',
+    help='Representation model to use.',
+)
+parser.add_argument('--out', type=pathlib.Path, help='Path to output h5 file.')
 parser.add_argument('--quiet',
                     dest='log_level',
                     action='store_const',
@@ -91,21 +80,21 @@ logging.basicConfig(stream=sys.stdout,
                     datefmt='%Y-%m-%d %H:%M:%S',
                     level=options.log_level)
 
-ptbs, elmos = {}, {}
-for split in options.splits:
-    conllx = options.data / f'{options.ptb_prefix}{split}{options.ptb_suffix}'
+ptbs, reps_by_split = {}, {}
+for split in SPLITS:
+    conllx = options.data / f'ptb3-wsj-{split}.conllx'
     logging.info('reading ptb %s set from %s', split, conllx)
     ptbs[split] = ptb.load(conllx)
 
-    elmo = options.data / f'{options.elmo_prefix}{split}{options.elmo_suffix}'
-    logging.info('reading elmo %s set from %s', split, elmo)
-    elmos[split] = [
-        datasets.ELMoRepresentationsDataset(elmo, layer)
-        for layer in options.elmo_layers
+    h5 = options.data / f'raw.{split}.{options.model}-layers.hdf5'
+    logging.info('reading %s %s set from %s', options.model, split, h5)
+    reps_by_split[split] = [
+        datasets.RepresentationsDataset(h5, layer)
+        for layer in range(NLAYERS[options.model])
     ]
 
 samples: List[ptb.Sample] = []
-for split in options.splits:
+for split in SPLITS:
     samples.extend(ptbs[split])
 
 if options.task in UNIGRAM_TASKS:
@@ -116,16 +105,16 @@ else:
     logging.info('will prepare for bigram task "%s"', options.task)
 
 root = (options.out or options.data) / options.task
-for layer in options.elmo_layers:
+for layer in range(NLAYERS[options.model]):
     directory = root / f'elmo-{layer}'
     directory.mkdir(parents=True, exist_ok=True)
     logging.info('writing splits for layer %d to %s', layer, directory)
 
-    for split in options.splits:
+    for split in SPLITS:
         file = directory / f'{split}.h5'
         logging.info('will write split %s to %s', split, file)
         with h5py.File(file, 'w') as h5f:
-            reps = elmos[split][layer]
+            reps = reps_by_split[split][layer]
             labels = [task(sample) for sample in ptbs[split]]
 
             # Determine important dimensions.

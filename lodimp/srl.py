@@ -123,7 +123,7 @@ for split in ('train', 'dev', 'test'):
 
     elmo = options.data / f'raw.{split}.elmo-layers.hdf5'
     logging.info('reading elmo %s set from %s', split, elmo)
-    elmos[split] = datasets.ELMoRepresentationsDataset(elmo, options.layer)
+    elmos[split] = datasets.RepresentationsDataset(elmo, options.layer)
 
 
 class SemanticRoleLabelingTask:
@@ -190,12 +190,12 @@ task = SemanticRoleLabelingTask(*tuple(annotations.values()))
 class SemanticRoleLabelingDataset(data.IterableDataset):
     """Simple wrapper around representations and annotations data."""
 
-    def __init__(self, reps: datasets.ELMoRepresentationsDataset,
+    def __init__(self, reps: datasets.RepresentationsDataset,
                  samples: Sequence[ontonotes.Sample]):
         """Initialize and preprocess the data.
 
         Args:
-            reps (datasets.ELMoRepresentationsDataset): Dataset of reps.
+            reps (datasets.RepresentationsDataset): Dataset of reps.
             samples (Sequence[ontonotes.Sample]): Annotations for reps.
 
         """
