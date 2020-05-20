@@ -13,10 +13,10 @@ import pathlib
 import sys
 from typing import Dict, Iterator, Optional, Sequence, Set, Tuple, Union
 
-import wandb
 from lodimp import datasets, models, ontonotes
 
 import torch
+import wandb
 from torch import nn, optim
 from torch.utils import data
 
