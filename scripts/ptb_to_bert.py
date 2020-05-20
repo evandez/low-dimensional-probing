@@ -7,7 +7,9 @@ import sys
 
 parser = argparse.ArgumentParser(description='Embed PTB with BERT.')
 parser.add_argument('data', type=pathlib.Path, help='Path to PTB data.')
-parser.add_argument('--pretrained', help='If set, forwarded to conll_to_bert.')
+parser.add_argument('--pretrained',
+                    default='bert-base-uncased',
+                    help='Forwarded to conll_to_bert.')
 options = parser.parse_args()
 
 script = pathlib.Path(__file__).parent / 'conll_to_bert.py'
@@ -16,10 +18,9 @@ for split in ('train', 'dev', 'test'):
         'python3',
         str(script),
         str(options.data / f'ptb3-wsj-{split}.conllx'),
-        str(options.data / f'raw.bert-layers.{split}.hdf5'),
+        str(options.data / f'raw.{options.pretrained}.{split}.hdf5'),
+        '--pretrained', options.pretrained
     ]
-    if options.pretrained:
-        command += ['--pretrained', options.pretrained]
     print(' '.join(command))
     process = subprocess.run(command)
     if process.returncode:
