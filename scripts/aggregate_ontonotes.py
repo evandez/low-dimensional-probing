@@ -8,15 +8,10 @@ import argparse
 import glob
 import logging
 import pathlib
-import re
 import sys
 
 parser = argparse.ArgumentParser(description='Aggregate Ontonotes WSJ data.')
 parser.add_argument('data', type=pathlib.Path, help='Path to data root.')
-parser.add_argument(
-    '--out',
-    type=pathlib.Path,
-    help='Output directory for aggregatation. Defaults to data directory.')
 parser.add_argument('--quiet',
                     action='store_const',
                     dest='log_level',
@@ -30,31 +25,14 @@ logging.basicConfig(stream=sys.stdout,
                     datefmt='%Y-%m-%d %H:%M:%S',
                     level=options.log_level)
 
-
-def index(file: str) -> int:
-    """Defines an ordering on conll files.
-
-    Args:
-        file (str): Path to .conll file.
-
-    Returns:
-        int: Ordinal for the file.
-
-    """
-    name = pathlib.Path(file).name
-    match = re.match(r'wsj_(\d+).gold_conll', name)
-    assert match, 'weird file pattern?'
-    return int(match.group(1))
-
-
 root = options.data / 'conll-formatted-ontonotes-5.0' / 'data'
 for split in ('train', 'development', 'test'):
-    glob_path = root / split / 'data/english/annotations/nw/wsj/*/*.gold_conll'
+    glob_path = root / split / '**' / '*.gold_conll'
     split = 'dev' if split == 'development' else split
-    out_path = (options.out or options.data) / f'ontonotes5-wsj-{split}.conll'
-    files = glob.glob(str(glob_path))
+    out_path = options.data / f'ontonotes5-{split}.conllx'
+    files = glob.glob(str(glob_path), recursive=True)
     with open(out_path, 'w') as out:
-        for file in sorted(files, key=index):
+        for file in files:
             logging.info('%s set: appending %s', split, file)
             with open(file, 'r') as handle:
                 out.writelines(handle.readlines()[1:-1])
