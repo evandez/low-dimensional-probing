@@ -94,7 +94,7 @@ for split in SPLITS:
     logging.info('reading %s %s set from %s', options.model, split, h5)
     reps_by_split[split] = [
         datasets.RepresentationsDataset(h5, layer)
-        for layer in options.layers or range(NLAYERS[options.model])
+        for layer in range(NLAYERS[options.model])
     ]
 
 samples: List[ptb.Sample] = []
