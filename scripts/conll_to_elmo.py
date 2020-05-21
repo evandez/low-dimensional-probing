@@ -7,6 +7,8 @@ import sys
 import tempfile
 from typing import List
 
+from torch import cuda
+
 parser = argparse.ArgumentParser(description='Pre-embed sentences with ELMo.')
 parser.add_argument('data', type=pathlib.Path, help='Path to .conll(x) file.')
 parser.add_argument('out', type=pathlib.Path, help='Path to output file.')
@@ -34,8 +36,9 @@ with tempfile.TemporaryDirectory() as tempdir:
     raw = pathlib.Path(tempdir) / f'{options.data.name}.raw'
     with raw.open('w') as handle:
         handle.writelines(sentences)
-    process = subprocess.run(
-        ['allennlp', 'elmo', '--all',
-         str(raw), str(options.out)])
+    command = ['allennlp', 'elmo', '--all', str(raw), str(options.out)]
+    if cuda.is_available():
+        command += ['--cuda-device', '0']
+    process = subprocess.run(command)
     if process.returncode:
         sys.exit(process.returncode)
