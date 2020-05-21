@@ -20,9 +20,18 @@ import wandb
 from torch import nn, optim
 from torch.utils import data
 
-parser = argparse.ArgumentParser(description='Preprocess Ontonotes for SRL.')
+parser = argparse.ArgumentParser(description='Train an SRL probe.')
 parser.add_argument('data', type=pathlib.Path, help='Path to data.')
-parser.add_argument('--layer', type=int, default=0, help='ELMo layer.')
+parser.add_argument(
+    '--model',
+    choices=('bert-base-uncased', 'bert-large-uncased', 'elmo'),
+    default='elmo',
+    help='Representation model to use.',
+)
+parser.add_argument('--layer',
+                    type=int,
+                    default=0,
+                    help='Representation layer.')
 parser.add_argument('--dimension',
                     type=int,
                     default=64,
@@ -79,7 +88,7 @@ wandb.init(project='lodimp',
            config={
                'task': 'srl',
                'representations': {
-                   'model': 'elmo',
+                   'model': options.model,
                    'layer': options.layer,
                },
                'projection': {
@@ -115,15 +124,15 @@ logging.info('using %s', device.type)
 options.model_dir.mkdir(parents=True, exist_ok=True)
 logging.info('model(s) will be written to %s', options.model_dir)
 
-annotations, elmos = {}, {}
+annotations, reps_by_split = {}, {}
 for split in ('train', 'dev', 'test'):
     conll = options.data / f'ontonotes5-wsj-{split}.conll'
     logging.info('reading ontonotes %s set from %s', split, conll)
     annotations[split] = ontonotes.load(conll)
 
-    elmo = options.data / f'raw.{split}.elmo-layers.hdf5'
-    logging.info('reading elmo %s set from %s', split, elmo)
-    elmos[split] = datasets.RepresentationsDataset(elmo, options.layer)
+    h5 = options.data / f'raw.{split}.{options.model}-layers.hdf5'
+    logging.info('reading %s %s set from %s', options.model, split, h5)
+    reps_by_split[split] = datasets.RepresentationsDataset(h5, options.layer)
 
 
 class SemanticRoleLabelingTask:
@@ -227,7 +236,7 @@ class SemanticRoleLabelingDataset(data.IterableDataset):
 
 loaders = {}
 for split in ('train', 'dev', 'test'):
-    loaders[split] = SemanticRoleLabelingDataset(elmos[split],
+    loaders[split] = SemanticRoleLabelingDataset(reps_by_split[split],
                                                  annotations[split])
 
 
@@ -331,7 +340,7 @@ class MLP(nn.Module):
         return self.mlp(pairs)
 
 
-ndims = elmos['train'].dimension
+ndims = reps_by_split['train'].dimension
 if options.share_projection:
     projection = models.PairwiseProjection(
         models.Projection(ndims, options.dimension),)
