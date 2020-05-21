@@ -27,10 +27,14 @@ for line in lines:
     line = line.strip()
     if not line and buffer:
         sentences.append(' '.join(buffer))
+        buffer = []
         continue
     elif not line or line.startswith('#'):
         continue
     buffer.append(line.split()[options.word_column])
+
+if buffer:
+    sentences.append(' '.join(buffer))
 
 with tempfile.TemporaryDirectory() as tempdir:
     raw = pathlib.Path(tempdir) / f'{options.data.name}.raw'
