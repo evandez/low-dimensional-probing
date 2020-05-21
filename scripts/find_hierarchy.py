@@ -9,6 +9,8 @@ from typing import List
 import wandb
 from torch import cuda
 
+NLAYERS = {'elmo': 3, 'bert-base-uncased': 12}
+
 parser = argparse.ArgumentParser(description='Learn projection hierarchy.')
 parser.add_argument('wandb_user', help='Weights and Biases user to use.')
 parser.add_argument(
@@ -16,11 +18,14 @@ parser.add_argument(
     nargs='+',
     type=pathlib.Path,
     help='Data directories for tasks constructing the hierarchy, in order.')
+parser.add_argument('--model',
+                    choices=NLAYERS.keys(),
+                    default='elmo',
+                    help='Representation model.')
 parser.add_argument('--layers',
                     type=int,
                     nargs='+',
-                    default=(0, 1, 2),
-                    help='ELMo layers to use.')
+                    help='Representation layers.')
 parser.add_argument('--model-dir',
                     type=pathlib.Path,
                     default='/tmp/lodimp/models',
@@ -56,20 +61,21 @@ if cuda.is_available():
     base.extend(['--cuda', '--no-batch'])
 
 api = wandb.Api()
-for layer in options.layers:
+for layer in options.layers or range(NLAYERS[options.model]):
     max_dimension = options.root_dimension
     compose_paths: List[pathlib.Path] = []
     for index, task in enumerate(options.tasks):
         for dimension in range(1, max_dimension + 1):
             command = base.copy()
             command += [str(task.resolve())]
+            command += ['--model', options.model]
             command += ['--layer', str(layer)]
             command += ['--dimension', str(dimension)]
 
             wandb_id = wandb.util.generate_id()
             command += ['--wandb-id', wandb_id]
 
-            tag = f'h{index}-{task.name}-elmo{layer}-d{dimension}'
+            tag = f'h{index}-{task.name}-{options.model}{layer}-d{dimension}'
             command += ['--wandb-name', tag]
 
             model_file = f'{tag}.pth'

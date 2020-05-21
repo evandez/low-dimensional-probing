@@ -9,16 +9,20 @@ from typing import Sequence
 from torch import cuda
 
 TASKS = ('pos', 'dep_arc', 'dep_label')
+NLAYERS = {'elmo': 3, 'bert-base-uncased': 12}
 
 parser = argparse.ArgumentParser(description='Run brute-force experiments.')
 parser.add_argument('task', choices=TASKS, help='Task to run.')
 parser.add_argument('data', type=pathlib.Path, help='Path to task data.')
 parser.add_argument('--probes', nargs='+', help='Probes to train.')
+parser.add_argument('--model',
+                    choices=NLAYERS.keys(),
+                    default='elmo',
+                    help='Representation model.')
 parser.add_argument('--layers',
                     type=int,
                     nargs='+',
-                    default=(0, 1, 2),
-                    help='ELMo layers to run.')
+                    help='Representation layers to train against.')
 parser.add_argument('--dims',
                     type=int,
                     nargs='+',
@@ -84,11 +88,12 @@ def run(command: Sequence[str]) -> None:
 
 
 # Launch jobs, one task, layer, and dimension at a time.
-for layer in options.layers:
+for layer in options.layers or range(NLAYERS[options.model]):
     for dim in options.dims:
         for probe in probes:
-            tag = f'{options.task}-elmo{layer}-{probe}-{dim}d'
+            tag = f'{options.task}-{options.model}{layer}-{probe}-{dim}d'
             command = base.copy()
+            command += ['--model', options.model]
             command += ['--layer', str(layer)]
             command += ['--dimension', str(dim)]
             command += ['--probe', probe]
