@@ -7,7 +7,8 @@ import pathlib
 import sys
 from typing import Dict, Set, Union
 
-from lodimp import datasets, linalg, models
+from lodimp import datasets, linalg
+from lodimp.common.models import probes, projections
 
 import torch
 import torch.utils.data
@@ -161,17 +162,19 @@ for split, dataset in data.items():
 # Initialize the projection.
 if options.compose:
     compose = torch.load(options.compose, map_location=device).project
-    projection = models.Projection(ndims, options.dimension, compose=compose)
+    projection = projections.Projection(ndims,
+                                        options.dimension,
+                                        compose=compose)
 else:
-    projection = models.Projection(ndims, options.dimension)
+    projection = projections.Projection(ndims, options.dimension)
 
-probe: Union[models.Linear, models.MLP]
+probe: Union[probes.Linear, probes.MLP]
 if options.probe == 'linear':
     assert nlabels is not None
-    probe = models.Linear(options.dimension, nlabels, project=projection)
+    probe = probes.Linear(options.dimension, nlabels, project=projection)
 else:
     assert options.probe == 'mlp', 'unknown model?'
-    probe = models.MLP(options.dimension, nlabels, project=projection)
+    probe = probes.MLP(options.dimension, nlabels, project=projection)
 probe = probe.to(device)
 
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)

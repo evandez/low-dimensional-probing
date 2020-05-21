@@ -11,9 +11,10 @@ import itertools
 import logging
 import pathlib
 import sys
-from typing import Dict, Iterator, Optional, Sequence, Set, Tuple, Union
+from typing import Dict, Iterator, Sequence, Set, Tuple, Union
 
-from lodimp import datasets, models, ontonotes
+from lodimp import datasets, ontonotes
+from lodimp.common.models import probes, projections
 
 import torch
 import wandb
@@ -239,125 +240,21 @@ for split in ('train', 'dev', 'test'):
     loaders[split] = SemanticRoleLabelingDataset(reps_by_split[split],
                                                  annotations[split])
 
-
-class Bilinear(nn.Module):
-    """A bilinear probe."""
-
-    def __init__(self,
-                 left_features: int,
-                 right_features: int,
-                 out_features: int,
-                 project: Optional[models.PairwiseProjection] = None):
-        """Initialize the architecture.
-
-        Args:
-            left_features (int): Number of features in left components.
-            right_features (int): Number of features in right components.
-            out_features (int): Number of output features.
-            project (Optional[PairwiseProjection], optional): Apply this
-                transformation to inputs first. By default, no transformation.
-
-        """
-        super().__init__()
-
-        self.left_features = left_features
-        self.right_features = right_features
-        self.out_features = out_features
-
-        self.project = project
-        self.compat = nn.Bilinear(left_features, right_features, out_features)
-
-    def forward(self, lefts: torch.Tensor,
-                rights: torch.Tensor) -> torch.Tensor:
-        """Compute compatibility between lefts and rights.
-
-        Args:
-            lefts (torch.Tensor): Left items to compute compatibility for.
-                Should have shape (*, left_features).
-            rights (torch.Tensor): Right items to compute compatibility for.
-                Should have shape (*, right_features).
-
-        Returns:
-            torch.Tensor: Compatibilities of shape (*, out_features).
-
-        """
-        if self.project is not None:
-            lefts, rights = self.project(lefts, rights)
-        return self.compat(lefts, rights)
-
-
-class MLP(nn.Module):
-    """MLP that computes pairwise compatibilities between representations."""
-
-    def __init__(self,
-                 in_features: int,
-                 out_features: int,
-                 hidden_features: Optional[int] = None,
-                 project: Optional[models.PairwiseProjection] = None):
-        """Initialize the network.
-
-        Args:
-            in_features (int): Number of features in inputs.
-            out_features (int): Number of features in outputs.
-            hidden_features (Optional[int], optional): Number of features in
-                MLP hidden layer. Defaults to the same as MLP's input features.
-            project (Optional[PairwiseProjection], optional): See
-                PairwiseBilinear.__init__ docstring.
-
-        """
-        super().__init__()
-
-        hidden_features = hidden_features or in_features
-
-        self.in_features = in_features
-        self.hidden_features = hidden_features
-        self.out_features = out_features
-
-        self.project = project
-        self.mlp = nn.Sequential(nn.Linear(in_features * 2, hidden_features),
-                                 nn.ReLU(),
-                                 nn.Linear(hidden_features, out_features))
-
-    def forward(self, lefts: torch.Tensor,
-                rights: torch.Tensor) -> torch.Tensor:
-        """Compute pairwise compatibilities for given matrix.
-
-        Args:
-            inputs (torch.Tensor): Shape (N, in_features) matrix,
-                where N is the number of representations to compare.
-
-        Raises:
-            ValueError: If input is misshapen.
-
-        Returns:
-            torch.Tensor: Size (N, N) matrix representing pairwise
-                compatibilities.
-
-        """
-        if self.project is not None:
-            lefts, rights = self.project(lefts, rights)
-        pairs = torch.cat((lefts, rights), dim=-1)
-        return self.mlp(pairs)
-
-
 ndims = reps_by_split['train'].dimension
 if options.share_projection:
-    projection = models.PairwiseProjection(
-        models.Projection(ndims, options.dimension),)
+    projection = projections.PairwiseProjection(
+        projections.Projection(ndims, options.dimension),)
 else:
-    projection = models.PairwiseProjection(
-        models.Projection(ndims, options.dimension),
-        models.Projection(ndims, options.dimension))
+    projection = projections.PairwiseProjection(
+        projections.Projection(ndims, options.dimension),
+        projections.Projection(ndims, options.dimension))
 
-probe: Union[Bilinear, MLP]
+probe: Union[probes.Bilinear, probes.BiMLP]
 if options.probe == 'bilinear':
-    probe = Bilinear(options.dimension,
-                     options.dimension,
-                     len(task),
-                     project=projection)
+    probe = probes.Bilinear(options.dimension, len(task), project=projection)
 else:
     assert options.probe == 'mlp'
-    probe = MLP(options.dimension, len(task), project=projection)
+    probe = probes.BiMLP(options.dimension, len(task), project=projection)
 probe = probe.to(device)
 
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
