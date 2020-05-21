@@ -13,7 +13,8 @@ import pathlib
 import sys
 from typing import Dict, Iterator, Sequence, Set, Tuple, Union
 
-from lodimp import datasets, ontonotes
+from lodimp import datasets
+from lodimp.common.data import ontonotes
 from lodimp.common.models import probes, projections
 
 import torch

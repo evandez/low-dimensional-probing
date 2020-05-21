@@ -3,7 +3,7 @@
 import pathlib
 import tempfile
 
-from lodimp import ontonotes
+from lodimp.common.data import ontonotes
 
 import pytest
 

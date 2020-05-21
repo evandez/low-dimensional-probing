@@ -20,7 +20,8 @@ import pathlib
 import sys
 from typing import Callable, Dict, List, Sequence
 
-from lodimp import datasets, ptb, tasks
+from lodimp import tasks
+from lodimp.common.data import ptb, representations
 
 import h5py
 import torch
@@ -93,7 +94,7 @@ for split in SPLITS:
     h5 = options.data / f'raw.{split}.{options.model}-layers.hdf5'
     logging.info('reading %s %s set from %s', options.model, split, h5)
     reps_by_split[split] = [
-        datasets.RepresentationsDataset(h5, layer)
+        representations.RepresentationsDataset(h5, layer)
         for layer in range(NLAYERS[options.model])
     ]
 

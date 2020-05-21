@@ -3,7 +3,7 @@
 import pathlib
 import tempfile
 
-from lodimp import ptb
+from lodimp.common.data import ptb
 
 import pytest
 

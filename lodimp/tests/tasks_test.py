@@ -1,6 +1,7 @@
 """Unit tests for the tasks module."""
 
-from lodimp import ptb, tasks
+from lodimp import tasks
+from lodimp.common.data import ptb
 
 import torch
 

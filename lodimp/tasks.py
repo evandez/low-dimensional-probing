@@ -4,7 +4,7 @@ import collections
 import itertools
 from typing import Any, Dict, Optional, Sequence, Set
 
-from lodimp import ptb
+from lodimp.common.data import ptb
 
 import numpy as np
 import torch
