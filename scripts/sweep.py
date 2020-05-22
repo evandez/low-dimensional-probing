@@ -100,7 +100,7 @@ for layer in options.layers or range(NLAYERS[options.model]):
             run(command + ['--wandb-name', tag])
 
             # TODO(evandez): Okay, this script needs to be broken up.
-            if options.task in ('dep_arc', 'dep_label'):
+            if options.task in ('dep_arc', 'dep_label', 'srl'):
                 shared = command.copy()
                 shared += ['--share-projection']
                 shared += ['--wandb-name', tag + '-shared']
