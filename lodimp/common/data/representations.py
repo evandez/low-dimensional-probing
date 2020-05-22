@@ -7,42 +7,35 @@ import torch
 from torch.utils import data
 
 
-class RepresentationsDataset(data.Dataset):
+class RepresentationDataset(data.Dataset):
     """Iterates through a dataset of word representations."""
 
-    def __init__(self, path: pathlib.Path, layer: int):
+    def __init__(self, path: pathlib.Path):
         """Load the h5 file contained pre-computed representations.
 
         Args:
             path (str): Path to h5 file containing pre-computed reps.
-            layer (int): Which layer to use.
 
         """
-        super(RepresentationsDataset, self).__init__()
+        super(RepresentationDataset, self).__init__()
         self.file = h5py.File(path, 'r')
-        self.layer = layer
 
         assert '0' in self.file, 'reps file has no 0th element?'
-        layers = self.file['0'].shape[0]
-        if layer < 0 or layer >= layers:
-            raise IndexError(f'expected layer in [0, {layers}), got {layer}')
-
-    @property
-    def dimension(self) -> int:
-        """Returns the dimensionality of the ELMo representations."""
-        assert '0' in self.file, 'reps file has no 0th element?'
-        return self.file['0'].shape[-1]
+        example = self.file['0']
+        self.dimension = example.shape[-1]
+        self.layers = self.file['0'].shape[0]
 
     def __getitem__(self, index: int) -> torch.Tensor:
-        """Returns the ELMo represenations for the sentence at the given index.
+        """Returns the represenations for the sentence at the given index.
 
         Args:
-            index (int): Which sentence to retrieve ELMo reps for.
+            index (int): Which sentence to retrieve representations for.
 
         Returns:
-            ELMo representations for the given sentence, given as shape (L, D)
-            tensor, where L is length of the sentence and D is the ELMo layer
-            dimensionality.
+            torch.Tensor: Representations for the given sentence, given
+                as shape (L, N, D) tensor, where L is the number of
+                representation layers, N is length of the sentence and D
+                is the representation dimensionality.
 
         Raises:
             IndexError: If the index is out of bounds.
@@ -50,8 +43,78 @@ class RepresentationsDataset(data.Dataset):
         """
         if index < 0 or index >= len(self):
             raise IndexError(f'index out of bounds: {index}')
-        return torch.tensor(self.file[str(index)][self.layer])
+        return torch.tensor(self.file[str(index)])
 
     def __len__(self) -> int:
-        """Returns the length of the dataset."""
+        """Returns the number of samples (sentences) in the dataset."""
         return len(self.file.keys()) - 1  # Ignore sentence_to_index.
+
+    def length(self, index: int) -> int:
+        """Returns the length of the index'th sequence.
+
+        This function exists because it is much faster than using __getitem__.
+        It only reads file metadata as opposed to reading in every single
+        representation.
+
+        Args:
+            index (int): Index of the sample to fetch the length for.
+
+        Returns:
+            Number of representations (words, i.e. length of the sentence)
+            for the sample.
+
+        """
+        if index < 0 or index >= len(self):
+            raise IndexError(f'index out of bounds: {index}')
+        return self.file[str(index)].shape[1]
+
+    def layer(self, layer: int) -> 'RepresentationLayerDataset':
+        """Create a view of this dataset restricted to one layer.
+
+        Args:
+            layer (int): The layer to restrict to.
+
+        Returns:
+            RepresentationLayerDataset: The restricted dataset.
+
+        """
+        return RepresentationLayerDataset(self, layer)
+
+
+class RepresentationLayerDataset(data.Dataset):
+    """Wrapper around RepresentationDataset that restricts to one layer."""
+
+    def __init__(self, dataset: RepresentationDataset, layer: int):
+        """Initialize the dataset.
+
+        Args:
+            dataset (RepresentationDataset): Dataset to restrict.
+            layer (int): Layer to restrict to.
+
+        Raises:
+            IndexError: If the layer number is out of bounds.
+
+        """
+        if layer < 0 or layer >= dataset.layers:
+            raise IndexError(f'layer {layer} out of bounds')
+
+        self.dataset = dataset
+        self.layer = layer
+
+    def __getitem__(self, index: int) -> torch.Tensor:
+        """Returns the represenations layer for the sentence at the index.
+
+        Args:
+            index (int): Which sentence to retrieve representations for.
+
+        Returns:
+            torch.Tensor: Layer representations for the given sentence, given
+                as shape (N, D) tensor, where N is length of the sentence and D
+                is the representation dimensionality.
+
+        """
+        return self.dataset[index][self.layer]
+
+    def __len__(self) -> int:
+        """Returns the number of samples (sentences) in the dataset."""
+        return len(self.dataset)

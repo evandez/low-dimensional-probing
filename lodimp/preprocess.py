@@ -94,7 +94,7 @@ for split in SPLITS:
     h5 = options.data / f'raw.{split}.{options.model}-layers.hdf5'
     logging.info('reading %s %s set from %s', options.model, split, h5)
     reps_by_split[split] = [
-        representations.RepresentationsDataset(h5, layer)
+        representations.RepresentationDataset(h5).layer(layer)
         for layer in range(NLAYERS[options.model])
     ]
 
@@ -124,7 +124,7 @@ for layer in options.layers or range(NLAYERS[options.model]):
 
             # Determine important dimensions.
             nsents = len(reps)
-            ndims = reps.dimension
+            ndims = reps.dataset.dimension
             nsamples = sum(len(label) for label in labels)
 
             logging.info('found %d sentences, %d samples for task, %dd reps',
