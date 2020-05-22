@@ -1,6 +1,6 @@
 """Unit tests for metrics module."""
 
-from lodimp import linalg
+from lodimp.common import linalg
 
 import torch
 

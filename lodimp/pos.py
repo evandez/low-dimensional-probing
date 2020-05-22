@@ -7,7 +7,8 @@ import pathlib
 import sys
 from typing import Dict, Set, Union
 
-from lodimp import datasets, linalg
+from lodimp import datasets
+from lodimp.common import linalg
 from lodimp.common.models import probes, projections
 
 import torch
