@@ -278,6 +278,9 @@ best_dev_loss, bad_epochs = float('inf'), 0
 for epoch in range(options.epochs):
     probe.train()
     for batch, (reps, themes, labels) in enumerate(loaders['train']):
+        reps = reps.to(device)
+        themes = themes.to(device)
+        labels = labels.to(device)
         lefts = reps[themes].unsqueeze(1).expand(-1, len(reps), -1)
         rights = reps.unsqueeze(0).expand(len(themes), -1, -1)
         preds = probe(lefts, rights)
@@ -292,6 +295,9 @@ for epoch in range(options.epochs):
     probe.eval()
     total, count = 0., 0
     for reps, themes, labels in loaders['dev']:
+        reps = reps.to(device)
+        themes = themes.to(device)
+        labels = labels.to(device)
         lefts = reps[themes].unsqueeze(1).expand(-1, len(reps), -1)
         rights = reps.unsqueeze(0).expand(len(themes), -1, -1)
         preds = probe(lefts, rights).view(-1, probe.out_features)
@@ -331,6 +337,9 @@ def test(model: nn.Module) -> float:
     """
     correct, count = 0., 0
     for reps, themes, labels in loaders['test']:
+        reps = reps.to(device)
+        themes = themes.to(device)
+        labels = labels.to(device)
         lefts = reps[themes].unsqueeze(1).expand(-1, len(reps), -1)
         rights = reps.unsqueeze(0).expand(len(themes), -1, -1)
         preds = model(lefts, rights).argmax(dim=-1)
