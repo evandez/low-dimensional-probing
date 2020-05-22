@@ -8,7 +8,7 @@ from typing import Sequence
 
 from torch import cuda
 
-TASKS = ('pos', 'dep_arc', 'dep_label')
+TASKS = ('pos', 'dep_arc', 'dep_label', 'srl')
 NLAYERS = {'elmo': 3, 'bert-base-uncased': 12}
 
 parser = argparse.ArgumentParser(description='Run brute-force experiments.')
@@ -53,7 +53,7 @@ options = parser.parse_args()
 
 probes = options.probes
 if not options.probes:
-    if options.task == 'dep_arc':
+    if options.task in ('dep_arc', 'srl'):
         probes = ('bilinear', 'mlp')
     else:
         probes = ('linear', 'mlp')
