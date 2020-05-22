@@ -128,7 +128,7 @@ logging.info('model(s) will be written to %s', options.model_dir)
 
 annotations, reps_by_split = {}, {}
 for split in ('train', 'dev', 'test'):
-    conll = options.data / f'ontonotes5-wsj-{split}.conll'
+    conll = options.data / f'ontonotes5-{split}.conllx'
     logging.info('reading ontonotes %s set from %s', split, conll)
     annotations[split] = ontonotes.load(conll)
 
