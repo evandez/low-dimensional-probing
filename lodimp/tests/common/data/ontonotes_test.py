@@ -31,6 +31,10 @@ nw/wsj/02/wsj_0221   0   12          in     IN             (PP*         -    -  
 nw/wsj/02/wsj_0221   0   13       Japan    NNP   (NP*)))))))))))        -    -   -   -    (GPE)       *)           *)  -
 nw/wsj/02/wsj_0221   0   14           .      .               *))        -    -   -   -       *        *            *   -
 
+nw/wsj/03/wsj_0312   0   0     Trial   NN  (TOP(NP*   -   -   -   -   *   -
+nw/wsj/03/wsj_0312   0   1       and   CC         *   -   -   -   -   *   -
+nw/wsj/03/wsj_0312   0   2    Terror   NN        *))  -   -   -   -   *   -
+
 #end document
 '''  # noqa: E501
 
@@ -94,6 +98,10 @@ SAMPLES = (
             ),
         ),
     ),
+    ontonotes.Sample(
+        ('Trial', 'and', 'Terror'),
+        ((ontonotes.IGNORE, ontonotes.IGNORE, ontonotes.IGNORE),),
+    ),
 )
 
 
@@ -111,5 +119,18 @@ def test_load(path):
     samples = ontonotes.load(path)
     assert len(samples) == len(SAMPLES)
     for actual, expected in zip(samples, SAMPLES):
-        print(actual)
         assert actual == expected
+
+
+@pytest.mark.parametrize('labeling,expected', (
+    (('(ARG0*)', '(V*)'), ('ARG0', 'V')),
+    (
+        ('(V*)', '(ARG0*', '*', '*)', '*', '(ARG1*)'),
+        ('V', 'ARG0', 'ARG0', 'ARG0', '*', 'ARG1'),
+    ),
+    (('*', '*', '*'), ('*', '*', '*')),
+))
+def test_unparse(labeling, expected):
+    """Test unparse handles all cases well."""
+    actual = ontonotes.unparse(labeling)
+    assert actual == expected

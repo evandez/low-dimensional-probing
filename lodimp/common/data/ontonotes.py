@@ -31,6 +31,8 @@ def unparse(labeling: Sequence[str]) -> Sequence[str]:
     for label in labeling:
         if label == '*':
             unparsed.append(current or '*')
+        elif label == IGNORE:
+            unparsed.append(IGNORE)
         elif label.startswith('('):
             assert current is None, 'nested labeling?'
             if label.endswith('*)'):
@@ -47,7 +49,7 @@ def unparse(labeling: Sequence[str]) -> Sequence[str]:
             current = None
     assert current is None, 'unfinished label?'
     assert len(unparsed) == len(labeling)
-    return unparsed
+    return tuple(unparsed)
 
 
 def load(path: pathlib.Path) -> Sequence[Sample]:
@@ -93,10 +95,10 @@ def load(path: pathlib.Path) -> Sequence[Sample]:
                 continue
 
             components = line.split()
-            assert len(components) > 12, 'no semantic roles?'
+            assert len(components) >= 12, 'incomplete column?'
             sentence.append(components[3])
 
-            if len(components) >= 12:
+            if len(components) > 12:
                 roles.append(components[11:-1])
             else:
                 roles.append([IGNORE])
