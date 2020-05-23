@@ -1,20 +1,57 @@
 """Core experiments for part of speech tagger probes."""
 
+import copy
 import logging
 import pathlib
-from typing import Dict, Optional, Type, Union
+from typing import Dict, Optional, Sequence, Set, Tuple, Type, Union
 
 from lodimp.common import learning
 from lodimp.common.data import splits
 from lodimp.common.models import probes, projections
 
 import torch
+import wandb
 
 # Define the valid probe types for this task.
 Probe = Union[probes.Linear, probes.MLP]
 
 
-def train(data: pathlib.Path,
+def load(
+    data_path: pathlib.Path,
+    data_splits: Sequence[str] = splits.STANDARD_SPLITS,
+    batch: bool = True,
+    device: Optional[torch.device] = None,
+) -> Dict[str, learning.TaskDataset]:
+    """Load task data.
+
+    Args:
+        data_path (pathlib.Path): Path to preprocessed task data.
+        data_splits (Sequence[str], optional): Splits to load.
+            Defaults to all standard splits (i.e. train, dev, test).
+        batch (bool, optional): If true, batch the dataset by sentence.
+            Otherwise, the data will be loaded into memory/GPU all at once.
+            Defaults to True.
+        device (Optional[torch.device], optional): When `batch=False`, send
+            full dataset to this device. Defaults to CPU.
+
+    Returns:
+        Dict[str, learning.TaskDataset]: Mapping from split name to dataset.
+
+    """
+    log = logging.getLogger(__name__)
+    datasets: Dict[str, learning.TaskDataset] = {}
+    for split in splits.STANDARD_SPLITS:
+        path = data_path / f'{split}.h5'
+        if batch:
+            log.info('loading task %s set from %s', split, path)
+            datasets[split] = learning.SentenceIterableTaskDataset(path)
+        else:
+            log.info('loading and collating task %s set from %s', split, path)
+            datasets[split] = learning.InMemoryTaskDataset(path, device=device)
+    return datasets
+
+
+def train(data_path: pathlib.Path,
           probe_t: Type[Probe] = probes.Linear,
           project_to: int = 10,
           project_from: Optional[projections.Projection] = None,
@@ -23,11 +60,11 @@ def train(data: pathlib.Path,
           patience: int = 4,
           lr: float = 1e-3,
           device: Optional[torch.device] = None,
-          also_log_to_wandb: bool = False) -> Probe:
+          also_log_to_wandb: bool = False) -> Tuple[Probe, float]:
     """Train a probe on part of speech tagging.
 
     Args:
-        data (pathlib.Path): Path to preprocessed task data.
+        data_path (pathlib.Path): Path to preprocessed task data.
         probe_t (Type[Probe], optional): Probe type to train.
             Defaults to probes.Linear.
         project_to (int, optional): Project representations to this
@@ -46,24 +83,16 @@ def train(data: pathlib.Path,
         lr (float, optional): Learning rate for optimizer. Defaults to 1e-3.
         device (Optional[torch.device], optional): Torch device on which to
             train probe. Defaults to CPU.
-        also_log_to_wandb (bool, optional): If set, log training metrics
-            to wandb. Defaults to False.
+        also_log_to_wandb (Optional[pathlib.Path], optional): If set, log
+            training data to wandb. By default, wandb is not used.
 
     Returns:
-        Probe: The trained probe.
+        Tuple[Probe, float]: The trained probe and its test accuracy.
 
     """
     log = logging.getLogger(__name__)
 
-    datasets: Dict[str, learning.TaskDataset] = {}
-    for split in splits.STANDARD_SPLITS:
-        path = data / f'{split}.h5'
-        if batch:
-            log.info('loading task %s set from %s', split, path)
-            datasets[split] = learning.SentenceIterableTaskDataset(path)
-        else:
-            log.info('loading and collating task %s set from %s', split, path)
-            datasets[split] = learning.InMemoryTaskDataset(path, device=device)
+    datasets = load(data_path, batch=batch, device=device)
 
     ndims = datasets[splits.TRAIN].dimension
     log.info('representations have dimension %d')
@@ -82,4 +111,68 @@ def train(data: pathlib.Path,
                    lr=lr,
                    device=device,
                    also_log_to_wandb=also_log_to_wandb)
-    return probe
+    accuracy = learning.test(probe, datasets[splits.TEST], device=device)
+    return probe, accuracy
+
+
+def axis_alignment(probe: Probe,
+                   data_path: pathlib.Path,
+                   batch: bool = True,
+                   device: Optional[torch.device] = None,
+                   also_log_to_wandb: bool = False) -> Sequence[float]:
+    """Measure whether the given probe is axis aligned.
+
+    Args:
+        probe (Probe): The probe to evaluate.
+        data_path (pathlib.Path): Path to preprocessed task data.
+        batch (bool, optional): If true, batch the dataset by sentence.
+            Otherwise, the data will be loaded into memory/GPU all at once.
+            Defaults to True.
+        device (Optional[torch.device], optional): Torch device on which to
+            train probe. Defaults to CPU.
+        also_log_to_wandb (bool, optional): If set, log results to wandb.
+
+    Returns:
+        The sequence of accuracies obtained by ablating the least harmful
+        axes, in order.
+
+    """
+    log = logging.getLogger(__name__)
+
+    datasets = load(data_path,
+                    data_splits=(splits.DEV, splits.TEST),
+                    batch=batch,
+                    device=device)
+
+    projection = probe.project
+    assert projection is not None, 'no projection?'
+
+    axes = set(range(projection.project.in_features))
+    ablated: Set[int] = set()
+    accuracies = []
+    while axes:
+        best_model, best_axis, best_accuracy = probe, -1, -1.
+        for axis in axes:
+            model = copy.deepcopy(best_model).eval()
+            assert model.project is not None, 'no projection?'
+            model.project.project.weight.data[:, sorted(ablated | {axis})] = 0
+            accuracy = learning.test(model, datasets[splits.DEV])
+            if accuracy > best_accuracy:
+                best_model = model
+                best_axis = axis
+                best_accuracy = accuracy
+        accuracy = learning.test(best_model, datasets[splits.TEST])
+
+        log.info('ablating axis %d, test accuracy %f', best_axis, accuracy)
+        if also_log_to_wandb:
+            wandb.log({
+                'axis': best_axis,
+                'dev accuracy': best_accuracy,
+                'test accuracy': accuracy,
+            })
+
+        axes.remove(best_axis)
+        ablated.add(best_axis)
+        accuracies.append(accuracy)
+
+    return accuracies
