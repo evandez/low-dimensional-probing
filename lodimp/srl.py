@@ -5,6 +5,7 @@ Need to fold this into the rest of the codebase. Right now, everything in
 this script is a special case, so pay attention, dear reader.
 """
 
+# flake8: noqa
 import argparse
 import copy
 import itertools
@@ -12,6 +13,7 @@ import logging
 import pathlib
 import sys
 from typing import Dict, Iterator, Sequence, Set, Tuple, Union
+sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 from lodimp import datasets
 from lodimp.common.data import ontonotes

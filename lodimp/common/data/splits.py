@@ -1,8 +1,7 @@
 """Constants and utilities for interacting with dataset splits."""
 
-import os
 import pathlib
-from typing import Dict, NamedTuple, Optional
+from typing import Dict, Mapping, NamedTuple, Optional, Union
 
 # These constants define standard dataset splits for both PTB/OntoNotes.
 TRAIN = 'train'
@@ -41,12 +40,15 @@ class Split(NamedTuple):
     annotations: pathlib.Path
 
 
-def ensure(representations: os.PathLike, annotations: os.PathLike) -> Split:
+PathLike = Union[str, pathlib.Path]
+
+
+def ensure(representations: PathLike, annotations: PathLike) -> Split:
     """Construct a Split, ensuring the files exist.
 
     Args:
-        representations (os.PathLike): The word representations for the split.
-        annotations (os.PathLike): The annotations for the split.
+        representations (PathLike): The word representations for the split.
+        annotations (PathLike): The annotations for the split.
 
     Raises:
         FileNotFoundError: If representations/annotations files not found.
@@ -66,9 +68,9 @@ def ensure(representations: os.PathLike, annotations: os.PathLike) -> Split:
     return Split(representations=representations, annotations=annotations)
 
 
-def join(representations: Dict[str, os.PathLike],
-         annotations: Dict[str, os.PathLike],
-         root: Optional[os.PathLike] = None,
+def join(representations: Mapping[str, PathLike],
+         annotations: Mapping[str, PathLike],
+         root: Optional[PathLike] = None,
          validate: bool = True) -> Dict[str, Split]:
     """Join representations and annotations into split.
 
@@ -80,11 +82,11 @@ def join(representations: Dict[str, os.PathLike],
                            root=path_to_my_data)
 
     Args:
-        representations (Dict[str, os.PathLike]): Dict mapping split key
+        representations (Mapping[str, PathLike]): Map from split key
             to representations path.
-        annotations (Dict[str, os.PathLike]): Dict mapping split key to
+        annotations (Mapping[str, PathLike]): Map from split key to
             annotations path.
-        root (os.PathLike): Prepend this path to the representations
+        root (PathLike): Prepend this path to the representations
             and annotations paths. By default nothing is prepended.
         validate (bool, optional): Ensure the root and final split paths
             exist. Defaults to True.

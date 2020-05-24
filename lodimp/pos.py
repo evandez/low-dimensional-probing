@@ -1,11 +1,12 @@
 """Entry point for all experiments."""
-
+# flake8: noqa
 import argparse
 import copy
 import logging
 import pathlib
 import sys
 from typing import Dict, Set, Union
+sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 from lodimp import datasets
 from lodimp.common import linalg

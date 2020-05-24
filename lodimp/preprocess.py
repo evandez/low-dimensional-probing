@@ -12,13 +12,15 @@ on reading and collating the data.
 We cut out that complexity entirely by preparing the task ahead of time
 and keeping the training script (mostly) agnostic to the task at hand.
 """
-
+# flake8: noqa
 import argparse
 import functools as ft
 import logging
 import pathlib
 import sys
 from typing import Callable, Dict, List, Sequence
+
+sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 from lodimp import tasks
 from lodimp.common.data import ptb, representations
