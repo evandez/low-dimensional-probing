@@ -1,7 +1,7 @@
 """Preprocess PTB data for some task.
 
 This script computes the mapping from representation (or pairs of
-representations) to labels, and then saves the mapping to an h5 file
+representations) to tags, and then saves the mapping to an h5 file
 to be used by the training script.
 
 While the mappings themselves are not expensive to construct, doing
@@ -30,7 +30,7 @@ import torch
 
 TaskFactory = Callable[[Sequence[ptb.Sample]], tasks.Task]
 
-# Unigram tasks map single words to labels.
+# Unigram tasks map single words to tags.
 UNIGRAM_TASKS: Dict[str, TaskFactory] = {
     'pos': tasks.POSTask,
     'pos-verb': ft.partial(tasks.POSTask, tags=tasks.POS_VERBS),
@@ -45,7 +45,7 @@ UNIGRAM_TASKS: Dict[str, TaskFactory] = {
     'dep-arc': tasks.DependencyArcTask,
 }
 
-# Bigram tasks map pairs of words to labels.
+# Bigram tasks map pairs of words to tags.
 BIGRAM_TASKS: Dict[str, TaskFactory] = {
     'dep-label': tasks.DependencyLabelTask,
 }
@@ -113,7 +113,7 @@ else:
 
 root = (options.out or options.data) / options.task
 for layer in options.layers or range(NLAYERS[options.model]):
-    directory = root / f'{options.model}-{layer}'
+    directory = root / options.model / str(layer)
     directory.mkdir(parents=True, exist_ok=True)
     logging.info('writing splits for layer %d to %s', layer, directory)
 
@@ -122,12 +122,12 @@ for layer in options.layers or range(NLAYERS[options.model]):
         logging.info('will write split %s to %s', split, file)
         with h5py.File(file, 'w') as h5f:
             reps = reps_by_split[split][layer]
-            labels = [task(sample) for sample in ptbs[split]]
+            tags = [task(sample) for sample in ptbs[split]]
 
             # Determine important dimensions.
             nsents = len(reps)
             ndims = reps.dataset.dimension
-            nsamples = sum(len(label) for label in labels)
+            nsamples = sum(len(tag) for tag in tags)
 
             logging.info('found %d sentences, %d samples for task, %dd reps',
                          nsents, nsamples, ndims)
@@ -135,29 +135,27 @@ for layer in options.layers or range(NLAYERS[options.model]):
                                             shape=(nsents,),
                                             dtype='i')
             reps_out = h5f.create_dataset(
-                'representations',
+                'reps',
                 shape=(nsamples, 2, ndims) if options.task in BIGRAM_TASKS else
                 (nsamples, ndims),
                 dtype='f')
-            labels_out = h5f.create_dataset('labels',
-                                            shape=(nsamples,),
-                                            dtype='i')
+            tags_out = h5f.create_dataset('tags', shape=(nsamples,), dtype='i')
             if isinstance(task, tasks.SizedTask):
-                # Write out how many valid labels there are, if that quantity
+                # Write out how many valid tags there are, if that quantity
                 # is defined for the task.
-                labels_out.attrs['nlabels'] = len(task)
+                tags_out.attrs['ntags'] = len(task)
 
             if options.task in BIGRAM_TASKS:
-                logging.info('writing reps and labels to %s', file)
+                logging.info('writing reps and tags to %s', file)
                 start = 0
                 for index in range(nsents):
                     logging.info('processing %d of %d', index + 1, nsents)
-                    rep, label = reps[index], labels[index]
-                    assert label.shape == (len(rep), len(rep))
+                    rep, tag = reps[index], tags[index]
+                    assert tag.shape == (len(rep), len(rep))
 
                     # Take only positive examples.
                     idxs = set(range(len(rep)))
-                    pairs = [(i, j) for i in idxs for j in idxs if label[i, j]]
+                    pairs = [(i, j) for i in idxs for j in idxs if tag[i, j]]
                     assert pairs and len(pairs) == len(rep)
 
                     # Write the results to the file.
@@ -165,8 +163,8 @@ for layer in options.layers or range(NLAYERS[options.model]):
                     end = start + len(pairs)
                     bigrams = [torch.stack((rep[i], rep[j])) for i, j in pairs]
                     reps_out[start:end] = torch.stack(bigrams).numpy()
-                    labels_out[start:end] = torch.stack(
-                        [label[i, j] for i, j in pairs]).numpy()
+                    tags_out[start:end] = torch.stack(
+                        [tag[i, j] for i, j in pairs]).numpy()
                     start = end
                 assert start == nsamples
             else:
@@ -180,5 +178,5 @@ for layer in options.layers or range(NLAYERS[options.model]):
                     start += len(current)
                 assert start == len(reps_out)
 
-                logging.info('writing labels to %s', file)
-                labels_out[:] = torch.cat(labels).numpy()
+                logging.info('writing tags to %s', file)
+                tags_out[:] = torch.cat(tags).numpy()
