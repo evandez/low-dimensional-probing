@@ -68,6 +68,7 @@ pyflakes==2.2.0
 Pygments==2.6.1
 pyparsing==2.4.7
 pytest==5.4.2
+pytest-mock==3.1.0
 python-dateutil==2.8.1
 pytorch-pretrained-bert==0.6.2
 pytorch-transformers==1.1.0
