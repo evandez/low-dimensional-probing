@@ -106,26 +106,34 @@ def test_pos_task_len(pos_task):
 
 
 @pytest.fixture
-def POS_INDEXES_dataset(samples, pos_task):
+def pos_tags_dataset(samples, pos_task):
     """Returns a POSTagsDataset for testing."""
     return preprocess.POSTagsDataset(samples, pos_task)
 
 
-def test_POS_INDEXES_dataset_getitem(POS_INDEXES_dataset):
+def test_pos_tags_dataset_getitem(pos_tags_dataset):
     """Test POSTagsDataset.__getitem__ returns correct tags in order."""
     for index, expected in enumerate(POS_INDEXES):
-        actual = POS_INDEXES_dataset[index]
+        actual = pos_tags_dataset[index]
         assert actual.equal(expected)
 
 
-def test_POS_INDEXES_dataset_len(POS_INDEXES_dataset):
+def test_pos_tags_dataset_len(pos_tags_dataset):
     """Test POSTagsDataset.__len__ returns number of samples."""
-    assert len(POS_INDEXES_dataset) == len(POS_INDEXES)
+    assert len(pos_tags_dataset) == len(POS_INDEXES)
 
 
 REPS_DIMENSION = 1024
 REPS_LAYERS = 3
 SEQ_LENGTHS = (4, 4, 2)
+
+BREAKS = (0, 4, 8)
+
+
+@pytest.fixture
+def breaks():
+    """Returns fake breaks for testing."""
+    return torch.tensor(BREAKS, dtype=torch.int)
 
 
 @pytest.fixture
@@ -165,21 +173,26 @@ def representation_layer_dataset(representation_dataset):
     return representation_dataset.layer(LAYER)
 
 
+BREAKS_KEY = 'breaks'
 REPS_KEY = 'reps'
 TAGS_KEY = 'tags'
 
 
-def test_collate(representation_layer_dataset, POS_INDEXES_dataset, reps):
+def test_collate(representation_layer_dataset, pos_tags_dataset, breaks, reps):
     """Test collate constructs correct hdf5 file in the basic case."""
     with tempfile.TemporaryDirectory() as tempdir:
         out = pathlib.Path(tempdir) / 'out.hdf5'
         preprocess.collate(representation_layer_dataset,
-                           POS_INDEXES_dataset,
+                           pos_tags_dataset,
                            out,
+                           breaks_key=BREAKS_KEY,
                            reps_key=REPS_KEY,
                            tags_key=TAGS_KEY)
         with h5py.File(out, 'r') as actual:
-            assert len(actual.keys()) == 2
+            assert len(actual.keys()) == 3
+
+            actual_breaks = torch.tensor(actual[BREAKS_KEY][:])
+            assert actual_breaks.equal(breaks)
 
             actual_reps = torch.tensor(actual[REPS_KEY][:])
             expected_reps = torch.cat([rep[LAYER] for rep in reps])
@@ -190,34 +203,36 @@ def test_collate(representation_layer_dataset, POS_INDEXES_dataset, reps):
             assert actual_tags.equal(expected_tags)
 
 
-def test_collate_out_exists(representation_layer_dataset, POS_INDEXES_dataset):
+def test_collate_out_exists(representation_layer_dataset, pos_tags_dataset):
     """Test collate dies when out path exists and force=False."""
     with tempfile.TemporaryDirectory() as tempdir:
         out = pathlib.Path(tempdir) / 'out.hdf5'
         out.touch()
         with pytest.raises(FileExistsError, match=f'.*{out} exists.*'):
             preprocess.collate(representation_layer_dataset,
-                               POS_INDEXES_dataset,
+                               pos_tags_dataset,
                                out,
                                force=False)
 
 
 def test_collate_out_exists_force(representation_layer_dataset,
-                                  POS_INDEXES_dataset):
+                                  pos_tags_dataset):
     """Test collate does not die when out path exists and force=True."""
     with tempfile.TemporaryDirectory() as tempdir:
         out = pathlib.Path(tempdir) / 'out.hdf5'
         out.touch()
         preprocess.collate(representation_layer_dataset,
-                           POS_INDEXES_dataset,
+                           pos_tags_dataset,
                            out,
+                           breaks_key=BREAKS_KEY,
                            reps_key=REPS_KEY,
                            tags_key=TAGS_KEY,
                            force=True)
 
         # Just do a sanity check.
         with h5py.File(out, 'r') as actual:
-            assert len(actual.keys()) == 2
+            assert len(actual.keys()) == 3
+            assert actual[BREAKS_KEY].shape == (len(SEQ_LENGTHS),)
             assert actual[REPS_KEY].shape == (sum(SEQ_LENGTHS), REPS_DIMENSION)
             assert actual[TAGS_KEY].shape == (sum(SEQ_LENGTHS),)
 
@@ -232,7 +247,7 @@ def data(representations_path, annotations_path):
     }
 
 
-def test_run(data, reps):
+def test_run(data, reps, breaks):
     """Test run finishes preprocessing end to end."""
     with tempfile.TemporaryDirectory() as tempdir:
         out = pathlib.Path(tempdir) / 'preprocessed'
@@ -244,24 +259,28 @@ def test_run(data, reps):
             file = path / f'{splits.TRAIN}.h5'
             assert file.exists() and file.is_file()
 
-            with h5py.File(file, 'r') as handle:
-                actual_reps = torch.tensor(handle[REPS_KEY][:])
+            with h5py.File(file, 'r') as actual:
+                actual_breaks = torch.tensor(actual[BREAKS_KEY][:])
+                assert actual_breaks.equal(breaks)
+
+                actual_reps = torch.tensor(actual[REPS_KEY][:])
                 expected_reps = torch.cat([rep[layer] for rep in reps])
                 assert actual_reps.equal(expected_reps)
 
-                actual_tags = torch.tensor(handle[TAGS_KEY][:],
+                actual_tags = torch.tensor(actual[TAGS_KEY][:],
                                            dtype=torch.long)
                 expected_tags = torch.cat(POS_INDEXES)
                 assert actual_tags.equal(expected_tags)
 
 
-def test_run_with_layers(data, reps):
+def test_run_with_layers(data, reps, breaks):
     """Test run only outputs specified layers."""
     with tempfile.TemporaryDirectory() as tempdir:
         out = pathlib.Path(tempdir) / 'preprocessed'
         preprocess.run(data,
                        out,
                        layers=(LAYER,),
+                       breaks_key=BREAKS_KEY,
                        reps_key=REPS_KEY,
                        tags_key=TAGS_KEY)
 
@@ -269,12 +288,15 @@ def test_run_with_layers(data, reps):
         assert path.exists()
         file = path / f'{splits.TRAIN}.h5'
         assert file.exists() and file.is_file()
-        with h5py.File(file, 'r') as handle:
-            actual_reps = torch.tensor(handle[REPS_KEY][:])
+        with h5py.File(file, 'r') as actual:
+            actual_breaks = torch.tensor(actual[BREAKS_KEY][:])
+            assert actual_breaks.equal(breaks)
+
+            actual_reps = torch.tensor(actual[REPS_KEY][:])
             expected_reps = torch.cat([rep[LAYER] for rep in reps])
             assert actual_reps.equal(expected_reps)
 
-            actual_tags = torch.tensor(handle[TAGS_KEY][:], dtype=torch.long)
+            actual_tags = torch.tensor(actual[TAGS_KEY][:], dtype=torch.long)
             expected_tags = torch.cat(POS_INDEXES)
             assert actual_tags.equal(expected_tags)
 
@@ -283,13 +305,14 @@ def test_run_with_layers(data, reps):
             assert not path.exists()
 
 
-def test_run_with_tags(data, reps):
+def test_run_with_tags(data, reps, breaks):
     """Test run restricts to given tags."""
     with tempfile.TemporaryDirectory() as tempdir:
         out = pathlib.Path(tempdir) / 'preprocessed'
         preprocess.run(data,
                        out,
                        tags=RESTRICTED_TAGS,
+                       breaks_key=BREAKS_KEY,
                        reps_key=REPS_KEY,
                        tags_key=TAGS_KEY)
 
@@ -299,12 +322,15 @@ def test_run_with_tags(data, reps):
             file = path / f'{splits.TRAIN}.h5'
             assert file.exists() and file.is_file()
 
-            with h5py.File(file, 'r') as handle:
-                actual_reps = torch.tensor(handle[REPS_KEY][:])
+            with h5py.File(file, 'r') as actual:
+                actual_breaks = torch.tensor(actual[BREAKS_KEY][:])
+                assert actual_breaks.equal(breaks)
+
+                actual_reps = torch.tensor(actual[REPS_KEY][:])
                 expected_reps = torch.cat([rep[layer] for rep in reps])
                 assert actual_reps.equal(expected_reps)
 
-                actual_tags = torch.tensor(handle[TAGS_KEY][:],
+                actual_tags = torch.tensor(actual[TAGS_KEY][:],
                                            dtype=torch.long)
                 expected_tags = torch.cat(RESTRICTED_POS_INDEXES)
                 assert actual_tags.equal(expected_tags)

@@ -114,7 +114,8 @@ def collate(
     reps: representations.RepresentationLayerDataset,
     tags: POSTagsDataset,
     out: pathlib.Path,
-    reps_key: str = 'representations',
+    breaks_key: str = 'breaks',
+    reps_key: str = 'reps',
     tags_key: str = 'tags',
     force: bool = False,
 ) -> None:
@@ -135,8 +136,10 @@ def collate(
             representation sequence in `reps`.
         out (pathlib.Path): Path at which to write output file. Must not exist,
             unless force is set to True.
+        breaks_key (str, optional): Key to use for the breaks dataset
+            in the output h5 file. Defaults to 'breaks'.
         reps_key (str, optional): Key to use for the representations dataset
-            in the output h5 file. Defaults to 'representations'.
+            in the output h5 file. Defaults to 'reps'.
         tags_key (str, optional): Same as above, for the dataset of tags.
             Defaults to 'tags'.
         force (bool, optional): Overwrite the output file if it exists.
@@ -168,6 +171,9 @@ def collate(
     log.info('%d samples to collate, %d reps/tags total', len(reps), nsamples)
 
     with h5py.File(out, 'w') as handle:
+        breaks_out = handle.create_dataset(breaks_key,
+                                           shape=(len(reps),),
+                                           dtype='i')
         reps_out = handle.create_dataset(
             reps_key,
             shape=(nsamples, reps.dataset.dimension),
@@ -184,6 +190,7 @@ def collate(
             reps_curr = reps[index]
             tags_curr = tags[index]
             end = start + len(reps_curr)
+            breaks_out[index] = start
             reps_out[start:end] = reps_curr
             tags_out[start:end] = tags_curr
             start = end
@@ -194,7 +201,8 @@ def run(data: Dict[str, splits.Split],
         out: pathlib.Path,
         layers: Optional[Sequence[int]] = None,
         tags: Optional[Sequence[str]] = None,
-        reps_key: str = 'representations',
+        breaks_key: str = 'breaks',
+        reps_key: str = 'reps',
         tags_key: str = 'tags',
         force: bool = False) -> None:
     """Preprocess a POS task from the given splits.
@@ -215,8 +223,10 @@ def run(data: Dict[str, splits.Split],
         tags (Optional[Sequence[str]]): Only distinguish these POS tags, and
             collapse the rest to a single UNK tag. See `POSTask.__init__`.
             Defaults to distinguishing all tags.
+        breaks_key (str, optional): Key to use for the breaks dataset
+            in the output h5 file. Defaults to 'breaks'.
         reps_key (str, optional): Key to use for the representations dataset
-            in the output h5 file. Defaults to 'representations'.
+            in the output h5 file. Defaults to 'reps'.
         tags_key (str, optional): Same as above, for the dataset of tags.
             Defaults to 'tags'.
         force (bool): Overwrite existing collated h5 files. Otherwise die
@@ -255,6 +265,7 @@ def run(data: Dict[str, splits.Split],
             collate(split_reps.layer(layer),
                     split_tags,
                     out_h5,
+                    breaks_key=breaks_key,
                     reps_key=reps_key,
                     tags_key=tags_key,
                     force=force)
