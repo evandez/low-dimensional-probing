@@ -79,7 +79,8 @@ def test_pairwise_projection_init(pairwise_proj, proj):
 def test_pairwise_projection_init_shared(proj):
     """Test PairwiseProjection.__init__ defaults to left for right."""
     pairwise_proj = projections.PairwiseProjection(proj)
-    assert pairwise_proj.left == pairwise_proj.right
+    assert pairwise_proj.left == proj
+    assert pairwise_proj.right is None
 
 
 @pytest.mark.parametrize(

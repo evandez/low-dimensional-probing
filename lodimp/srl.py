@@ -268,7 +268,7 @@ ce = nn.CrossEntropyLoss(ignore_index=ignore_index).to(device)
 def criterion(*args: torch.Tensor) -> torch.Tensor:
     """Returns CE loss with regularizers."""
     loss = ce(*args)
-    for subproj in (projection.left, projection.right):
+    for subproj in (projection.left, projection.right or projection.left):
         if options.l1:
             loss += options.l1 * subproj.project.weight.data.norm(p=1)
         if options.nuc:
@@ -382,6 +382,7 @@ if options.ablate:
                 rs = {ax for (proj, ax) in coordinates if proj}
                 assert len(ls) + len(rs) == len(indices), 'bad mapping?'
                 model.project.left.project.weight.data[:, sorted(ls)] = 0
+                assert model.project.right is not None, 'null right proj?'
                 model.project.right.project.weight.data[:, sorted(rs)] = 0
 
             accuracy = test(model)

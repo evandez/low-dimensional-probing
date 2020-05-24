@@ -106,7 +106,7 @@ class PairwiseProjection(nn.Module):
         self.out_features = left.out_features
 
         self.left = left
-        self.right = right or left
+        self.right = right
 
     def forward(
         self,
@@ -123,4 +123,5 @@ class PairwiseProjection(nn.Module):
             Tuple[torch.Tensor, torch.Tensor]: Projected left/right elements.
 
         """
-        return self.left(lefts), self.right(rights)
+        right = self.left if self.right is None else self.right
+        return self.left(lefts), right(rights)
