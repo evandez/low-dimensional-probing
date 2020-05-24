@@ -3,9 +3,9 @@
 import copy
 import logging
 import pathlib
-from typing import Dict, Optional, Sequence, Set, Tuple, Type, Union
+from typing import Dict, List, Optional, Sequence, Set, Tuple, Type, Union
 
-from lodimp.common import learning
+from lodimp.common import learning, linalg
 from lodimp.common.data import splits
 from lodimp.common.models import probes, projections
 
@@ -176,3 +176,83 @@ def axis_alignment(probe: Probe,
         accuracies.append(accuracy)
 
     return accuracies
+
+
+def nullify(data_path: pathlib.Path,
+            rank: int = 10,
+            attempts: int = 100,
+            tolerance: float = 5e-2,
+            epochs: int = 25,
+            batch: bool = True,
+            lr: float = 1e-3,
+            device: Optional[torch.device] = None,
+            also_log_to_wandb: bool = False) -> projections.Projection:
+    """Compute the nullspace for all linear part of speech information.
+
+    This function iteratively computes the nullspace of part of speech
+
+    Args:
+        data_path (pathlib.Path): [description]
+        rank (int, optional): [description]. Defaults to 10.
+        attempts (int, optional): [description]. Defaults to 100.
+        tolerance (float, optional):
+        epochs (int, optional): [description]. Defaults to 25.
+        batch (bool, optional): [description]. Defaults to True.
+        lr (float, optional): [description]. Defaults to 1e-3.
+        device (Optional[torch.device], optional): Torch device on which to
+            train linear models. Defaults to CPU.
+        also_log_to_wandb (bool, optional): If set, log results to wandb.
+
+    Returns:
+        projections.Projection: Projection onto the "part of speech" nullspace.
+
+    """
+    log = logging.getLogger(__name__)
+
+    datasets = load(data_path,
+                    data_splits=(splits.TRAIN, splits.TEST),
+                    batch=batch,
+                    device=device)
+
+    ndims = datasets[splits.TRAIN].dimension
+    log.info('representations have dimension %d')
+
+    ntags = datasets[splits.TRAIN].tags.attrs.get('ntags')
+    assert ntags is not None, 'no tag count, maybe h5 file stores other task?'
+    log.info('part of speech task has %d tags', ntags)
+
+    identity = torch.eye(ndims, device=device)
+    rowspaces: List[torch.Tensor] = []
+    for attempt in range(attempts):
+        nullspace = None
+        if rowspaces:
+            nullspace = projections.Projection(ndims, ndims)
+            nullspace.project.weight.data[:] = identity - sum(rowspaces)
+
+        projection = projections.Projection(ndims, rank, compose=nullspace)
+        classifier = probes.Linear(rank, ntags, project=projection)
+        learning.train(classifier,
+                       datasets[splits.TRAIN],
+                       epochs=epochs,
+                       lr=lr,
+                       device=device)
+
+        projection_matrix = projection.project.weight.data
+        classifier_matrix = classifier.classify.weight.data
+        rowspace = linalg.rowspace(classifier_matrix.mm(projection_matrix))
+        rowspaces.append(rowspace)
+
+        accuracy = learning.test(classifier,
+                                 datasets[splits.TEST],
+                                 device=device)
+
+        logging.info('attempt %d accuracy %f', attempt, accuracy)
+        if also_log_to_wandb:
+            wandb.log({'accuracy': accuracy})
+
+        if accuracy < 1 / ntags + tolerance:
+            break
+
+    nullspace = projections.Projection(ndims, ndims)
+    nullspace.project.weight.data[:] = identity - sum(rowspaces)
+    return nullspace

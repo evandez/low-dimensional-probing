@@ -1,6 +1,7 @@
 """Defines various performance metrics."""
 
 import torch
+from scipy import linalg
 from torch import distributions
 
 
@@ -47,3 +48,21 @@ def truncate(matrix: torch.Tensor, rank: int) -> torch.Tensor:
     u, s, v = torch.svd(matrix)
     s[rank:] = 0
     return u.mm(torch.diag(s)).mm(v.t())
+
+
+def rowspace(matrix: torch.Tensor) -> torch.Tensor:
+    """Compute a projection onto the rowspace of the matrix.
+
+    Args:
+        matrix (torch.Tensor): Shape (m, n) matrix to compute rowspace for.
+
+    Returns:
+        torch.Tensor: Shape (n, n) projection onto the rowspace.
+
+    """
+    zeros = torch.zeros_like(matrix)
+    if matrix.allclose(zeros):
+        basis = zeros
+    else:
+        basis = matrix.new_tensor(linalg.orth(matrix.t().detach().numpy()))
+    return basis.mm(basis.t())
