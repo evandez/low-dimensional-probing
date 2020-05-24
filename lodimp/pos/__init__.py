@@ -44,10 +44,11 @@ def load(
         path = data_path / f'{split}.h5'
         if batch:
             log.info('loading task %s set from %s', split, path)
-            datasets[split] = learning.SentenceIterableTaskDataset(path)
+            datasets[split] = learning.SentenceBatchingTaskDataset(path)
         else:
             log.info('loading and collating task %s set from %s', split, path)
-            datasets[split] = learning.InMemoryTaskDataset(path, device=device)
+            datasets[split] = learning.NonBatchingTaskDataset(path,
+                                                              device=device)
     return datasets
 
 

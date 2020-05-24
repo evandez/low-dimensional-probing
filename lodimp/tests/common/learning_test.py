@@ -54,25 +54,50 @@ def path(breaks, representations, tags):
 @pytest.fixture
 def task_dataset(path):
     """Returns a TaskDataset for testing."""
-    return learning.TaskDataset(path,
-                                breaks_key=BREAKS_KEY,
-                                reps_key=REPS_KEY,
-                                tags_key=TAGS_KEY)
+    return learning.TaskDataset(path, reps_key=REPS_KEY, tags_key=TAGS_KEY)
 
 
-def test_task_dataset_getitem(task_dataset, representations, tags):
+def test_task_dataset_init(task_dataset):
+    """Test TaskDataset.__init__ sets state as expected."""
+    assert task_dataset.representations_cache is None
+    assert task_dataset.tags_cache is None
+
+
+def test_task_dataset_init_cached(path, representations, tags):
+    """Test TaskDataset.__init__ creates caches when device given."""
+    device = torch.device('cpu')
+    task_dataset = learning.TaskDataset(path,
+                                        reps_key=REPS_KEY,
+                                        tags_key=TAGS_KEY,
+                                        device=device)
+
+    assert task_dataset.representations_cache is not None
+    assert task_dataset.representations_cache.equal(representations)
+    assert task_dataset.representations_cache.device == device
+
+    assert task_dataset.tags_cache is not None
+    assert task_dataset.tags_cache.equal(tags)
+    assert task_dataset.tags_cache.device == device
+
+
+@pytest.mark.parametrize('device', (None, torch.device('cpu')))
+def test_task_dataset_getitem(path, device, representations, tags):
     """Test TaskDataset.__getitem__ returns all (reps, label) pairs."""
+    task_dataset = learning.TaskDataset(path,
+                                        reps_key=REPS_KEY,
+                                        tags_key=TAGS_KEY,
+                                        device=device)
     for index, (er, et) in enumerate(zip(representations, tags)):
         ar, at = task_dataset[index]
         assert ar.equal(er)
         assert at.equal(et)
 
 
-def test_task_dataset_getitem_bad_index(task_dataset):
+@pytest.mark.parametrize('index', (-1, NSAMPLES))
+def test_task_dataset_getitem_bad_index(task_dataset, index):
     """Test TaskDataset.__getitem__ explodes when given a bad index."""
-    for bad in (-1, NSAMPLES):
-        with pytest.raises(IndexError, match=f'.*bounds: {bad}.*'):
-            task_dataset[bad]
+    with pytest.raises(IndexError, match=f'.*bounds: {index}.*'):
+        task_dataset[index]
 
 
 def test_task_dataset_iter(task_dataset, representations, tags):
@@ -96,23 +121,30 @@ def test_task_dataset_dimension(task_dataset):
 
 
 @pytest.fixture
-def sentence_iterable_task_dataset(path):
-    """Returns a SentenceTaskDataset for testing."""
-    return learning.SentenceIterableTaskDataset(path,
+def sentence_batching_task_dataset(path):
+    """Returns a SentenceBatchingTaskDataset for testing."""
+    return learning.SentenceBatchingTaskDataset(path,
                                                 breaks_key=BREAKS_KEY,
                                                 reps_key=REPS_KEY,
                                                 tags_key=TAGS_KEY)
 
 
-def test_sentence_iterable_task_dataset_getitem(sentence_iterable_task_dataset,
-                                                representations, tags):
-    """Test SentenceIterableTaskDataset.__getitem__ returns correct samples."""
+@pytest.mark.parametrize('device', (None, torch.device('cpu')))
+def test_sentence_batching_task_dataset_getitem(path, device, representations,
+                                                tags):
+    """Test SentenceBatchingTaskDataset.__getitem__ returns correct samples."""
+    sentence_batching_task_dataset = learning.SentenceBatchingTaskDataset(
+        path,
+        breaks_key=BREAKS_KEY,
+        reps_key=REPS_KEY,
+        tags_key=TAGS_KEY,
+        device=device)
     expecteds = (
         (representations[BREAKS[0]:BREAKS[1]], tags[BREAKS[0]:BREAKS[1]]),
         (representations[BREAKS[1]:], tags[BREAKS[1]:]),
     )
     for index, expected in enumerate(expecteds):
-        batch = sentence_iterable_task_dataset[index]
+        batch = sentence_batching_task_dataset[index]
         assert len(batch) == 2
 
         ar, at = batch
@@ -122,17 +154,17 @@ def test_sentence_iterable_task_dataset_getitem(sentence_iterable_task_dataset,
 
 
 @pytest.mark.parametrize('index', (-1, len(BREAKS)))
-def test_sentence_iterable_task_dataset_getitem_bad_index(
-        sentence_iterable_task_dataset, index):
-    """Test SentenceIterableDataset.__getitem__ dies when given bad index."""
+def test_sentence_batching_task_dataset_getitem_bad_index(
+        sentence_batching_task_dataset, index):
+    """Test SentenceBatchingDataset.__getitem__ dies when given bad index."""
     with pytest.raises(IndexError, match='sentence index out of bounds.*'):
-        sentence_iterable_task_dataset[index]
+        sentence_batching_task_dataset[index]
 
 
-def test_sentence_iterable_task_dataset_iter(sentence_iterable_task_dataset,
+def test_sentence_batching_task_dataset_iter(sentence_batching_task_dataset,
                                              representations, tags):
-    """Test SentenceIterableTaskDataset.__iter__ yields all samples."""
-    batches = tuple(iter(sentence_iterable_task_dataset))
+    """Test SentenceBatchingTaskDataset.__iter__ yields all samples."""
+    batches = tuple(iter(sentence_batching_task_dataset))
     assert len(batches) == 2
     first, second = batches
 
@@ -147,28 +179,25 @@ def test_sentence_iterable_task_dataset_iter(sentence_iterable_task_dataset,
     assert at.equal(tags[BREAKS[1]:])
 
 
-def test_sentence_iterable_task_dataset_len(sentence_iterable_task_dataset):
-    """Test SentenceIterableTaskDataset.__len__ returns number of sentences."""
-    assert len(sentence_iterable_task_dataset) == len(BREAKS)
+def test_sentence_batching_task_dataset_len(sentence_batching_task_dataset):
+    """Test SentenceBatchingTaskDataset.__len__ returns number of sentences."""
+    assert len(sentence_batching_task_dataset) == len(BREAKS)
 
 
 @pytest.fixture
-def in_memory_task_dataset(path):
-    """Returns a InMemoryTaskDataset for testing."""
-    return learning.InMemoryTaskDataset(path,
-                                        device=torch.device('cpu'),
-                                        breaks_key=BREAKS_KEY,
-                                        reps_key=REPS_KEY,
-                                        tags_key=TAGS_KEY)
+def non_batching_task_dataset(path):
+    """Returns a NonBatchingTaskDataset for testing."""
+    return learning.NonBatchingTaskDataset(path,
+                                           reps_key=REPS_KEY,
+                                           tags_key=TAGS_KEY)
 
 
-def test_in_memory_task_dataset_getitem(
-    in_memory_task_dataset,
-    representations,
-    tags,
-):
-    """Test InMemoryTaskDataset.__getitem__ returns the entire dataset."""
-    batch = in_memory_task_dataset[0]
+@pytest.mark.parametrize('device', (None, torch.device('cpu')))
+def test_non_batching_task_dataset_getitem(path, device, representations, tags):
+    """Test NonBatchingTaskDataset.__getitem__ returns the entire dataset."""
+    non_batching_task_dataset = learning.NonBatchingTaskDataset(
+        path, reps_key=REPS_KEY, tags_key=TAGS_KEY)
+    batch = non_batching_task_dataset[0]
     assert len(batch) == 2
     ar, at = batch
     assert ar.equal(representations)
@@ -176,17 +205,17 @@ def test_in_memory_task_dataset_getitem(
 
 
 @pytest.mark.parametrize('index', (-1, 1))
-def test_in_memory_task_dataset_getitem_bad_index(in_memory_task_dataset,
-                                                  index):
-    """Test InMemoryTaskDataset.__getitem__ dies when index not 0."""
+def test_non_batching_task_dataset_getitem_bad_index(non_batching_task_dataset,
+                                                     index):
+    """Test NonBatchingTaskDataset.__getitem__ dies when index not 0."""
     with pytest.raises(IndexError, match='.*must be 0.*'):
-        in_memory_task_dataset[index]
+        non_batching_task_dataset[index]
 
 
-def test_in_memory_task_dataset_iter(in_memory_task_dataset, representations,
-                                     tags):
-    """Test InMemoryTaskDataset.__iter__ yields all chunks."""
-    batches = tuple(iter(in_memory_task_dataset))
+def test_non_batching_task_dataset_iter(non_batching_task_dataset,
+                                        representations, tags):
+    """Test NonBatchingTaskDataset.__iter__ yields all chunks."""
+    batches = tuple(iter(non_batching_task_dataset))
     assert len(batches) == 1
 
     batch, = batches
@@ -197,9 +226,9 @@ def test_in_memory_task_dataset_iter(in_memory_task_dataset, representations,
     assert at.equal(tags)
 
 
-def test_in_memory_task_dataset_len(in_memory_task_dataset):
-    """Test InMemoryTaskDataset.__len__ returns correct length."""
-    assert len(in_memory_task_dataset) == 1
+def test_non_batching_task_dataset_len(non_batching_task_dataset):
+    """Test NonBatchingTaskDataset.__len__ returns correct length."""
+    assert len(non_batching_task_dataset) == 1
 
 
 PATIENCE = 4
