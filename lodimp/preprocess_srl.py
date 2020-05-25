@@ -80,7 +80,7 @@ for layer in options.layers or range(NLAYERS[options.model]):
 
             # Determine important dimensions.
             nsents = len(reps)
-            nsamples = sum(reps.dataset.length(i) for i in range(len(reps)))
+            nsamples = sum(len(sample.sentence) for sample in samples)
             ndims = reps.dataset.dimension
 
             logging.info('found %d sentences, %d samples for task, %dd reps',
