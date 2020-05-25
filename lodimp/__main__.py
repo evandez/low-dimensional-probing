@@ -61,7 +61,7 @@ PROBES = {
 }
 
 ELMO = 'elmo'
-BERT = 'bert'
+BERT = 'bert-base-uncased'
 MODELS = (ELMO, BERT)
 REPRESENTATIONS = {
     ELMO: splits.ELMO_REPRESENTATIONS,
@@ -419,7 +419,7 @@ elif options.subcommand == 'nullspace':
                    config={
                        'task': 'pos',
                        'representations': {
-                           'model': 'bert',
+                           'model': 'bert-base-uncased',
                            'layer': layer,
                        },
                        'projection': {
@@ -436,7 +436,10 @@ elif options.subcommand == 'nullspace':
                    },
                    dir=str(options.wandb_path))
 
-        data_path = options.data / 'bert' / str(layer)
+        device = torch.device('cuda') if options.cuda else torch.device('cpu')
+        logging.info('using %s', device.type)
+
+        data_path = options.data / BERT / str(layer)
         nullspace = pos.nullify(
             data_path,
             rank=options.project_to,
