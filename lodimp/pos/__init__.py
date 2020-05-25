@@ -201,12 +201,18 @@ def nullify(data_path: pathlib.Path,
     This function iteratively computes the nullspace of part of speech
 
     Args:
-        data_path (pathlib.Path): [description]
-        rank (int, optional): [description]. Defaults to 10.
-        attempts (int, optional): [description]. Defaults to 100.
-        tolerance (float, optional):
-        epochs (int, optional): [description]. Defaults to 25.
-        batch (bool, optional): [description]. Defaults to True.
+        data_path (pathlib.Path): Path to preprocessed task data.
+        rank (int, optional): Maximum rank of linear classifier.
+            Achieved via LR factorization. Defaults to 10.
+        attempts (int, optional): Maximum number of nullspace projections
+            to compose before giving up. Defaults to 100.
+        tolerance (float, optional): How close to chance accuracy we can
+            get before giving up.
+        epochs (int, optional): Number of passes through the training set
+            for training each classifier. Defaults to 25.
+        batch (bool, optional): If true, batch the dataset by sentence.
+            Otherwise, the data will be loaded into memory/GPU all at once.
+            Defaults to True.
         cache (bool, optional): If true, load entire dataset onto memory/GPU
             before training. Defaults to False.
         lr (float, optional): [description]. Defaults to 1e-3.

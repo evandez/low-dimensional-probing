@@ -204,6 +204,54 @@ axis_alignment_parser.add_argument('data',
 axis_alignment_parser.add_argument('probe',
                                    type=pathlib.Path,
                                    help='Path to probe.')
+
+nullspace_parser = subparsers.add_parser('nullspace')
+nullspace_parser.add_argument('data', type=pathlib.Path, help='Data path.')
+nullspace_parser.add_argument('--bert-layers',
+                              type=int,
+                              nargs='+',
+                              help='BERT layers to probe. Defaults to all.')
+nullspace_parser.add_argument('--project-to',
+                              type=int,
+                              default=64,
+                              help='Dimensionality of projected space.')
+nullspace_parser.add_argument(
+    '--epochs',
+    type=int,
+    default=25,
+    help='Passes to make through dataset during training. Default 25.')
+nullspace_parser.add_argument('--lr',
+                              default=1e-3,
+                              type=float,
+                              help='Learning rate. Default 1e-3.')
+nullspace_parser.add_argument('--attempts',
+                              type=int,
+                              default=100,
+                              help='Maximum projections to compose.')
+nullspace_parser.add_argument(
+    '--tolerance',
+    type=int,
+    default=5e-2,
+    help='Tolerance for determining when POS tagging accuracy is at chance.')
+nullspace_parser.add_argument('--cuda', action='store_true', help='Use CUDA.')
+nullspace_parser.add_argument('--no-batch',
+                              action='store_true',
+                              help='Do not batch data.')
+nullspace_parser.add_argument('--cache',
+                              action='store_true',
+                              help='Cache entire dataset in memory/GPU.')
+nullspace_parser.add_argument('--wandb-id',
+                              help='Experiment ID. Use carefully!')
+nullspace_parser.add_argument('--wandb-group', help='Experiment group.')
+nullspace_parser.add_argument('--wandb-name', help='Experiment name.')
+nullspace_parser.add_argument('--wandb-path',
+                              type=pathlib.Path,
+                              default='/tmp/lodimp/wandb',
+                              help='Path to write Weights and Biases data.')
+nullspace_parser.add_argument('--model-path',
+                              type=pathlib.Path,
+                              default='/tmp/lodimp/models/probe.pth',
+                              help='Directory to write finished model.')
 options = parser.parse_args()
 
 logging.basicConfig(stream=sys.stdout,
@@ -359,3 +407,49 @@ elif options.subcommand == 'axis-alignment':
                                cache=options.cache,
                                device=device,
                                also_log_to_wandb=True)
+
+elif options.subcommand == 'nullspace':
+    options.wandb_path.mkdir(parents=True, exist_ok=True)
+    for layer in options.bert_layers:
+        wandb.init(project='lodimp',
+                   id=options.wandb_id,
+                   name=options.wandb_name,
+                   group=options.wandb_group,
+                   reinit=True,
+                   config={
+                       'task': options.task,
+                       'representations': {
+                           'model': 'bert',
+                           'layer': layer,
+                       },
+                       'projection': {
+                           'dimension': options.project_to,
+                       },
+                       'probe': {
+                           'model': 'linear',
+                       },
+                       'hyperparameters': {
+                           'epochs': options.epochs,
+                           'batched': not options.no_batch,
+                           'lr': options.lr,
+                       },
+                   },
+                   dir=str(options.wandb_path))
+
+        data_path = options.data / 'bert' / str(layer)
+        nullspace = pos.nullify(
+            data_path,
+            rank=options.project_to,
+            attempts=options.attempts,
+            tolerance=options.tolerance,
+            lr=options.lr,
+            epochs=options.epochs,
+            batch=not options.no_batch,
+            cache=options.cache,
+            device=device,
+            also_log_to_wandb=True,
+        )
+
+        logging.info('saving projection to %s', options.model_path)
+        torch.save(nullspace, options.model_path)
+        wandb.save(str(options.model_path))
