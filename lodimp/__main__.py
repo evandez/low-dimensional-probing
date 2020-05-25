@@ -453,6 +453,7 @@ elif options.subcommand == 'nullspace':
             also_log_to_wandb=True,
         )
 
+        options.model_path.parent.mkdir(parents=True, exist_ok=True)
         logging.info('saving projection to %s', options.model_path)
         torch.save(nullspace, options.model_path)
         wandb.save(str(options.model_path))
