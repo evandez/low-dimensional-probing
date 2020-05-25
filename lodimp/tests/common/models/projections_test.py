@@ -4,6 +4,7 @@ from lodimp.common.models import projections
 
 import pytest
 import torch
+from torch import optim
 
 BATCH_SIZE = 5
 IN_FEATURES = 100
@@ -47,9 +48,19 @@ def test_projection_forward_compose(proj):
     composed = projections.Projection(IN_FEATURES,
                                       PROJ_FEATURES - 1,
                                       compose=proj)
+    # Create an optimizer for later. We will verify composed projection
+    # is not optimized.
+    optimizer = optim.SGD(composed.parameters(), lr=1)
+
     inputs = torch.randn(BATCH_SIZE, IN_FEATURES)
     actual = composed(inputs)
     assert actual.shape == (BATCH_SIZE, PROJ_FEATURES - 1)
+
+    snapshot = composed.compose.project.weight.data.clone()
+    loss = actual.sum()
+    loss.backward()
+    optimizer.step()
+    assert composed.compose.project.weight.data.equal(snapshot)
 
 
 def test_projection_forward_bad_in_features(proj):
