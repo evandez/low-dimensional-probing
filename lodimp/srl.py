@@ -16,6 +16,7 @@ from typing import Dict, Iterator, Sequence, Set, Tuple, Union
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 from lodimp import datasets
+from lodimp.common import learning
 from lodimp.common.data import ontonotes
 from lodimp.common.models import probes, projections
 
@@ -52,8 +53,6 @@ parser.add_argument('--epochs',
                     type=int,
                     default=100,
                     help='Passes to make through dataset during training.')
-parser.add_argument('--l1', type=float, help='Add L1 norm penalty.')
-parser.add_argument('--nuc', type=float, help='Add nuclear norm penalty')
 parser.add_argument('--lr', default=1e-3, type=float, help='Learning rate.')
 parser.add_argument('--patience',
                     type=int,
@@ -106,10 +105,6 @@ wandb.init(project='lodimp',
                    'batched': not options.no_batch,
                    'lr': options.lr,
                    'patience': options.patience,
-                   'regularization': {
-                       'l1': options.l1,
-                       'nuc': options.nuc,
-                   },
                },
            },
            dir=str(options.wandb_dir))
@@ -130,13 +125,17 @@ logging.info('model(s) will be written to %s', options.model_dir)
 
 annotations, reps_by_split = {}, {}
 for split in ('train', 'dev', 'test'):
+    # Load annotations.
     conll = options.data / f'ontonotes5-{split}.conllx'
     logging.info('reading ontonotes %s set from %s', split, conll)
     annotations[split] = ontonotes.load(conll)
 
-    h5 = options.data / f'raw.{split}.{options.model}-layers.hdf5'
+    # Load preprocessed representations.
+    h5 = (options.data / 'srl' / options.model / str(options.layer) /
+          f'{split}.h5')
     logging.info('reading %s %s set from %s', options.model, split, h5)
-    reps_by_split[split] = datasets.RepresentationsDataset(h5, options.layer)
+    reps_by_split[split] = learning.SentenceBatchingTaskDataset(
+        h5, device=device if options.no_batch else None)
 
 
 class SemanticRoleLabelingTask:
@@ -196,46 +195,45 @@ task = SemanticRoleLabelingTask(*tuple(annotations.values()))
 class SemanticRoleLabelingDataset(data.IterableDataset):
     """Simple wrapper around representations and annotations data."""
 
-    def __init__(self, reps: datasets.RepresentationsDataset,
+    def __init__(self, reps: learning.SentenceBatchingTaskDataset,
                  samples: Sequence[ontonotes.Sample]):
         """Initialize and preprocess the data.
 
         Args:
-            reps (datasets.RepresentationsDataset): Dataset of reps.
+            reps (datasets.SentenceBatchingTaskDataset): Dataset of reps.
             samples (Sequence[ontonotes.Sample]): Annotations for reps.
 
         """
-        self.reps = []
+        self.reps = reps
+
+        self.indices = []
         self.themes = []
         self.labels = []
         for index, sample in enumerate(samples):
             if not sample.roles:
                 continue
-            self.reps.append(reps[index])
+            self.indices.append(index)
             themes, labels = task(sample)
             self.themes.append(themes)
             self.labels.append(labels)
 
-        self.cache = None
-        if options.no_batch:
-            self.cache = [reps[index].to(device) for index in range(len(reps))]
-
     def __iter__(self) -> Iterator[Tuple[torch.Tensor, ...]]:
         """Yields a (reps, themes, roles) tuple for each sentence."""
         for index in range(len(self)):
-            if self.cache is not None:
-                rep = self.cache[index]
-            else:
-                rep = self.reps[index]
-            yield rep, self.themes[index], self.labels[index]
+            reps, _ = self.reps[self.indices[index]]
+            themes = self.themes[index]
+            labels = self.labels[index]
+            assert len(labels) == len(reps)
+            yield reps, themes, labels
 
     def __len__(self) -> int:
         """Returns the number of samples (sentences) in the dataset."""
-        return len(self.reps)
+        return len(self.indices)
 
 
 loaders = {}
 for split in ('train', 'dev', 'test'):
+    logging.info('precomputing %s labels', split)
     loaders[split] = SemanticRoleLabelingDataset(reps_by_split[split],
                                                  annotations[split])
 
@@ -257,19 +255,7 @@ else:
 probe = probe.to(device)
 
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
-ce = nn.CrossEntropyLoss().to(device)
-
-
-def criterion(*args: torch.Tensor) -> torch.Tensor:
-    """Returns CE loss with regularizers."""
-    loss = ce(*args)
-    for subproj in (projection.left, projection.right or projection.left):
-        if options.l1:
-            loss += options.l1 * subproj.project.weight.data.norm(p=1)
-        if options.nuc:
-            loss += options.l1 * subproj.project.weight.data.norm(p='nuc')
-    return loss
-
+criterion = nn.CrossEntropyLoss().to(device)
 
 best_dev_loss, bad_epochs = float('inf'), 0
 for epoch in range(options.epochs):
