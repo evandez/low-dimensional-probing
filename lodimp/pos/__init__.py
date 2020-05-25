@@ -239,14 +239,22 @@ def nullify(data_path: pathlib.Path,
     assert ntags is not None, 'no tag count, maybe h5 file stores other task?'
     log.info('part of speech task has %d tags', ntags)
 
-    identity = torch.eye(ndims, device=device)
+    # Cache some useful values.
+    eye = torch.eye(ndims, device=device)
+    zero = torch.zeros_like(eye)
+
     rowspaces: List[torch.Tensor] = []
+
+    def get_nullspace_projection() -> torch.Tensor:
+        """Returns the current nullspace projection."""
+        return eye - linalg.rowspace(sum(rowspaces, zero))
+
     for attempt in range(attempts):
         nullspace = None
         if rowspaces:
             nullspace = projections.Projection(ndims, ndims)
             matrix = nullspace.project.weight.data
-            matrix[:] = identity - sum(rowspaces)
+            matrix[:] = get_nullspace_projection()
             assert matrix.mm(matrix).allclose(matrix, atol=1e-6)
 
         projection = projections.Projection(ndims, rank, compose=nullspace)
@@ -274,5 +282,5 @@ def nullify(data_path: pathlib.Path,
             break
 
     nullspace = projections.Projection(ndims, ndims)
-    nullspace.project.weight.data[:] = identity - sum(rowspaces)
+    nullspace.project.weight.data[:] = get_nullspace_projection()
     return nullspace
