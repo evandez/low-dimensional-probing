@@ -328,7 +328,7 @@ def test(model: nn.Module) -> float:
         rights = reps.unsqueeze(0).expand(len(themes), -1, -1)
         preds = model(lefts, rights).argmax(dim=-1)
         correct += preds.eq(labels).sum().item()
-        count += len(reps)
+        count += len(reps) * len(themes)
     return correct / count
 
 
