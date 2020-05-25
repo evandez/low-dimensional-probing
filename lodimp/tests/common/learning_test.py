@@ -193,7 +193,12 @@ def non_batching_task_dataset(path):
 
 
 @pytest.mark.parametrize('device', (None, torch.device('cpu')))
-def test_non_batching_task_dataset_getitem(path, device, representations, tags):
+def test_non_batching_task_dataset_getitem(
+    path,
+    device,
+    representations,
+    tags,
+):
     """Test NonBatchingTaskDataset.__getitem__ returns the entire dataset."""
     non_batching_task_dataset = learning.NonBatchingTaskDataset(
         path, reps_key=REPS_KEY, tags_key=TAGS_KEY)
