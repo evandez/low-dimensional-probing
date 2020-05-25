@@ -44,7 +44,8 @@ def load(
         path = data_path / f'{split}.h5'
         if batch:
             log.info('loading task %s set from %s', split, path)
-            datasets[split] = learning.SentenceBatchingTaskDataset(path)
+            datasets[split] = learning.SentenceBatchingTaskDataset(
+                path, device=device)
         else:
             log.info('loading and collating task %s set from %s', split, path)
             datasets[split] = learning.NonBatchingTaskDataset(path,
@@ -58,6 +59,7 @@ def train(data_path: pathlib.Path,
           project_from: Optional[projections.Projection] = None,
           epochs: int = 25,
           batch: bool = True,
+          cache: bool = False,
           patience: int = 4,
           lr: float = 1e-3,
           device: Optional[torch.device] = None,
@@ -79,6 +81,8 @@ def train(data_path: pathlib.Path,
         batch (bool, optional): If true, batch the dataset by sentence.
             Otherwise, the data will be loaded into memory/GPU all at once.
             Defaults to True.
+        cache (bool, optional): If true, load entire dataset onto memory/GPU
+            before training. Defaults to False.
         patience (int, optional): Allow dev loss to not improve for this many
             epochs, then stop training. Defaults to 4.
         lr (float, optional): Learning rate for optimizer. Defaults to 1e-3.
@@ -93,7 +97,7 @@ def train(data_path: pathlib.Path,
     """
     log = logging.getLogger(__name__)
 
-    datasets = load(data_path, batch=batch, device=device)
+    datasets = load(data_path, batch=batch, device=device if cache else None)
 
     ndims = datasets[splits.TRAIN].dimension
     log.info('representations have dimension %d')
@@ -119,6 +123,7 @@ def train(data_path: pathlib.Path,
 def axis_alignment(probe: Probe,
                    data_path: pathlib.Path,
                    batch: bool = True,
+                   cache: bool = False,
                    device: Optional[torch.device] = None,
                    also_log_to_wandb: bool = False) -> Sequence[float]:
     """Measure whether the given probe is axis aligned.
@@ -129,6 +134,8 @@ def axis_alignment(probe: Probe,
         batch (bool, optional): If true, batch the dataset by sentence.
             Otherwise, the data will be loaded into memory/GPU all at once.
             Defaults to True.
+        cache (bool, optional): If true, load entire dataset onto memory/GPU
+            before training. Defaults to False.
         device (Optional[torch.device], optional): Torch device on which to
             train probe. Defaults to CPU.
         also_log_to_wandb (bool, optional): If set, log results to wandb.
@@ -143,7 +150,7 @@ def axis_alignment(probe: Probe,
     datasets = load(data_path,
                     data_splits=(splits.DEV, splits.TEST),
                     batch=batch,
-                    device=device)
+                    device=device if cache else None)
 
     projection = probe.project
     assert projection is not None, 'no projection?'
@@ -185,6 +192,7 @@ def nullify(data_path: pathlib.Path,
             tolerance: float = 5e-2,
             epochs: int = 25,
             batch: bool = True,
+            cache: bool = False,
             lr: float = 1e-3,
             device: Optional[torch.device] = None,
             also_log_to_wandb: bool = False) -> projections.Projection:
@@ -199,6 +207,8 @@ def nullify(data_path: pathlib.Path,
         tolerance (float, optional):
         epochs (int, optional): [description]. Defaults to 25.
         batch (bool, optional): [description]. Defaults to True.
+        cache (bool, optional): If true, load entire dataset onto memory/GPU
+            before training. Defaults to False.
         lr (float, optional): [description]. Defaults to 1e-3.
         device (Optional[torch.device], optional): Torch device on which to
             train linear models. Defaults to CPU.
@@ -210,10 +220,11 @@ def nullify(data_path: pathlib.Path,
     """
     log = logging.getLogger(__name__)
 
+    device = device or torch.device('cpu')
     datasets = load(data_path,
                     data_splits=(splits.TRAIN, splits.TEST),
                     batch=batch,
-                    device=device)
+                    device=device if cache else None)
 
     ndims = datasets[splits.TRAIN].dimension
     log.info('representations have dimension %d')
