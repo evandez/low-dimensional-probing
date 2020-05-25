@@ -180,9 +180,10 @@ class SemanticRoleLabelingTask:
         themes, labels = [], []
         for labeling in sample.roles:
             labels.append([self.indexer[label] for label in labeling])
-            if 'V' in labeling:
-                themes.append(labeling.index('V'))
-        return torch.tensor(themes), torch.tensor(labels)
+            assert 'V' in labeling, 'no theme?'
+            themes.append(labeling.index('V'))
+        return torch.tensor(themes, device=device), torch.tensor(labels,
+                                                                 device=device)
 
     def __len__(self) -> int:
         """Returns the number of unique tags for this SRL task."""
@@ -223,7 +224,7 @@ class SemanticRoleLabelingDataset(data.IterableDataset):
             reps, _ = self.reps[self.indices[index]]
             themes = self.themes[index]
             labels = self.labels[index]
-            assert len(labels) == len(reps)
+            assert labels.shape[-1] == len(reps)
             yield reps, themes, labels
 
     def __len__(self) -> int:
