@@ -64,5 +64,6 @@ def rowspace(matrix: torch.Tensor) -> torch.Tensor:
     if matrix.allclose(zeros):
         basis = zeros
     else:
-        basis = matrix.new_tensor(linalg.orth(matrix.t().detach().numpy()))
+        orth = linalg.orth(matrix.t().detach().cpu().numpy())
+        basis = matrix.new_tensor(orth)
     return basis.mm(basis.t())
