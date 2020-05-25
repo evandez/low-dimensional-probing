@@ -177,19 +177,12 @@ class SemanticRoleLabelingTask:
                 is the label for the r'th role parse of the n'th word.
 
         """
+        assert sample.roles, 'got empty sample?'
         themes, labels = [], []
         for labeling in sample.roles:
             labels.append([self.indexer[label] for label in labeling])
             if 'V' in labeling:
                 themes.append(labeling.index('V'))
-            else:
-                # If there is no verb, this must be a WSJ sample that has no
-                # SRLs. (There are several in the dataset.) We assert this
-                # is the case for sanity and then set the theme to the first
-                # word, because the label will be ignored by the loss anyway.
-                assert len(sample.roles) == 1, 'not only one labeling?'
-                assert set(labeling) == {ontonotes.IGNORE}, 'no ignored label?'
-                themes.append(0)
         return torch.tensor(themes), torch.tensor(labels)
 
     def __len__(self) -> int:
@@ -212,10 +205,13 @@ class SemanticRoleLabelingDataset(data.IterableDataset):
             samples (Sequence[ontonotes.Sample]): Annotations for reps.
 
         """
-        self.reps = reps
+        self.reps = []
         self.themes = []
         self.labels = []
-        for sample in samples:
+        for index, sample in enumerate(samples):
+            if not sample.roles:
+                continue
+            self.reps.append(reps[index])
             themes, labels = task(sample)
             self.themes.append(themes)
             self.labels.append(labels)
@@ -261,8 +257,7 @@ else:
 probe = probe.to(device)
 
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
-ignore_index = task.indexer[ontonotes.IGNORE]
-ce = nn.CrossEntropyLoss(ignore_index=ignore_index).to(device)
+ce = nn.CrossEntropyLoss().to(device)
 
 
 def criterion(*args: torch.Tensor) -> torch.Tensor:

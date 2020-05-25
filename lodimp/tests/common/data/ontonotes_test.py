@@ -98,10 +98,7 @@ SAMPLES = (
             ),
         ),
     ),
-    ontonotes.Sample(
-        ('Trial', 'and', 'Terror'),
-        ((ontonotes.IGNORE, ontonotes.IGNORE, ontonotes.IGNORE),),
-    ),
+    ontonotes.Sample(('Trial', 'and', 'Terror'), ()),
 )
 
 

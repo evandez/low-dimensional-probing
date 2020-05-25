@@ -3,8 +3,6 @@
 import pathlib
 from typing import List, NamedTuple, Sequence
 
-IGNORE = 'IGNORE'
-
 
 class Sample(NamedTuple):
     """Defines an Ontonotes sample. Here, we need only SRL labels."""
@@ -31,8 +29,6 @@ def unparse(labeling: Sequence[str]) -> Sequence[str]:
     for label in labeling:
         if label == '*':
             unparsed.append(current or '*')
-        elif label == IGNORE:
-            unparsed.append(IGNORE)
         elif label.startswith('('):
             assert current is None, 'nested labeling?'
             if label.endswith('*)'):
@@ -72,11 +68,14 @@ def load(path: pathlib.Path) -> Sequence[Sample]:
             roles (Sequence[Sequence[str]]): Roles corresponding to each
                 word. Note each element in the inner list corresponds to a
                 different role labeling, but in the output sample, each
-                element corresponds to the entire role labeling.
+                element corresponds to the entire role labeling. Might be empty
+                if the sentence is unlabeled.
 
         """
-        assert len(sentence) == len(roles), 'more words than roles?'
-        assert len({len(role) for role in roles}) == 1, 'incomplete labelings?'
+        assert not roles or len(sentence) == len(roles), 'nwords > nroles?'
+        lengths = {len(labeling) for labeling in roles}
+        assert not roles or len(lengths) == 1, 'incomplete labelings?'
+
         sentence = tuple(sentence)
         roles = tuple(zip(*roles))
         labelings = tuple(tuple(unparse(labeling)) for labeling in roles)
@@ -101,7 +100,7 @@ def load(path: pathlib.Path) -> Sequence[Sample]:
             if len(components) > 12:
                 roles.append(components[11:-1])
             else:
-                roles.append([IGNORE])
+                assert not roles, 'unlabeled word?'
 
     if sentence:
         add(sentence, roles)
