@@ -417,7 +417,7 @@ elif options.subcommand == 'nullspace':
                    group=options.wandb_group,
                    reinit=True,
                    config={
-                       'task': options.task,
+                       'task': 'pos',
                        'representations': {
                            'model': 'bert',
                            'layer': layer,
