@@ -61,12 +61,7 @@ if not options.probes:
 root = pathlib.Path(__file__).resolve().parent.parent
 module = root / 'lodimp'
 script = module / f'{options.task}.py'
-base = [
-    'python3',
-    str(module.resolve()),
-    str(script.resolve()),
-    str(options.data.resolve())
-]
+base = ['python3', str(script.resolve()), str(options.data.resolve())]
 base += ['--model-dir', str(options.model_dir.resolve())]
 base += ['--wandb-group', options.wandb_group or options.task]
 base += ['--wandb-dir', str(options.wandb_dir.resolve())]
