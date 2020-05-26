@@ -86,29 +86,30 @@ options = parser.parse_args()
 
 # Initialize wandb so we can track any failures right away.
 options.wandb_dir.mkdir(parents=True, exist_ok=True)
-wandb.init(project='lodimp',
-           name=options.wandb_name,
-           group=options.wandb_group,
-           config={
-               'task': 'srl',
-               'representations': {
-                   'model': options.model,
-                   'layer': options.layer,
-               },
-               'projection': {
-                   'dimension': options.dimension,
-               },
-               'probe': {
-                   'model': options.probe,
-               },
-               'hyperparameters': {
-                   'epochs': options.epochs,
-                   'batched': not options.no_batch,
-                   'lr': options.lr,
-                   'patience': options.patience,
-               },
-           },
-           dir=str(options.wandb_dir))
+wandb.init(
+    project='lodimp',
+    name=options.wandb_name,
+    group=options.wandb_group,
+    config={
+        'task': 'srl',
+        'representations': {
+            'model': options.model,
+            'layer': options.layer,
+        },
+        'projection': {
+            'dimension': options.dimension,
+        },
+        'probe': {
+            'model': options.probe,
+        },
+        'hyperparameters': {
+            'epochs': options.epochs,
+            'batched': not options.no_batch,
+            'lr': options.lr,
+            #    'patience': options.patience,
+        },
+    },
+    dir=str(options.wandb_dir))
 
 if not options.data.exists():
     raise FileNotFoundError(f'task directory does not exist: {options.data}')
