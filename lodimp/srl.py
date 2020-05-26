@@ -359,11 +359,13 @@ def test(model: nn.Module) -> float:
         reps = reps.to(device)
         themes = themes.to(device)
         labels = labels.to(device)
-        lefts = reps[themes].unsqueeze(1).expand(-1, len(reps), -1)
-        rights = reps.unsqueeze(0).expand(len(themes), -1, -1)
+
+        nthemes = int((labels.sum(dim=-1) != 0).sum().item())
+        lefts = reps[themes[:nthemes]].unsqueeze(1).expand(-1, len(reps), -1)
+        rights = reps.unsqueeze(0).expand(nthemes, -1, -1)
         preds = model(lefts, rights).argmax(dim=-1)
-        correct += preds.eq(labels).sum().item()
-        count += len(reps) * len(themes)
+        correct += preds.eq(labels[:nthemes]).sum().item()
+        count += len(reps) * nthemes
         logging.info('tested sample %d of %d', index + 1, len(loaders['test']))
     return correct / count
 
