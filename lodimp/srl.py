@@ -190,7 +190,7 @@ class SemanticRoleLabelingTask:
                 [self.indexer[label] for label in labeling])
             assert 'V' in labeling, 'no theme?'
             themes[:, index] = labeling.index('V')
-        return torch.tensor(themes), torch.tensor(labels)
+        return themes, labels
 
     def __len__(self) -> int:
         """Returns the number of unique tags for this SRL task."""
