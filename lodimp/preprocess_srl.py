@@ -20,7 +20,7 @@ import torch
 
 NLAYERS = {
     'elmo': 3,
-    'bert-base-uncased': 12,
+    'bert-base-uncased': 13,
 }
 
 SPLITS = ('train', 'dev', 'test')

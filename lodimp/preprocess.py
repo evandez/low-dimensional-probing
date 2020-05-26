@@ -52,8 +52,7 @@ BIGRAM_TASKS: Dict[str, TaskFactory] = {
 
 NLAYERS = {
     'elmo': 3,
-    'bert-base-uncased': 12,
-    'bert-large-uncased': 24,
+    'bert-base-uncased': 13,
 }
 
 SPLITS = ('train', 'dev', 'test')
