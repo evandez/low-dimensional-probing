@@ -144,29 +144,36 @@ class SemanticRoleLabelingTask:
     Typically there is one semantic role parse per verb in the sentence.
     """
 
-    def __init__(self, *samples: Sequence[ontonotes.Sample]):
+    def __init__(self,
+                 *samples: Sequence[ontonotes.Sample],
+                 ignore: str = 'ignore'):
         """Construct the semantic role labeling task.
 
         Args:
             samples (Sequence[ontonotes.Sample]): The samples from which
                 to determine the list of all tags.
+            ignore (str): Token for loss to ignore.
 
         """
-        self.indexer: Dict[str, int] = {}
+        self.ignore = ignore
+        self.indexer: Dict[str, int] = {ignore: 0}
         for sample in itertools.chain(*samples):
             for role in sample.roles:
                 for label in role:
+                    assert label != ignore, 'unexpected ignore label?'
                     if label not in self.indexer:
                         self.indexer[label] = len(self.indexer)
 
     def __call__(
         self,
         sample: ontonotes.Sample,
+        size: int,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Convert role labels to integer tensor.
 
         Args:
             sample (ontonotes.Sample): The sample to label.
+            size (int): Assume this many themes.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: If sample has N words
@@ -176,14 +183,14 @@ class SemanticRoleLabelingTask:
                 is the label for the r'th role parse of the n'th word.
 
         """
-        assert sample.roles, 'got empty sample?'
-        themes, labels = [], []
-        for labeling in sample.roles:
-            labels.append([self.indexer[label] for label in labeling])
+        themes = torch.zeros(1, size)
+        labels = torch.zeros(len(sample.sentence), size)
+        for index, labeling in enumerate(sample.roles):
+            labels[index, :] = torch.tensor(
+                [self.indexer[label] for label in labeling])
             assert 'V' in labeling, 'no theme?'
-            themes.append(labeling.index('V'))
-        return torch.tensor(themes, device=device), torch.tensor(labels,
-                                                                 device=device)
+            themes[index] = labeling.index('V')
+        return torch.tensor(themes), torch.tensor(labels)
 
     def __len__(self) -> int:
         """Returns the number of unique tags for this SRL task."""
@@ -208,24 +215,42 @@ class SemanticRoleLabelingDataset(data.IterableDataset):
         self.reps = reps
 
         self.indices = []
-        self.themes = []
-        self.labels = []
         for index, sample in enumerate(samples):
             if not sample.roles:
                 continue
             self.indices.append(index)
-            themes, labels = task(sample)
-            self.themes.append(themes)
-            self.labels.append(labels)
+
+        max_themes = max(len(sample.roles) for sample in samples)
+        themes = []
+        labels = []
+        for sample in samples:
+            sample_themes, sample_labels = task(sample, max_themes)
+            themes.append(sample_themes)
+            labels.append(sample_labels)
+        self.themes = torch.cat(themes).to(device)
+        self.labels = torch.cat(labels).to(device)
+
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, ...]:
+        """Return the sample at the given index.
+
+        Args:
+            index (int): Sample to retrieve.
+
+        Returns:
+            Tuple[torch.Tensor, ...]: Sample as (reps, themes, roles)
+
+        """
+        reps, _ = self.reps[self.indices[index]]
+        themes = self.themes[self.indices[index]]
+        start = self.reps.breaks[self.indices[index]]
+        end = start + len(reps)
+        labels = self.labels[start:end]
+        return reps, themes, labels
 
     def __iter__(self) -> Iterator[Tuple[torch.Tensor, ...]]:
         """Yields a (reps, themes, roles) tuple for each sentence."""
         for index in range(len(self)):
-            reps, _ = self.reps[self.indices[index]]
-            themes = self.themes[index]
-            labels = self.labels[index]
-            assert labels.shape[-1] == len(reps)
-            yield reps, themes, labels
+            yield self[index]
 
     def __len__(self) -> int:
         """Returns the number of samples (sentences) in the dataset."""
@@ -256,7 +281,8 @@ else:
 probe = probe.to(device)
 
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
-criterion = nn.CrossEntropyLoss().to(device)
+criterion = nn.CrossEntropyLoss(
+    ignore_index=task.indexer[task.ignore]).to(device)
 
 best_dev_loss, bad_epochs = float('inf'), 0
 for epoch in range(options.epochs):
