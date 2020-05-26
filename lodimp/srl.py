@@ -186,7 +186,7 @@ class SemanticRoleLabelingTask:
         themes = torch.zeros(size, dtype=torch.long)
         labels = torch.zeros(size, len(sample.sentence), dtype=torch.long)
         for index, labeling in enumerate(sample.roles):
-            labels[:, index] = torch.tensor(
+            labels[index, :] = torch.tensor(
                 [self.indexer[label] for label in labeling])
             assert 'V' in labeling, 'no theme?'
             themes[:, index] = labeling.index('V')
