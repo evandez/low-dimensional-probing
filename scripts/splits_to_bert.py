@@ -33,7 +33,7 @@ for split in ('train', 'dev', 'test'):
         'python3',
         str(script),
         str(options.data / f'{PREFIXES[options.dataset]}{split}.conllx'),
-        str(options.data / f'raw.{split}.{options.pretrained}-layers.hdf5'),
+        str(options.data / f'raw.{split}.bert-base-uncased-layers.hdf5'),
         '--word-column',
         str(WORD_COLUMNS[options.dataset]),
     ]
