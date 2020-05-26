@@ -25,9 +25,6 @@ parser.add_argument('--dataset',
                     choices=DATASETS,
                     default='ptb',
                     help='Dataset to embed.')
-parser.add_argument('--pretrained',
-                    default='bert-base-uncased',
-                    help='Forwarded to conll_to_bert.')
 options = parser.parse_args()
 
 script = pathlib.Path(__file__).parent / 'conll_to_bert.py'
@@ -37,8 +34,6 @@ for split in ('train', 'dev', 'test'):
         str(script),
         str(options.data / f'{PREFIXES[options.dataset]}{split}.conllx'),
         str(options.data / f'raw.{split}.{options.pretrained}-layers.hdf5'),
-        '--pretrained',
-        options.pretrained,
         '--word-column',
         str(WORD_COLUMNS[options.dataset]),
     ]

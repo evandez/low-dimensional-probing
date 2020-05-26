@@ -20,9 +20,6 @@ parser.add_argument('--word-column',
                     type=int,
                     default=1,
                     help='Index of .conll column containing words.')
-parser.add_argument('--pretrained',
-                    default='bert-base-uncased',
-                    help='Pre-trained weights to use.')
 parser.add_argument('--quiet',
                     dest='log_level',
                     action='store_const',
@@ -58,10 +55,13 @@ with open(options.data, 'r') as conll:
     if partial:
         sentences.append(tuple(partial))
 
-logging.info('loading bert model: %s', options.pretrained)
-tokenizer = transformers.BertTokenizer.from_pretrained(options.pretrained)
-model = transformers.BertModel.from_pretrained(options.pretrained).to(device)
-model.eval()
+logging.info('loading model...')
+tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
+
+bert = transformers.BertModel.from_pretrained('bert-base-uncased').to(device)
+bert.eval()
+# We want the hidden states, so we have to hack the config a little bit...
+bert.encoder.output_hidden_states = True
 
 with h5py.File(options.out, 'w') as out:
     logging.info('will write %d embeddings to %s', len(sentences), options.out)
@@ -69,15 +69,19 @@ with h5py.File(options.out, 'w') as out:
         tokens = tokenizer.encode(sentence, add_special_tokens=False)
         dataset = out.create_dataset(
             str(index),
-            shape=(model.config.num_hidden_layers, len(tokens),
-                   model.config.hidden_size),
+            shape=(bert.config.num_hidden_layers + 1, len(tokens),
+                   bert.config.hidden_size),
             dtype='f',
         )
 
         inputs = torch.tensor([tokens], device=device)
         with torch.no_grad():
-            embedded, *_ = model(inputs)
-        dataset[:] = embedded.cpu().numpy()
+            _, _, hiddens = bert(inputs)
+            assert len(hiddens) == 13
+            embeddings = torch.cat(hiddens)
+            assert embeddings.shape == (13, len(tokens), 768)
+
+        dataset[:] = embeddings.cpu().numpy()
         logging.info('encoded sentence %d', index)
 
     # Create a sentence_to_index item so bert hdf5 files look like ELMo ones.
