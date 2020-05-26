@@ -54,7 +54,7 @@ logging.basicConfig(stream=sys.stdout,
                     datefmt='%Y-%m-%d %H:%M:%S',
                     level=options.log_level)
 
-driver = 'H5FD_CORE' if options.cache else None
+driver = 'core' if options.cache else None
 
 annotations, reps_by_split = {}, {}
 for split in SPLITS:
