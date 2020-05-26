@@ -109,7 +109,7 @@ wandb.init(project='lodimp',
 if not options.data.exists():
     raise FileNotFoundError(f'data directory does not exist: {options.data}')
 
-root = options.data / f'{options.model}-{options.layer}'
+root = options.data / options.model / str(options.layer)
 if not root.exists():
     raise FileNotFoundError(f'layer {options.layer} partition not found')
 
