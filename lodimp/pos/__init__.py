@@ -255,7 +255,6 @@ def nullify(data_path: pathlib.Path,
             nullspace = projections.Projection(ndims, ndims)
             matrix = nullspace.project.weight.data
             matrix[:] = get_nullspace_projection()
-            assert matrix.mm(matrix).allclose(matrix, atol=1e-6)
 
         projection = projections.Projection(ndims, rank, compose=nullspace)
         classifier = probes.Linear(rank, ntags, project=projection)
