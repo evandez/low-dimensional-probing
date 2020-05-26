@@ -136,9 +136,9 @@ for split in ('train', 'dev', 'test'):
 ndims = data['train'].ndims
 logging.info('reps have %d dimensions', ndims)
 
-nlabels = data['train'].nlabels
-assert nlabels is not None, 'no label count?'
-logging.info('task has %d labels', nlabels)
+ntags = data['train'].ntags
+assert ntags is not None, 'no label count?'
+logging.info('task has %d labels', ntags)
 
 # Batch data.
 loaders: Dict[str, Union[datasets.SentenceTaskDataset,
@@ -164,10 +164,10 @@ else:
 
 probe: Union[probes.Linear, probes.MLP]
 if options.probe == 'linear':
-    probe = probes.Linear(2 * options.dimension, nlabels, project=projection)
+    probe = probes.Linear(2 * options.dimension, ntags, project=projection)
 else:
     assert options.probe == 'mlp'
-    probe = probes.MLP(2 * options.dimension, nlabels, project=projection)
+    probe = probes.MLP(2 * options.dimension, ntags, project=projection)
 probe = probe.to(device)
 
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)

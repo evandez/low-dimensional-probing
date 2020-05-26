@@ -13,7 +13,7 @@ BREAKS = (0, 3)
 NSAMPLES = 5
 NGRAMS = 2
 NDIMS = 10
-NLABELS = 3
+NTAGS = 3
 
 
 @pytest.fixture
@@ -31,7 +31,7 @@ def representations():
 @pytest.fixture
 def labels():
     """Returns fake labels for testing."""
-    return torch.randint(NLABELS, size=(NSAMPLES,))
+    return torch.randint(NTAGS, size=(NSAMPLES,))
 
 
 @pytest.yield_fixture
@@ -41,9 +41,9 @@ def task_dataset(breaks, representations, labels):
         path = pathlib.Path(tempdir) / 'task.h5'
         with h5py.File(path, 'w') as handle:
             handle.create_dataset('breaks', data=breaks)
-            handle.create_dataset('representations', data=representations)
-            dataset = handle.create_dataset('labels', data=labels)
-            dataset.attrs['nlabels'] = NLABELS
+            handle.create_dataset('reps', data=representations)
+            dataset = handle.create_dataset('tags', data=labels)
+            dataset.attrs['ntags'] = NTAGS
         yield datasets.TaskDataset(path)
 
 
@@ -76,9 +76,9 @@ def test_task_dataset_ndims(task_dataset):
     assert task_dataset.ndims == NDIMS
 
 
-def test_task_dataset_nlabels(task_dataset):
-    """Test TaskDataset.nlabels returns correct number of labels."""
-    assert task_dataset.nlabels == NLABELS
+def test_task_dataset_ntags(task_dataset):
+    """Test TaskDataset.ntags returns correct number of labels."""
+    assert task_dataset.ntags == NTAGS
 
 
 @pytest.fixture
@@ -88,8 +88,8 @@ def test_task_dataset_ngrams_unigram_dataset(breaks, representations, labels):
         path = pathlib.Path(tempdir) / 'task.h5'
         with h5py.File(path, 'w') as handle:
             handle.create_dataset('breaks', data=breaks)
-            handle.create_dataset('representations', data=representations)
-            handle.create_dataset('labels', data=labels)
+            handle.create_dataset('reps', data=representations)
+            handle.create_dataset('tags', data=labels)
         dataset = datasets.TaskDataset(path)
         assert dataset.ngrams == 1
 

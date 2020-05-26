@@ -78,11 +78,11 @@ class TaskDataset(data.Dataset):
         assert 'breaks' in self.file, 'no sentence breaks?'
         self.breaks = list(self.file['breaks'][:])
 
-        assert 'representations' in self.file, 'no representations?'
-        self.representations = self.file['representations']
+        assert 'reps' in self.file, 'no reps?'
+        self.representations = self.file['reps']
 
-        assert 'labels' in self.file, 'no labels?'
-        self.labels = self.file['labels']
+        assert 'tags' in self.file, 'no tags?'
+        self.labels = self.file['tags']
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Returns the (features, label) pair at the given index.
@@ -120,12 +120,12 @@ class TaskDataset(data.Dataset):
         return self.representations.shape[-1]
 
     @property
-    def nlabels(self) -> Optional[int]:
+    def ntags(self) -> Optional[int]:
         """Returns the number of unique labels in the dataset.
 
         If this quantity is not defined for the task, returns None.
         """
-        return self.labels.attrs.get('nlabels')
+        return self.labels.attrs.get('ntags')
 
 
 class SentenceTaskDataset(data.IterableDataset):
