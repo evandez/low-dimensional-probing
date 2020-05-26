@@ -312,7 +312,7 @@ for epoch in range(options.epochs):
         rights = reps.unsqueeze(0).expand(len(themes), -1, -1)
         preds = probe(lefts, rights).view(-1, probe.out_features)
         total += criterion(preds, labels.view(-1)).item() * len(reps)
-        count += len(reps)
+        count += len(reps) * len(themes)
     dev_loss = total / count
     logging.info('epoch %d dev loss %f', epoch, dev_loss)
     wandb.log({'dev loss': dev_loss})
