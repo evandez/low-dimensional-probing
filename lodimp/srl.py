@@ -183,8 +183,8 @@ class SemanticRoleLabelingTask:
                 is the label for the r'th role parse of the n'th word.
 
         """
-        themes = torch.zeros(1, size, dtype=torch.long)
-        labels = torch.zeros(len(sample.sentence), size, dtype=torch.long)
+        themes = torch.zeros(size, dtype=torch.long)
+        labels = torch.zeros(size, len(sample.sentence), dtype=torch.long)
         for index, labeling in enumerate(sample.roles):
             labels[:, index] = torch.tensor(
                 [self.indexer[label] for label in labeling])
@@ -227,8 +227,8 @@ class SemanticRoleLabelingDataset(data.IterableDataset):
             sample_themes, sample_labels = task(sample, max_themes)
             themes.append(sample_themes)
             labels.append(sample_labels)
-        self.themes = torch.cat(themes).to(device)
-        self.labels = torch.cat(labels).to(device)
+        self.themes = torch.stack(themes).to(device)
+        self.labels = torch.cat(labels, dim=-1).to(device)
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, ...]:
         """Return the sample at the given index.
@@ -244,7 +244,7 @@ class SemanticRoleLabelingDataset(data.IterableDataset):
         themes = self.themes[self.indices[index]]
         start = self.reps.breaks[self.indices[index]]
         end = start + len(reps)
-        labels = self.labels[start:end]
+        labels = self.labels[:, start:end]
         return reps, themes, labels
 
     def __iter__(self) -> Iterator[Tuple[torch.Tensor, ...]]:
