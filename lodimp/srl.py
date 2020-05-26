@@ -183,8 +183,8 @@ class SemanticRoleLabelingTask:
                 is the label for the r'th role parse of the n'th word.
 
         """
-        themes = torch.zeros(1, size)
-        labels = torch.zeros(len(sample.sentence), size)
+        themes = torch.zeros(1, size, dtype=torch.long)
+        labels = torch.zeros(len(sample.sentence), size, dtype=torch.long)
         for index, labeling in enumerate(sample.roles):
             labels[:, index] = torch.tensor(
                 [self.indexer[label] for label in labeling])
