@@ -355,7 +355,7 @@ def test(model: nn.Module) -> float:
 
     """
     correct, count = 0., 0
-    for reps, themes, labels in loaders['test']:
+    for index, (reps, themes, labels) in enumerate(loaders['test']):
         reps = reps.to(device)
         themes = themes.to(device)
         labels = labels.to(device)
@@ -364,6 +364,7 @@ def test(model: nn.Module) -> float:
         preds = model(lefts, rights).argmax(dim=-1)
         correct += preds.eq(labels).sum().item()
         count += len(reps) * len(themes)
+        logging.info('tested sample %d of %d', index + 1, len(loaders['test']))
     return correct / count
 
 
