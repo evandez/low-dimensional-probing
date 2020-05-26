@@ -38,6 +38,9 @@ parser.add_argument('--layers',
                     type=int,
                     help='Layers to preprocess. Defaults to all.')
 parser.add_argument('--out', type=pathlib.Path, help='Path to output h5 file.')
+parser.add_argument('--cache',
+                    action='store_true',
+                    help='Cache input and output files in memory.')
 parser.add_argument('--quiet',
                     dest='log_level',
                     action='store_const',
@@ -51,6 +54,8 @@ logging.basicConfig(stream=sys.stdout,
                     datefmt='%Y-%m-%d %H:%M:%S',
                     level=options.log_level)
 
+driver = 'H5FD_CORE' if options.cache else None
+
 annotations, reps_by_split = {}, {}
 for split in SPLITS:
     conllx = options.data / f'ontonotes5-{split}.conllx'
@@ -60,7 +65,7 @@ for split in SPLITS:
     h5 = options.data / f'raw.{split}.{options.model}-layers.hdf5'
     logging.info('reading %s %s set from %s', options.model, split, h5)
     reps_by_split[split] = [
-        representations.RepresentationDataset(h5).layer(layer)
+        representations.RepresentationDataset(h5, driver=driver).layer(layer)
         for layer in range(NLAYERS[options.model])
     ]
 
@@ -73,7 +78,7 @@ for layer in options.layers or range(NLAYERS[options.model]):
     for split in SPLITS:
         file = directory / f'{split}.h5'
         logging.info('will write split %s to %s', split, file)
-        with h5py.File(file, 'w') as h5f:
+        with h5py.File(file, 'w', driver=driver) as h5f:
             reps = reps_by_split[split][layer]
             samples = annotations[split]
             assert len(reps) == len(samples)
