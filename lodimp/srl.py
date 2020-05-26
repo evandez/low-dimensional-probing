@@ -296,7 +296,10 @@ for epoch in range(options.epochs):
         lefts = reps[themes].unsqueeze(1).expand(-1, len(reps), -1)
         rights = reps.unsqueeze(0).expand(len(themes), -1, -1)
         preds = probe(lefts, rights)
-        loss = criterion(preds.view(-1, probe.out_features), labels.view(-1))
+        loss = criterion(
+            preds.view(-1, probe.out_features),
+            labels.reshape(-1),
+        )
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
