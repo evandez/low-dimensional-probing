@@ -29,7 +29,7 @@ parser = argparse.ArgumentParser(description='Train an SRL probe.')
 parser.add_argument('data', type=pathlib.Path, help='Path to data.')
 parser.add_argument(
     '--model',
-    choices=('bert-base-uncased', 'bert-large-uncased', 'elmo'),
+    choices=('bert-base-uncased', 'elmo'),
     default='elmo',
     help='Representation model to use.',
 )
@@ -51,13 +51,14 @@ parser.add_argument('--share-projection',
 parser.add_argument('--no-batch', action='store_true', help='Do not batch.')
 parser.add_argument('--epochs',
                     type=int,
-                    default=100,
+                    default=3,
                     help='Passes to make through dataset during training.')
 parser.add_argument('--lr', default=1e-3, type=float, help='Learning rate.')
-parser.add_argument('--patience',
-                    type=int,
-                    default=4,
-                    help='Epochs for dev loss to decrease to stop training.')
+# See comment down below. No early stopping for now.
+# parser.add_argument('--patience',
+#                     type=int,
+#                     default=4,
+#                     help='Epochs for dev loss to decrease to stop training.')
 parser.add_argument('--ablate',
                     action='store_true',
                     help='Also test axis-ablated projection.')
@@ -302,30 +303,34 @@ for epoch in range(options.epochs):
         wandb.log({'train loss': loss})
         logging.info('epoch %d batch %d loss %f', epoch, batch, loss.item())
 
-    probe.eval()
-    total, count = 0., 0
-    for reps, themes, labels in loaders['dev']:
-        reps = reps.to(device)
-        themes = themes.to(device)
-        labels = labels.to(device)
-        lefts = reps[themes].unsqueeze(1).expand(-1, len(reps), -1)
-        rights = reps.unsqueeze(0).expand(len(themes), -1, -1)
-        preds = probe(lefts, rights).view(-1, probe.out_features)
-        total += criterion(preds, labels.view(-1)).item() * len(reps)
-        count += len(reps) * len(themes)
-    dev_loss = total / count
-    logging.info('epoch %d dev loss %f', epoch, dev_loss)
-    wandb.log({'dev loss': dev_loss})
+    # NOTE: We do not bother with early stopping. The dataset is so large,
+    # and we have so many of these probes to train, that we can only afford
+    # a few epochs of training. And this is fine because each epochs contains
+    # many gradient steps.
+    # probe.eval()
+    # total, count = 0., 0
+    # for reps, themes, labels in loaders['dev']:
+    #     reps = reps.to(device)
+    #     themes = themes.to(device)
+    #     labels = labels.to(device)
+    #     lefts = reps[themes].unsqueeze(1).expand(-1, len(reps), -1)
+    #     rights = reps.unsqueeze(0).expand(len(themes), -1, -1)
+    #     preds = probe(lefts, rights).view(-1, probe.out_features)
+    #     total += criterion(preds, labels.view(-1)).item() * len(reps)
+    #     count += len(reps) * len(themes)
+    # dev_loss = total / count
+    # logging.info('epoch %d dev loss %f', epoch, dev_loss)
+    # wandb.log({'dev loss': dev_loss})
 
-    if dev_loss < best_dev_loss:
-        best_dev_loss = dev_loss
-        bad_epochs = 0
-    else:
-        bad_epochs += 1
+    # if dev_loss < best_dev_loss:
+    #     best_dev_loss = dev_loss
+    #     bad_epochs = 0
+    # else:
+    #     bad_epochs += 1
 
-    if bad_epochs > options.patience:
-        logging.info('patience exceeded, training is now over')
-        break
+    # if bad_epochs > options.patience:
+    #     logging.info('patience exceeded, training is now over')
+    #     break
 
 # Write finished models.
 model_path = options.model_dir / options.model_file
