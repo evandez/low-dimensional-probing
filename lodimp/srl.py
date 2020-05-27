@@ -344,18 +344,19 @@ logging.info('model saved to %s', model_path)
 
 
 # Evaluate the models.
-def test(model: nn.Module) -> float:
+def test(model: nn.Module, loader: str = 'test') -> float:
     """Evaluate model accuracy on the test set.
 
     Args:
         model (nn.Module): The module to evaluate.
+        loader (str): Dataset loader to use.
 
     Returns:
         float: Fraction of test set correctly classified.
 
     """
     correct, count = 0., 0
-    for index, (reps, themes, labels) in enumerate(loaders['test']):
+    for index, (reps, themes, labels) in enumerate(loaders[loader]):
         reps = reps.to(device)
         themes = themes.to(device)
         labels = labels.to(device)
@@ -376,43 +377,55 @@ logging.info('test accuracy %.3f', accuracy)
 
 # Measure whether or not the projection is axis aligned.
 if options.ablate:
-    logging.info('will ablate axes one by one and retest')
+
+    def ablate(axes: Set[int]) -> nn.Module:
+        """Abalate the given axes from the probe.
+
+        Args:
+            axes (Set[int]): The axes to ablate.
+
+        Returns:
+            nn.Module: The probe with the axes ablated from the projection.
+
+        """
+        model = copy.deepcopy(probe)
+        assert model.project is not None, 'no projection?'
+        if options.share_projection:
+            # If we are sharing projections, then ablating the left also
+            # ablates the right. Easy!
+            model.project.left.project.weight.data[:, sorted(axes)] = 0
+        else:
+            # If we are not sharing projections, then the "left" and
+            # "right" projections contain disjoint axes. we have to
+            # manually determine which axis belongs to which projection.
+            coordinates = {(i // projection.in_features,
+                            i % projection.in_features) for i in axes}
+            lefts = {ax for (proj, ax) in coordinates if not proj}
+            rights = {ax for (proj, ax) in coordinates if proj}
+            assert len(lefts) + len(rights) == len(axes), 'bad mapping?'
+            model.project.left.project.weight.data[:, sorted(lefts)] = 0
+            assert model.project.right is not None, 'null right proj?'
+            model.project.right.project.weight.data[:, sorted(rights)] = 0
+        return model.eval()
+
     multiplier = 1 if options.share_projection else 2
-    axes = set(range(multiplier * projection.in_features))
-    ablated: Set[int] = set()
-    accuracies = []
-    while axes:
-        best_axis, best_accuracy = 0, 0.
-        for axis in axes:
-            model = copy.deepcopy(probe)
-            assert model.project is not None, 'no projection?'
+    axes = tuple(range(multiplier * projection.in_features))
+    logging.info('will ablate %d axes and determine importance', len(axes))
 
-            indices = ablated | {axis}
-            if options.share_projection:
-                # If we are sharing projections, then ablating the left also
-                # ablates the right. Easy!
-                model.project.left.project.weight.data[:, sorted(indices)] = 0
-            else:
-                # If we are not sharing projections, then the "left" and
-                # "right" projections contain disjoint axes. we have to
-                # manually determine which axis belongs to which projection.
-                coordinates = {(i // projection.in_features,
-                                i % projection.in_features) for i in indices}
-                ls = {ax for (proj, ax) in coordinates if not proj}
-                rs = {ax for (proj, ax) in coordinates if proj}
-                assert len(ls) + len(rs) == len(indices), 'bad mapping?'
-                model.project.left.project.weight.data[:, sorted(ls)] = 0
-                assert model.project.right is not None, 'null right proj?'
-                model.project.right.project.weight.data[:, sorted(rs)] = 0
+    dev_accuracies = []
+    for axis in axes:
+        model = ablate({axis})
+        dev_accuracy = test(model, loader='dev')
+        logging.info('axis %d/dev accuracy %f', axis, dev_accuracy)
+        dev_accuracies.append(dev_accuracy)
+    wandb.run.summary['ablated dev accuracy'] = torch.tensor(dev_accuracies)
 
-            accuracy = test(model)
-            if accuracy > best_accuracy:
-                best_axis = axis
-                best_accuracy = accuracy
-
-        logging.info('ablating axis %d, accuracy %f', best_axis, best_accuracy)
-        axes.remove(best_axis)
-        ablated.add(best_axis)
-        accuracies.append(best_accuracy)
-
-    wandb.run.summary['ablated accuracies'] = torch.tensor(accuracies)
+    ablated = set()
+    test_accuracies = []
+    for axis, _ in sorted(enumerate(dev_accuracies), key=lambda x: x[1]):
+        ablated.add(axis)
+        model = ablate(ablated)
+        test_accuracy = test(model)
+        logging.info('%d axes/test accuracy %f', len(ablated), test_accuracy)
+        test_accuracies.append(test_accuracy)
+    wandb.run.summary['ablated test accuracy'] = torch.tensor(test_accuracies)
