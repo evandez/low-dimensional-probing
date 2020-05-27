@@ -256,53 +256,6 @@ logging.info('test accuracy %.3f', accuracy)
 
 # Measure whether or not the projection is axis aligned.
 if options.ablate:
-    # Below is the old style of the ablaton experiment. It's too slow for this
-    # task given it's quadratic nature.
-
-    # logging.info('will ablate axes one by one and retest')
-    # multiplier = 1 if options.share_projection else 2
-    # axes = set(range(multiplier * projection.in_features))
-    # ablated: Set[int] = set()
-    # accuracies = []
-    # while axes:
-    #     best_model, best_axis, best_accuracy = probe, -1, -1.
-    #     for axis in axes:
-    #         model = copy.deepcopy(best_model)
-    #         assert model.project is not None, 'no projection?'
-
-    #         indices = ablated | {axis}
-    #         if options.share_projection:
-    #             # If we are sharing projections, then ablating the left also
-    #             # ablates the right. Easy!
-    #             model.project.left.project.weight.data[:, sorted(indices)] = 0
-    #         else:
-    #             # If we are not sharing projections, then the "left" and
-    #             # "right" projections contain disjoint axes. we have to
-    #             # manually determine which axis belongs to which projection.
-    #             coordinates = {(i // projection.in_features,
-    #                             i % projection.in_features) for i in indices}
-    #             lefts = {ax for (proj, ax) in coordinates if not proj}
-    #             rights = {ax for (proj, ax) in coordinates if proj}
-    #             assert len(lefts) + len(rights) == len(indices), 'bad mapping?'
-    #             model.project.left.project.weight.data[:, sorted(lefts)] = 0
-    #             assert model.project.right is not None, 'null right proj?'
-    #             model.project.right.project.weight.data[:, sorted(rights)] = 0
-
-    #         accuracy = test(model, loader='dev')
-    #         if accuracy > best_accuracy:
-    #             best_model = model
-    #             best_axis = axis
-    #             best_accuracy = accuracy
-
-    #     accuracy = test(best_model)
-    #     logging.info('ablating axis %d, accuracy %f', best_axis, accuracy)
-    #     axes.remove(best_axis)
-    #     ablated.add(best_axis)
-    #     accuracies.append(accuracy)
-    # wandb.run.summary['ablated accuracies'] = torch.tensor(accuracies)
-
-    # This is the new version. A bit greedier, but it's already an
-    # approximation, so...whatever.
 
     def ablate(axes: Set[int]) -> nn.Module:
         """Abalate the given axes from the probe.
@@ -348,7 +301,10 @@ if options.ablate:
 
     ablated = set()
     test_accuracies = []
-    for axis, _ in sorted(enumerate(dev_accuracies), key=lambda x: x[1]):
+    to_ablate = sorted(enumerate(dev_accuracies),
+                       key=lambda x: x[1],
+                       reverse=True)
+    for axis, _ in to_ablate:
         ablated.add(axis)
         model = ablate(ablated)
         test_accuracy = test(model)

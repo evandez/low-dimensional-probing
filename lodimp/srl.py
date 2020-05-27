@@ -422,7 +422,10 @@ if options.ablate:
 
     ablated = set()
     test_accuracies = []
-    for axis, _ in sorted(enumerate(dev_accuracies), key=lambda x: x[1]):
+    to_ablate = sorted(enumerate(dev_accuracies),
+                       key=lambda x: x[1],
+                       reverse=True)
+    for axis, _ in to_ablate:
         ablated.add(axis)
         model = ablate(ablated)
         test_accuracy = test(model)
