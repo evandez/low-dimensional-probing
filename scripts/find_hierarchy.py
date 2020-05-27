@@ -9,7 +9,7 @@ from typing import List
 import wandb
 from torch import cuda
 
-NLAYERS = {'elmo': 3, 'bert-base-uncased': 12}
+NLAYERS = {'elmo': 3, 'bert-base-uncased': 13}
 
 parser = argparse.ArgumentParser(description='Learn projection hierarchy.')
 parser.add_argument('wandb_user', help='Weights and Biases user to use.')
@@ -38,15 +38,22 @@ parser.add_argument('--root-dimension',
                     type=int,
                     default=10,
                     help='Dimension of full-task projection.')
-parser.add_argument('--threshold',
-                    type=float,
-                    default=0.9,
-                    help='Accuracy threshold.')
+parser.add_argument(
+    '--thresholds',
+    nargs='+',
+    type=float,
+    help='Accuracy thresholds for each task. Must be one per task. '
+    'Defaults to 0.9 for each.')
 parser.add_argument('--epochs',
                     type=int,
                     default=500,
                     help='Total passes through training dataset.')
 options = parser.parse_args()
+
+if options.thresholds and len(options.thresholds) != len(options.tasks):
+    raise ValueError('number of thresholds must match number of tasks')
+thresholds = options.thresholds or (0.9,) * len(options.tasks)
+assert len(thresholds) == len(options.tasks), 'bad number of thresholds?'
 
 root = pathlib.Path(__file__).resolve().parent.parent
 module = root / 'lodimp'
@@ -90,7 +97,7 @@ for layer in options.layers or range(NLAYERS[options.model]):
                 sys.exit(proc.returncode)
 
             run = api.run(f'{options.wandb_user}/lodimp/{wandb_id}')
-            if run.summary['accuracy'] > options.threshold:
+            if run.summary['accuracy'] > thresholds[index]:
                 compose_paths.append(options.model_dir / model_file)
                 max_dimension = dimension
                 break
