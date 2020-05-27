@@ -43,11 +43,13 @@ UNIGRAM_TASKS: Dict[str, TaskFactory] = {
     'pos-adv': ft.partial(tasks.POSTask, tags=tasks.POS_ADVERBS),
     'pos-control': tasks.ControlPOSTask,
     'dep-arc': tasks.DependencyArcTask,
+    'dep-arc-control': tasks.ControlDependencyArcTask,
 }
 
 # Bigram tasks map pairs of words to tags.
 BIGRAM_TASKS: Dict[str, TaskFactory] = {
     'dep-label': tasks.DependencyLabelTask,
+    'dep-label-control': tasks.ControlDependencyLabelTask,
 }
 
 NLAYERS = {

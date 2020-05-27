@@ -97,6 +97,38 @@ def test_dependency_arc_task_call():
         assert torch.equal(actual, expected)
 
 
+def test_control_dependency_arc_task_init():
+    """Test ControlDependencyArcTask.__init__ sets state correctly."""
+    task = tasks.ControlDependencyArcTask(SAMPLES)
+
+    assignments = sum((
+        len(task.attach_to_self),
+        len(task.attach_to_first),
+        len(task.attach_to_last),
+    ))
+    assert assignments == 5
+
+
+def test_control_dependency_arc_task_call():
+    """Test ControlDependencyArcTask.__call__ returns reasonable labels."""
+    task = tasks.ControlDependencyArcTask(SAMPLES)
+
+    for sample in SAMPLES:
+        labels = task(sample)
+        for index, label in enumerate(labels):
+            assert label == index or label == 0 or label == len(
+                sample.sentence) - 1
+
+
+def test_control_dependency_arc_task_call_deterministic():
+    """Test ControlDependencyArcTask.__call__ is deterministic."""
+    task = tasks.ControlDependencyArcTask(SAMPLES)
+    expecteds = [task(sample) for sample in SAMPLES]
+    actuals = [task(sample) for sample in SAMPLES]
+    for actual, expected in zip(actuals, expecteds):
+        assert actual.equal(expected)
+
+
 DEPENDENCY_LABELS = (
     torch.tensor([
         [0, 0, 2],
@@ -141,4 +173,37 @@ def test_dependency_label_task_call():
 def test_dependency_label_task_len():
     """Test DependencyLabelTask.__len__ returns number of labels."""
     task = tasks.DependencyLabelTask(SAMPLES)
+    assert len(task) == 4
+
+
+def test_control_dependency_label_task_init():
+    """Test ControlDependencyLabelTask.__init__ maps labels to integers."""
+    task = tasks.ControlDependencyLabelTask(SAMPLES)
+    assert 0 not in task.rels
+    assert len(task.dist) == 3
+    assert len(task.rels) == 5
+
+
+def test_control_dependency_label_task_call():
+    """Test ControlDependencyLabelTask.__call__ returns reasonable labels."""
+    task = tasks.ControlDependencyLabelTask(SAMPLES)
+    for sample, expected in zip(SAMPLES, DEPENDENCY_LABELS):
+        actual = task(sample)
+        assert actual.shape == expected.shape
+        assert actual[expected == 0].eq(0).all()
+        assert not actual[expected != 0].eq(0).any()
+
+
+def test_control_dependency_label_task_call_deterministic():
+    """Test ControlDependencyLabelTask.__call__ is deterministic."""
+    task = tasks.ControlDependencyLabelTask(SAMPLES)
+    expecteds = [task(sample) for sample in SAMPLES]
+    actuals = [task(sample) for sample in SAMPLES]
+    for actual, expected in zip(actuals, expecteds):
+        assert actual.equal(expected)
+
+
+def test_control_dependency_label_task_len():
+    """Test ControlDependencyLabelTask.__len__ returns correct length."""
+    task = tasks.ControlDependencyLabelTask(SAMPLES)
     assert len(task) == 4

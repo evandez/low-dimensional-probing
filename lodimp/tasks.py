@@ -2,7 +2,8 @@
 
 import collections
 import itertools
-from typing import Any, Dict, Optional, Sequence, Set
+import random
+from typing import Any, Dict, Optional, Sequence, Set, Tuple
 
 from lodimp.common.data import ptb
 
@@ -99,7 +100,6 @@ class POSTask(SizedTask):
         return len(self.indexer)
 
 
-# TODO(evandez): Allow restricting # of tags in control task.
 class ControlPOSTask(SizedTask):
     """Maps words to arbitrary POS tags."""
 
@@ -120,7 +120,7 @@ class ControlPOSTask(SizedTask):
                 By default, is computed from the list of samples.
 
         """
-        samples = list(itertools.chain(*groups))
+        samples = tuple(itertools.chain(*groups))
         if dist is None:
             counts: Dict[str, int] = collections.defaultdict(lambda: 0)
             for sample in samples:
@@ -177,6 +177,70 @@ class DependencyArcTask(Task):
         ])
 
 
+POS_PUNCT = 'PUNCT'
+
+
+class ControlDependencyArcTask(Task):
+    """Constructs arbitrary parse "trees" for all samples."""
+
+    def __init__(self, *groups: Sequence[ptb.Sample]):
+        """Map each word type to a dependency arc behavior.
+
+        We sample uniformly from three behaviors:
+        - Always attach word to itself.
+        - Always attach word to first word in sentence.
+        - Always attach word to last word in sentence.
+
+        """
+        samples = tuple(itertools.chain(*groups))
+
+        self.attach_to_self: Set[str] = set()
+        self.attach_to_first: Set[str] = set()
+        self.attach_to_last: Set[str] = set()
+        behaviors = (self.attach_to_self, self.attach_to_first,
+                     self.attach_to_last)
+
+        for sample in samples:
+            for word in sample.sentence:
+                if not any(word in behavior for behavior in behaviors):
+                    random.choice(behaviors).add(word)
+
+    def __call__(self, sample: ptb.Sample) -> torch.Tensor:
+        """Map dependents to (fake) heads.
+
+        Same format as DependencyArcTask, but labels are assigned according
+        to one of the three behaviors described in the constructor.
+
+        Args:
+            sample (ptb.Sample): The sample to label.
+
+        Returns:
+            torch.Tensor: For length W sentence, this returns a length W
+                tensor containing the index of its "head."
+
+        Raises:
+            ValueError: If word was not seen during initialization.
+
+        """
+        labels = []
+        for index, word in enumerate(sample.sentence):
+            if word in self.attach_to_first:
+                labels.append(0)
+            elif word in self.attach_to_self:
+                labels.append(index)
+            elif word in self.attach_to_last:
+                length = len(sample.sentence)
+                assert length > 1, 'sentence too short?'
+                if sample.xpos[-1] == POS_PUNCT:
+                    assert sample.xpos[-2] != POS_PUNCT, 'double punctuation?'
+                    labels.append(length - 2)
+                else:
+                    labels.append(length - 1)
+            else:
+                raise ValueError(f'unknown word: {word}')
+        return torch.tensor(labels, dtype=torch.long)
+
+
 class DependencyLabelTask(SizedTask):
     """Maps pairs of words to their syntactic relationship, if any."""
 
@@ -230,3 +294,78 @@ class DependencyLabelTask(SizedTask):
     def __len__(self) -> int:
         """Returns the number of unique labels for this task."""
         return len(self.indexer)
+
+
+class ControlDependencyLabelTask(SizedTask):
+    """Maps pairs of words to arbitrary syntactic relationships."""
+
+    def __init__(self,
+                 *groups: Sequence[ptb.Sample],
+                 dist: Optional[Sequence[float]] = None):
+        """Map each relation label to an arbitrary (integer) label.
+
+        We only do this for pairs of words which have a head-dependent
+        relationship in the original dataset.
+
+        Args:
+            groups: The samples from which to pull possible word pairs.
+            dist (Optional[Sequence[float]], optional): The empirical
+                distribution to use when sampling tags per word type.
+                By default, is computed from the list of samples.
+
+        """
+        samples = tuple(itertools.chain(*groups))
+
+        if dist is None:
+            counts: Dict[str, int] = collections.defaultdict(lambda: 0)
+            for sample in samples:
+                for relation in sample.relations:
+                    counts[relation] += 1
+            dist = np.array([float(count) for count in counts.values()])
+            dist /= np.sum(dist)
+        assert dist is not None, 'uninitialized distribution?'
+        self.dist = dist
+
+        self.rels: Dict[Tuple[str, str], int] = {}
+        for sample in samples:
+            sentence = sample.sentence
+            heads = sample.heads
+            for dep, head in enumerate(heads):
+                if head == -1:
+                    head = dep
+                words = (sentence[dep], sentence[head])
+                if words not in self.rels:
+                    # Add one so that 0 is reserved for "no relationship" tag.
+                    self.rels[words] = np.random.choice(len(dist), p=dist) + 1
+
+    def __call__(self, sample: ptb.Sample) -> torch.Tensor:
+        """Map all possible (word, word) pairs to labels.
+
+        Args:
+            sample (ptb.Sample): The sample to label.
+
+        Returns:
+            torch.Tensor: For length W sentence, returns shape (W, W) matrix
+                where element (v, w) is the index of the label describing
+                the relationship between word v and w, if any. Defaults to
+                the "unk" label, even if there is no relationship between
+                v and w.
+
+        Raises:
+            ValueError: If word pair was not seen during initialization.
+
+        """
+        heads = sample.heads
+        labels = torch.zeros(len(heads), len(heads), dtype=torch.long)
+        for dep, head in enumerate(heads):
+            if head == -1:
+                head = dep
+            words = (sample.sentence[dep], sample.sentence[head])
+            if words not in self.rels:
+                raise ValueError(f'unknown word pair: {words}')
+            labels[dep, head] = self.rels[words]
+        return labels
+
+    def __len__(self) -> int:
+        """Returns the number of relationships, including the null one."""
+        return len(self.dist) + 1
