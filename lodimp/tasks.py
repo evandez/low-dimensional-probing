@@ -230,8 +230,9 @@ class ControlDependencyArcTask(Task):
                 labels.append(index)
             elif word in self.attach_to_last:
                 length = len(sample.sentence)
-                assert length > 1, 'sentence too short?'
-                if sample.xpos[-1] == POS_PUNCT:
+                if length == 1:
+                    labels.append(0)
+                elif sample.xpos[-1] == POS_PUNCT:
                     assert sample.xpos[-2] != POS_PUNCT, 'double punctuation?'
                     labels.append(length - 2)
                 else:
