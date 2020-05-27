@@ -98,6 +98,7 @@ wandb.init(
         },
         'projection': {
             'dimension': options.dimension,
+            'shared': options.share_projection,
         },
         'probe': {
             'model': options.probe,
