@@ -264,29 +264,27 @@ logging.info('test accuracy %.3f', accuracy)
 
 # Measure whether or not the projection is axis aligned.
 if options.ablate:
-    # Old style ablation experiment is below. Too precious to delete.
-
-    # logging.info('will ablate axes one by one and retest')
-    # axes = set(range(projection.project.in_features))
-    # ablated: Set[int] = set()
-    # accuracies = []
-    # while axes:
-    #     best_model, best_axis, best_accuracy = probe, -1, -1.
-    #     for axis in axes:
-    #         model = copy.deepcopy(best_model)
-    #         assert model.project is not None, 'no projection?'
-    #         model.project.project.weight.data[:, sorted(ablated | {axis})] = 0
-    #         accuracy = test(model, loader='dev')
-    #         if accuracy > best_accuracy:
-    #             best_model = model
-    #             best_axis = axis
-    #             best_accuracy = accuracy
-    #     accuracy = test(best_model)
-    #     logging.info('ablating axis %d, test accuracy %f', best_axis, accuracy)
-    #     axes.remove(best_axis)
-    #     ablated.add(best_axis)
-    #     accuracies.append(accuracy)
-    # wandb.run.summary['ablated accuracies'] = torch.tensor(accuracies)
+    logging.info('will ablate axes one by one and retest')
+    axes = set(range(projection.project.in_features))
+    ablated: Set[int] = set()
+    accuracies = []
+    while axes:
+        best_model, best_axis, best_accuracy = probe, -1, -1.
+        for axis in axes:
+            model = copy.deepcopy(best_model)
+            assert model.project is not None, 'no projection?'
+            model.project.project.weight.data[:, sorted(ablated | {axis})] = 0
+            accuracy = test(model, loader='dev')
+            if accuracy > best_accuracy:
+                best_model = model
+                best_axis = axis
+                best_accuracy = accuracy
+        accuracy = test(best_model)
+        logging.info('ablating axis %d, test accuracy %f', best_axis, accuracy)
+        axes.remove(best_axis)
+        ablated.add(best_axis)
+        accuracies.append(accuracy)
+    wandb.run.summary['ablated accuracies'] = torch.tensor(accuracies)
 
     # def ablate(axes: Set[int]) -> nn.Module:
     #     """Abalate the given axes from the probe.
@@ -300,61 +298,27 @@ if options.ablate:
     #     """
     #     model = copy.deepcopy(probe)
     #     assert model.project is not None, 'no projection?'
-    #     if options.share_projection:
-    #         # If we are sharing projections, then ablating the left also
-    #         # ablates the right. Easy!
-    #         model.project.left.project.weight.data[:, sorted(axes)] = 0
-    #     else:
-    #         # If we are not sharing projections, then the "left" and
-    #         # "right" projections contain disjoint axes. we have to
-    #         # manually determine which axis belongs to which projection.
-    #         coordinates = {(i // projection.in_features,
-    #                         i % projection.in_features) for i in axes}
-    #         lefts = {ax for (proj, ax) in coordinates if not proj}
-    #         rights = {ax for (proj, ax) in coordinates if proj}
-    #         assert len(lefts) + len(rights) == len(axes), 'bad mapping?'
-    #         model.project.left.project.weight.data[:, sorted(lefts)] = 0
-    #         assert model.project.right is not None, 'null right proj?'
-    #         model.project.right.project.weight.data[:, sorted(rights)] = 0
+    #     model.project.project.weight.data[:, sorted(axes)] = 0
     #     return model.eval()
 
-    # multiplier = 1 if options.share_projection else 2
-    # axes = tuple(range(multiplier * projection.in_features))
-    # logging.info('will ablate %d axes and determine importance', len(axes))
+    # axes = set(range(projection.project.in_features))
+    # dev_accuracies = []
+    # for axis in axes:
+    #     model = ablate({axis})
+    #     dev_accuracy = test(model, loader='dev')
+    #     logging.info('axis %d/dev accuracy %f', axis, dev_accuracy)
+    #     dev_accuracies.append(dev_accuracy)
+    # wandb.run.summary['ablated dev accuracy'] = torch.tensor(dev_accuracies)
 
-    def ablate(axes: Set[int]) -> nn.Module:
-        """Abalate the given axes from the probe.
-
-        Args:
-            axes (Set[int]): The axes to ablate.
-
-        Returns:
-            nn.Module: The probe with the axes ablated from the projection.
-
-        """
-        model = copy.deepcopy(probe)
-        assert model.project is not None, 'no projection?'
-        model.project.project.weight.data[:, sorted(axes)] = 0
-        return model.eval()
-
-    axes = set(range(projection.project.in_features))
-    dev_accuracies = []
-    for axis in axes:
-        model = ablate({axis})
-        dev_accuracy = test(model, loader='dev')
-        logging.info('axis %d/dev accuracy %f', axis, dev_accuracy)
-        dev_accuracies.append(dev_accuracy)
-    wandb.run.summary['ablated dev accuracy'] = torch.tensor(dev_accuracies)
-
-    ablated = set()
-    test_accuracies = []
-    to_ablate = sorted(enumerate(dev_accuracies),
-                       key=lambda x: x[1],
-                       reverse=True)
-    for axis, _ in to_ablate:
-        ablated.add(axis)
-        model = ablate(ablated)
-        test_accuracy = test(model)
-        logging.info('%d axes/test accuracy %f', len(ablated), test_accuracy)
-        test_accuracies.append(test_accuracy)
-    wandb.run.summary['ablated test accuracy'] = torch.tensor(test_accuracies)
+    # ablated = set()
+    # test_accuracies = []
+    # to_ablate = sorted(enumerate(dev_accuracies),
+    #                    key=lambda x: x[1],
+    #                    reverse=True)
+    # for axis, _ in to_ablate:
+    #     ablated.add(axis)
+    #     model = ablate(ablated)
+    #     test_accuracy = test(model)
+    #     logging.info('%d axes/test accuracy %f', len(ablated), test_accuracy)
+    #     test_accuracies.append(test_accuracy)
+    # wandb.run.summary['ablated test accuracy'] = torch.tensor(test_accuracies)
