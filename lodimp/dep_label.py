@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser(description='Train on dependency label task.')
 parser.add_argument('data', type=pathlib.Path, help='Data directory.')
 parser.add_argument(
     '--model',
-    choices=('bert-base-uncased', 'bert-large-uncased', 'elmo'),
+    choices=('bert-base-uncased', 'elmo'),
     default='elmo',
     help='Representation model to use.',
 )
@@ -42,8 +42,6 @@ parser.add_argument('--epochs',
                     type=int,
                     default=100,
                     help='Passes to make through dataset during training.')
-parser.add_argument('--l1', type=float, help='Add L1 norm penalty.')
-parser.add_argument('--nuc', type=float, help='Add nuclear norm penalty')
 parser.add_argument('--lr', default=1e-3, type=float, help='Learning rate.')
 parser.add_argument('--patience',
                     type=int,
@@ -97,10 +95,6 @@ wandb.init(project='lodimp',
                    'batched': not options.no_batch,
                    'lr': options.lr,
                    'patience': options.patience,
-                   'regularization': {
-                       'l1': options.l1,
-                       'nuc': options.nuc,
-                   },
                },
            },
            dir=str(options.wandb_dir))

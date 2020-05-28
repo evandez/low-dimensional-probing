@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser(description='Train a POS tagger.')
 parser.add_argument('data', type=pathlib.Path, help='Data directory.')
 parser.add_argument(
     '--model',
-    choices=('bert-base-uncased', 'bert-large-uncased', 'elmo'),
+    choices=('bert-base-uncased', 'elmo'),
     default='elmo',
     help='Representation model to use.',
 )
@@ -39,8 +39,6 @@ parser.add_argument('--epochs',
                     type=int,
                     default=100,
                     help='Passes to make through dataset during training.')
-parser.add_argument('--l1', type=float, help='Add L1 norm penalty.')
-parser.add_argument('--nuc', type=float, help='Add nuclear norm penalty')
 parser.add_argument('--lr', default=1e-3, type=float, help='Learning rate.')
 parser.add_argument('--patience',
                     type=int,
@@ -99,10 +97,6 @@ wandb.init(project='lodimp',
                    'batched': not options.no_batch,
                    'lr': options.lr,
                    'patience': options.patience,
-                   'regularization': {
-                       'l1': options.l1,
-                       'nuc': options.nuc,
-                   },
                },
            },
            dir=str(options.wandb_dir))
@@ -191,18 +185,7 @@ else:
 probe = probe.to(device)
 
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
-ce = nn.CrossEntropyLoss().to(device)
-
-
-def criterion(*args: torch.Tensor) -> torch.Tensor:
-    """Returns CE loss with regularizers."""
-    loss = ce(*args)
-    if options.l1:
-        return loss + options.l1 * projection.project.weight.norm(p=1)
-    if options.nuc:
-        return loss + options.nuc * projection.project.weight.norm(p='nuc')
-    return loss
-
+criterion = nn.CrossEntropyLoss().to(device)
 
 # Train the model.
 best_dev_loss, bad_epochs = float('inf'), 0
@@ -227,9 +210,8 @@ for epoch in range(options.epochs):
         total += criterion(preds, tags).item() * len(reps)  # Undo mean.
         count += len(reps)
     dev_loss = total / count
-    erank = linalg.effective_rank(projection.project.weight)
-    logging.info('epoch %d dev loss %f erank %f', epoch, dev_loss, erank)
-    wandb.log({'dev loss': dev_loss, 'erank': erank})
+    logging.info('epoch %d dev loss %f', epoch, dev_loss)
+    wandb.log({'dev loss': dev_loss})
 
     if dev_loss < best_dev_loss:
         best_dev_loss = dev_loss
@@ -276,6 +258,7 @@ logging.info('test accuracy %.3f', accuracy)
 # Measure whether or not the projection is axis aligned.
 if options.ablate:
     logging.info('will ablate axes one by one and retest')
+    assert projection is not None, 'why ablate with no projection?'
     axes = set(range(projection.project.in_features))
     ablated: Set[int] = set()
     accuracies = []
