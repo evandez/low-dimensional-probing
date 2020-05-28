@@ -63,7 +63,7 @@ base += ['--wandb-group', ':'.join([task.name for task in options.tasks])]
 base += ['--wandb-dir', str(options.wandb_dir.resolve())]
 base += ['--model-dir', str(options.model_dir.resolve())]
 base += ['--epochs', str(options.epochs)]
-base += ['--probe', 'linear']
+base += ['--probe', 'mlp']
 if cuda.is_available():
     base.extend(['--cuda', '--no-batch'])
 
