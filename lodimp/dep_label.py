@@ -157,7 +157,10 @@ for split, dataset in data.items():
         loaders[split] = datasets.SentenceTaskDataset(dataset)
 
 # Initialize the projection(s).
-if options.share_projection:
+if ndims == options.dimension:
+    logging.info('projection dim = reps dim, not projecting')
+    projection = None
+elif options.share_projection:
     projection = projections.Projection(ndims, options.dimension)
 else:
     projection = projections.Projection(2 * ndims, 2 * options.dimension)
@@ -171,18 +174,7 @@ else:
 probe = probe.to(device)
 
 optimizer = optim.Adam(probe.parameters(), lr=options.lr)
-ce = nn.CrossEntropyLoss().to(device)
-
-
-def criterion(*args: torch.Tensor) -> torch.Tensor:
-    """Returns CE loss with regularizers."""
-    loss = ce(*args)
-    if options.l1:
-        return loss + options.l1 * projection.project.weight.norm(p=1)
-    if options.nuc:
-        return loss + options.nuc * projection.project.weight.norm(p='nuc')
-    return loss
-
+criterion = nn.CrossEntropyLoss().to(device)
 
 # Train the model.
 best_dev_loss, bad_epochs = float('inf'), 0
@@ -255,6 +247,7 @@ logging.info('test accuracy %.3f', accuracy)
 # Measure whether or not the projection is axis aligned.
 if options.ablate:
     logging.info('will ablate axes one by one and retest')
+    assert projection is not None, 'why ablate with no projection?'
     axes = set(range(projection.project.in_features))
     ablated: Set[int] = set()
     accuracies = []

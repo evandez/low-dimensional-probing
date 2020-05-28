@@ -162,13 +162,24 @@ for split, dataset in data.items():
         loaders[split] = datasets.SentenceTaskDataset(dataset)
 
 # Initialize the projection.
+compose = None
 if options.compose:
     compose = torch.load(options.compose, map_location=device).project
+
+projection = None
+if options.dimension == ndims:
+    # Do nothing, unless we are asked to compose; in which case, just use that
+    # projection.
+    if compose is not None:
+        logging.info('using composed projection as the whole projection')
+        projection = compose
+    else:
+        logging.info('projection dim = reps dim, not projecting')
+else:
+    logging.info('initializing %d-dimensional projection', options.dimension)
     projection = projections.Projection(ndims,
                                         options.dimension,
                                         compose=compose)
-else:
-    projection = projections.Projection(ndims, options.dimension)
 
 probe: Union[probes.Linear, probes.MLP]
 if options.probe == 'linear':
