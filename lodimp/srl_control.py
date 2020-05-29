@@ -235,13 +235,13 @@ class SemanticRoleLabelingTask:
             themes[index] = theme_index
 
             if theme_word in self.label_no_span:
-                left_label = right_label = self.star_index
+                left_index = right_index = self.star_index
             elif theme_word in self.label_left_span:
-                left_label = self.label_left_span[theme_word]
-                right_label = self.star_index
+                left_index = self.label_left_span[theme_word]
+                right_index = self.star_index
             elif theme_word in self.label_right_span:
-                left_label = self.star_index
-                right_label = self.label_right_span[theme_word]
+                left_index = self.star_index
+                right_index = self.label_right_span[theme_word]
             else:
                 assert theme_word in self.label_both_spans, 'unseen theme?'
                 left_index, right_index = self.label_both_spans[theme_word]
