@@ -253,7 +253,7 @@ class SemanticRoleLabelingTask:
 
     def __len__(self) -> int:
         """Returns the number of unique tags for this SRL task."""
-        return len(self.dist) + 2
+        return len(self.dist) + 3
 
 
 task = SemanticRoleLabelingTask(*tuple(annotations.values()))
