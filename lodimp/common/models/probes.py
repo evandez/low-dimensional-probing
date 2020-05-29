@@ -217,7 +217,7 @@ class MLP(nn.Module):
             inputs (torch.Tensor): Model inputs. If projecting,
                 shape must be coercible to (*, project.in_features)
                 and the projected inputs must be coercible to (*, in_features).
-                Otherwise must have shape (*, in_features) to start.
+                Otherwise must be coercible to (*, in_features).
 
         Returns:
             torch.Tensor: MLP output.
@@ -226,7 +226,7 @@ class MLP(nn.Module):
         if self.project is not None:
             inputs = inputs.view(-1, self.project.in_features)
             inputs = self.project(inputs)
-            inputs = inputs.view(-1, self.in_features)
+        inputs = inputs.view(-1, self.in_features)
         return self.mlp(inputs)
 
 
