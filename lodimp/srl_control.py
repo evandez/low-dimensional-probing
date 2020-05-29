@@ -169,7 +169,7 @@ class SemanticRoleLabelingTask:
         self.dist /= np.sum(self.dist)
 
         self.ignore_index = 0
-        self.v_index = len(self.dist)
+        self.v_index = len(self.dist) + 1
         self.star_index = self.v_index + 1
 
         def random_tag() -> int:
