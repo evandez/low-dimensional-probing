@@ -94,7 +94,7 @@ wandb.init(
     name=options.wandb_name,
     group=options.wandb_group,
     config={
-        'task': 'srl',
+        'task': 'srl-control',
         'representations': {
             'model': options.model,
             'layer': options.layer,
