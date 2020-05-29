@@ -8,7 +8,7 @@ from typing import Sequence
 
 from torch import cuda
 
-TASKS = ('pos', 'dep_arc', 'dep_label', 'srl')
+TASKS = ('pos', 'dep_arc', 'dep_label', 'srl', 'srl_control')
 NLAYERS = {'elmo': 3, 'bert-base-uncased': 12}
 
 parser = argparse.ArgumentParser(description='Run brute-force experiments.')
@@ -28,14 +28,12 @@ parser.add_argument('--dims',
                     nargs='+',
                     default=(2, 4, 8, 16, 32, 64),
                     help='Projection dimensionalities to run.')
-parser.add_argument('--l1', type=float, nargs='+', help='L1 penalties.')
-parser.add_argument('--nuc', type=float, nargs='+', help='Nuc norm penalties.')
 parser.add_argument('--ablate',
                     action='store_true',
                     help='Ablate axes and retest after every run.')
 parser.add_argument('--epochs',
                     type=int,
-                    default=500,
+                    default=1000,
                     help='Total passes through training dataset.')
 parser.add_argument('--force-batch',
                     action='store_true',
@@ -53,7 +51,7 @@ options = parser.parse_args()
 
 probes = options.probes
 if not options.probes:
-    if options.task in ('dep_arc', 'srl'):
+    if options.task in ('dep_arc', 'srl', 'srl_control'):
         probes = ('bilinear', 'mlp')
     else:
         probes = ('linear', 'mlp')
@@ -94,17 +92,8 @@ for layer in options.layers or range(NLAYERS[options.model]):
             command += ['--probe', probe]
             run(command + ['--wandb-name', tag])
 
-            # TODO(evandez): Okay, this script needs to be broken up.
-            if options.task in ('dep_arc', 'dep_label', 'srl'):
+            if options.task in ('dep_arc', 'dep_label', 'srl', 'srl_control'):
                 shared = command.copy()
                 shared += ['--share-projection']
                 shared += ['--wandb-name', tag + '-shared']
                 run(shared)
-
-            # Run regularized variants if requested.
-            for reg, lams in (('l1', options.l1), ('nuc', options.nuc)):
-                for lam in lams or []:
-                    regularized = command.copy()
-                    regularized += [f'--{reg}', str(lam)]
-                    regularized += ['--wandb-name', f'{tag}-{lam}{reg}']
-                    run(regularized)
