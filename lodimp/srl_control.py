@@ -421,7 +421,7 @@ def test(model: nn.Module, loader: str = 'test') -> float:
         lefts = reps[themes[:nthemes]].unsqueeze(1).expand(-1, len(reps), -1)
         rights = reps.unsqueeze(0).expand(nthemes, -1, -1)
         preds = model(lefts, rights).argmax(dim=-1)
-        correct += preds.eq(labels[:nthemes]).sum().item()
+        correct += preds.eq(labels[:nthemes].reshape(-1)).sum().item()
         count += len(reps) * nthemes
         logging.info('tested sample %d of %d', index + 1, len(loaders['test']))
     return correct / count
