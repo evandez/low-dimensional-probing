@@ -5,7 +5,8 @@ import random
 from typing import Iterator, Optional, Sequence, Set, Tuple, Union
 
 from lodimp.common import tasks
-from lodimp.common.data import ptb, representations as reps
+from lodimp.common.data import ptb
+from lodimp.common.data import representations as reps
 
 import torch
 

@@ -5,7 +5,8 @@ import itertools
 from typing import Dict, Iterator, Optional, Sequence, Tuple, Union
 
 from lodimp.common import tasks
-from lodimp.common.data import ptb, representations as reps
+from lodimp.common.data import ptb
+from lodimp.common.data import representations as reps
 
 import numpy as np
 import torch
