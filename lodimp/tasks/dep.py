@@ -1,8 +1,7 @@
 """Core experiments for dependency edge prediction task."""
 
-import itertools
 import random
-from typing import Iterator, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Iterator, Optional, Sequence, Set, Tuple, Type, Union
 
 from lodimp.common import tasks
 from lodimp.common.data import ptb
@@ -13,6 +12,9 @@ import torch
 
 class DEPIndexer:
     """Maps dependents to heads."""
+
+    def __init__(self, **kwargs: Any):
+        """Does nothing, only exists for sake of type checking."""
 
     def __call__(self, sample: ptb.Sample) -> torch.Tensor:
         """Map dependents to heads.
@@ -37,7 +39,7 @@ class DEPIndexer:
 class ControlDEPIndexer:
     """Constructs arbitrary parse "trees" for all samples."""
 
-    def __init__(self, *groups: Sequence[ptb.Sample]):
+    def __init__(self, samples: Sequence[ptb.Sample]):
         """Map each word type to a dependency arc behavior.
 
         We sample uniformly from three behaviors:
@@ -46,11 +48,10 @@ class ControlDEPIndexer:
         - Always attach word to last word in sentence.
 
         Args:
-            *groups (Sequence[ptb.PTBSample]): All samples, provided in one or
-                more sequences, for which to generate tags.
-        """
-        samples = tuple(itertools.chain(*groups))
+            samples (Sequence[ptb.PTBSample]): All samples for which to
+                generate tags.
 
+        """
         self.attach_to_self: Set[str] = set()
         self.attach_to_first: Set[str] = set()
         self.attach_to_last: Set[str] = set()
@@ -106,17 +107,22 @@ class DEPTaskDataset(tasks.TaskDataset):
         self,
         representations: reps.RepresentationLayerDataset,
         annotations: Sequence[ptb.Sample],
-        indexer: Union[DEPIndexer, ControlDEPIndexer],
+        indexer: Type[Union[DEPIndexer, ControlDEPIndexer]] = DEPIndexer,
+        **kwargs: Any,
     ):
         """Initialize the task dataset.
+
+        All kwargs are forwarded to the indexer upon instantiation.
 
         Args:
             representations (representations.RepresentationsLayerDataset): Word
                 representations corresponding to the words to be tagged.
             annotations (Sequence[ptb.PTBSample]): The PTB annotations from
                 which to pull head indices.
-            indexer (Union[DEPIndexer, ControlDEPIndexer]): Callable mapping
-                PTB annotations to integer tensors.
+            indexer (Type[Union[DEPIndexer, ControlDEPIndexer]]): Type of the
+                indexer to use for mapping PTB annotations to integer tensors.
+                If set to ControlDEPIndexer, annotations will be passed as the
+                `samples` argument unless that parameter is set in kwargs.
 
         Raises:
             ValueError: If number of representations/annotations do not match.
@@ -128,7 +134,11 @@ class DEPTaskDataset(tasks.TaskDataset):
 
         self.representations = representations
         self.annotations = annotations
-        self.indexer = indexer
+
+        kwargs = kwargs.copy()
+        if indexer is ControlDEPIndexer:
+            kwargs.setdefault('samples', annotations)
+        self.indexer = indexer(**kwargs)
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return (representations, head indices) for index'th sentence.

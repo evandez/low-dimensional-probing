@@ -2,9 +2,9 @@
 
 import collections
 import copy
-import itertools
 import logging
 from typing import (
+    Any,
     Dict,
     Iterator,
     List,
@@ -92,7 +92,7 @@ class ControlPOSIndexer:
     """Maps words to arbitrary POS tags."""
 
     def __init__(self,
-                 *groups: Sequence[ptb.Sample],
+                 samples: Sequence[ptb.Sample],
                  dist: Optional[Sequence[float]] = None):
         """Initialize the tagger.
 
@@ -101,14 +101,13 @@ class ControlPOSIndexer:
         individual word type.
 
         Args:
-            *groups (Sequence[ptb.PTBSample]): All samples, provided in one or
-                more sequences, for which to generate tags.
+            samples (Sequence[ptb.PTBSample]): All samples for which to
+                generate tags.
             dist (Optional[Sequence[float]], optional): The empirical
                 distribution to use when sampling tags for word type.
                 By default, is computed from the list of samples.
 
         """
-        samples = tuple(itertools.chain(*groups))
         if dist is None:
             counts: Dict[str, int] = collections.defaultdict(lambda: 0)
             for sample in samples:
@@ -151,17 +150,22 @@ class POSTaskDataset(tasks.TaskDataset):
         self,
         representations: reps.RepresentationLayerDataset,
         annotations: Sequence[ptb.Sample],
-        indexer: Union[POSIndexer, ControlPOSIndexer],
+        indexer: Type[Union[POSIndexer, ControlPOSIndexer]] = POSIndexer,
+        **kwargs: Any,
     ):
         """Maps each POS tag to an index.
+
+        Keyword arguments are forwarded to indexer when instantiated.
 
         Args:
             representations (representations.RepresentationsLayerDataset): Word
                 representations corresponding to the words to be tagged.
             annotations (Sequence[ptb.PTBSample]): The PTB annotations from
                 which to pull POS tags.
-            indexer (Union[POSIndexer, ControlPOSIndexer]): Callable mapping
-                PTB annotations to integer tensors.
+            indexer (Type[Union[POSIndexer, ControlPOSIndexer]]): Type of
+                indexer for mapping PTB annotations to integer tensors. Will
+                be instantiated with given annotations unless `samples` is
+                set in kwargs.
 
         Raises:
             ValueError: If number of representations/annotations do not match.
@@ -173,7 +177,10 @@ class POSTaskDataset(tasks.TaskDataset):
 
         self.representations = representations
         self.annotations = annotations
-        self.indexer = indexer
+
+        kwargs = kwargs.copy()
+        kwargs.setdefault('samples', annotations)
+        self.indexer = indexer(**kwargs)
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return (representations, integral POS tags) for index'th sentence.
@@ -246,8 +253,10 @@ def train(train_dataset: tasks.TaskDataset,
 
     Args:
         train_dataset (tasks.TaskDataset): Training data.
-        dev_dataset (tasks.TaskDataset): Validation data.
-        test_dataset (tasks.TaskDataset): Test data.
+        dev_dataset (tasks.TaskDataset): Validation data, used for early
+            stopping.
+        test_dataset (tasks.TaskDataset): Test data, used to compute final
+            accuracy after training.
         probe_t (Type[Probe], optional): Probe type to train.
             Defaults to probes.Linear.
         project_to (int, optional): Project representations to this

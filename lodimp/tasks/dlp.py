@@ -1,8 +1,7 @@
 """Core experiments for the dependency label prediction task."""
 
 import collections
-import itertools
-from typing import Dict, Iterator, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Iterator, Optional, Sequence, Tuple, Type, Union
 
 from lodimp.common import tasks
 from lodimp.common.data import ptb
@@ -67,7 +66,7 @@ class ControlDLPIndexer:
     """Maps pairs of words to arbitrary syntactic relationships."""
 
     def __init__(self,
-                 *groups: Sequence[ptb.Sample],
+                 samples: Sequence[ptb.Sample],
                  dist: Optional[Sequence[float]] = None):
         """Map each relation label to an arbitrary (integer) label.
 
@@ -75,15 +74,13 @@ class ControlDLPIndexer:
         relationship in the original dataset.
 
         Args:
-            *groups (Sequence[ptb.Samples]): The samples from which to pull
+            samples (Sequence[ptb.Samples]): The samples from which to pull
                 possible word pairs.
             dist (Optional[Sequence[float]], optional): The empirical
                 distribution to use when sampling tags per word type.
                 By default, is computed from the list of samples.
 
         """
-        samples = tuple(itertools.chain(*groups))
-
         if dist is None:
             counts: Dict[str, int] = collections.defaultdict(lambda: 0)
             for sample in samples:
@@ -141,9 +138,12 @@ class DLPTaskDataset(tasks.TaskDataset):
         self,
         representations: reps.RepresentationLayerDataset,
         annotations: Sequence[ptb.Sample],
-        indexer: Union[DLPIndexer, ControlDLPIndexer],
+        indexer: Type[Union[DLPIndexer, ControlDLPIndexer]] = DLPIndexer,
+        **kwargs: Any,
     ):
         """Initializes dataset by mapping each dependency label to an index.
+
+        The kwargs are forwarded to indexer when it is instantiated.
 
         Args:
             representations (representations.RepresentationsLayerDataset): Word
@@ -151,8 +151,10 @@ class DLPTaskDataset(tasks.TaskDataset):
                 labeled.
             annotations (Sequence[ptb.PTBSample]): The PTB annotations from
                 which to pull dependency labels.
-            indexer (Union[DLPIndexer, ControlDLPIndexer]): Callable mapping
-                PTB dependency label annotations to integer tensors.
+            indexer (Union[DLPIndexer, ControlDLPIndexer]): Type of the indexer
+                to use for mapping PTB dependency label annotations to integer
+                tensors. Instantiated with given annotations unless the
+                samples keyword is set in kwargs.
 
         Raises:
             ValueError: If number of representations/annotations do not match.
@@ -164,7 +166,10 @@ class DLPTaskDataset(tasks.TaskDataset):
 
         self.representations = representations
         self.annotations = annotations
-        self.indexer = indexer
+
+        kwargs = kwargs.copy()
+        kwargs.setdefault('samples', annotations)
+        self.indexer = indexer(**kwargs)
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return (representations, integral POS tags) for index'th sentence.

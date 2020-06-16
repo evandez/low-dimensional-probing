@@ -149,7 +149,7 @@ def rep_layer_dataset(reps):
 @pytest.fixture
 def pos_task_dataset(rep_layer_dataset, pos_indexer):
     """Returns a POSTaskDataset for testing."""
-    return pos.POSTaskDataset(rep_layer_dataset, SAMPLES, pos_indexer)
+    return pos.POSTaskDataset(rep_layer_dataset, SAMPLES)
 
 
 def test_pos_task_dataset_iter(pos_task_dataset, rep_layer_dataset):
@@ -206,7 +206,7 @@ def test_pos_task_dataset_count_unique_features(pos_task_dataset):
     assert pos_task_dataset.count_unique_features() == len(TAGS) + 1
 
 
-def test_pos_task_dataset_init_bad_lengths(rep_layer_dataset, pos_indexer):
+def test_pos_task_dataset_init_bad_lengths(rep_layer_dataset):
     """Test POSTaskDataset.__init__ dies when given different reps/annos."""
     with pytest.raises(ValueError, match='.*1 annotation.*'):
-        pos.POSTaskDataset(rep_layer_dataset, SAMPLES[:1], pos_indexer)
+        pos.POSTaskDataset(rep_layer_dataset, SAMPLES[:1])

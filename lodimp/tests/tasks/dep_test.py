@@ -111,9 +111,9 @@ def rep_layer_dataset(reps):
 
 
 @pytest.fixture
-def dep_task_dataset(rep_layer_dataset, dep_indexer):
+def dep_task_dataset(rep_layer_dataset):
     """Returns a DEPTaskDataset for testing."""
-    return dep.DEPTaskDataset(rep_layer_dataset, SAMPLES, dep_indexer)
+    return dep.DEPTaskDataset(rep_layer_dataset, SAMPLES)
 
 
 def test_dep_task_dataset_iter(dep_task_dataset, rep_layer_dataset):
@@ -170,7 +170,7 @@ def test_dep_task_dataset_count_unique_features(dep_task_dataset):
     assert dep_task_dataset.count_unique_features() is None
 
 
-def test_dep_task_dataset_init_bad_lengths(rep_layer_dataset, dep_indexer):
+def test_dep_task_dataset_init_bad_lengths(rep_layer_dataset):
     """Test DEPTaskDataset.__init__ dies when given different reps/annos."""
     with pytest.raises(ValueError, match='.*1 annotation.*'):
-        dep.DEPTaskDataset(rep_layer_dataset, SAMPLES[:1], dep_indexer)
+        dep.DEPTaskDataset(rep_layer_dataset, SAMPLES[:1])

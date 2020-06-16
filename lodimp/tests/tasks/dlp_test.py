@@ -146,9 +146,9 @@ def rep_layer_dataset(reps):
 
 
 @pytest.fixture
-def dlp_task_dataset(rep_layer_dataset, dlp_indexer):
+def dlp_task_dataset(rep_layer_dataset):
     """Returns a DLPTaskDataset for testing."""
-    return dlp.DLPTaskDataset(rep_layer_dataset, SAMPLES, dlp_indexer)
+    return dlp.DLPTaskDataset(rep_layer_dataset, SAMPLES)
 
 
 @pytest.fixture
@@ -225,7 +225,7 @@ def test_dlp_task_dataset_count_unique_features(dlp_task_dataset):
     assert dlp_task_dataset.count_unique_features() == len(LABELS) + 1
 
 
-def test_dlp_task_dataset_init_bad_lengths(rep_layer_dataset, dlp_indexer):
+def test_dlp_task_dataset_init_bad_lengths(rep_layer_dataset):
     """Test DLPTaskDataset.__init__ dies when given different reps/annos."""
     with pytest.raises(ValueError, match='.*1 annotation.*'):
-        dlp.DLPTaskDataset(rep_layer_dataset, SAMPLES[:1], dlp_indexer)
+        dlp.DLPTaskDataset(rep_layer_dataset, SAMPLES[:1])
