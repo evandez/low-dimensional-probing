@@ -1,11 +1,13 @@
 """Core experiments for dependency edge prediction task."""
 
+import logging
 import random
 from typing import Any, Iterator, Optional, Sequence, Set, Tuple, Type, Union
 
-from lodimp.common import tasks
+from lodimp.common import learning, tasks
 from lodimp.common.data import ptb
 from lodimp.common.data import representations as reps
+from lodimp.common.models import probes, projections
 
 import torch
 
@@ -192,3 +194,76 @@ class DEPTaskDataset(tasks.TaskDataset):
     def count_unique_features(self) -> Optional[int]:
         """Returns number of unique POS seen in data."""
         return None
+
+
+Probe = Union[probes.PairwiseBilinear, probes.PairwiseMLP]
+
+
+def train(train_dataset: tasks.TaskDataset,
+          dev_dataset: tasks.TaskDataset,
+          test_dataset: tasks.TaskDataset,
+          probe_t: Type[Probe] = probes.PairwiseBilinear,
+          project_to: int = 10,
+          share_projection: bool = False,
+          epochs: int = 25,
+          patience: int = 4,
+          lr: float = 1e-3,
+          device: Optional[torch.device] = None,
+          also_log_to_wandb: bool = False) -> Tuple[Probe, float]:
+    """Train a probe on dependency edge prediction.
+
+    Args:
+        train_dataset (TaskDataset): Training data for probe.
+        dev_dataset (TaskDataset): Validation data for probe, used for early
+            stopping.
+        test_dataset (TaskDataset): Test data for probe, used to compute
+            final accuracy after training.
+        probe_t (Type[Probe], optional): Probe type to train.
+            Defaults to probes.Linear.
+        project_to (int, optional): Project representations to this
+            dimensionality. Defaults to 10.
+        share_projection (bool): If set, project the left and right components
+            of pairwise probes with the same projection. E.g. if the probe is
+            bilinear of the form xAy, we will always compute (Px)A(Py) as
+            opposed to (Px)A(Qy) for distinct projections P, Q. Defaults to NOT
+            shared.
+        epochs (int, optional): Maximum passes through the training dataset.
+            Defaults to 25.
+        patience (int, optional): Allow dev loss to not improve for this many
+            epochs, then stop training. Defaults to 4.
+        lr (float, optional): Learning rate for optimizer. Defaults to 1e-3.
+        device (Optional[torch.device], optional): Torch device on which to
+            train probe. Defaults to CPU.
+        also_log_to_wandb (Optional[pathlib.Path], optional): If set, log
+            training data to wandb. By default, wandb is not used.
+
+    Returns:
+        Tuple[Probe, float]: The trained probe and its test accuracy.
+
+    """
+    log = logging.getLogger(__name__)
+
+    device = device or torch.device('cpu')
+
+    ndims = train_dataset.sample_representations_shape[-1]
+    log.info('representations have dimension %d', ndims)
+
+    if share_projection:
+        projection = projections.PairwiseProjection(
+            projections.Projection(ndims, project_to))
+    else:
+        projection = projections.PairwiseProjection(
+            projections.Projection(ndims, project_to),
+            right=projections.Projection(ndims, project_to))
+
+    probe = probe_t(project_to, project=projection)
+    learning.train(probe,
+                   train_dataset,
+                   dev_dataset=dev_dataset,
+                   stopper=learning.EarlyStopping(patience=patience),
+                   epochs=epochs,
+                   lr=lr,
+                   device=device,
+                   also_log_to_wandb=also_log_to_wandb)
+    accuracy = learning.test(probe, test_dataset, device=device)
+    return probe, accuracy
