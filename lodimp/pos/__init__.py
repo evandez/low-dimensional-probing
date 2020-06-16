@@ -5,7 +5,7 @@ import logging
 import pathlib
 from typing import Dict, List, Optional, Sequence, Set, Tuple, Type, Union
 
-from lodimp.common import learning, linalg
+from lodimp.common import learning, linalg, tasks
 from lodimp.common.data import splits
 from lodimp.common.models import probes, projections
 
@@ -21,7 +21,7 @@ def load(
     data_splits: Sequence[str] = splits.STANDARD_SPLITS,
     batch: bool = True,
     device: Optional[torch.device] = None,
-) -> Dict[str, learning.TaskDataset]:
+) -> Dict[str, tasks.TaskDataset]:
     """Load task data.
 
     Args:
@@ -35,21 +35,21 @@ def load(
             full dataset to this device. Defaults to CPU.
 
     Returns:
-        Dict[str, learning.TaskDataset]: Mapping from split name to dataset.
+        Dict[str, tasks.TaskDataset]: Mapping from split name to dataset.
 
     """
     log = logging.getLogger(__name__)
-    datasets: Dict[str, learning.TaskDataset] = {}
+    datasets: Dict[str, tasks.TaskDataset] = {}
     for split in splits.STANDARD_SPLITS:
         path = data_path / f'{split}.h5'
         if batch:
             log.info('loading task %s set from %s', split, path)
-            datasets[split] = learning.SentenceBatchingTaskDataset(
+            datasets[split] = tasks.SentenceBatchingCollatedTaskDataset(
                 path, device=device)
         else:
             log.info('loading and collating task %s set from %s', split, path)
-            datasets[split] = learning.NonBatchingTaskDataset(path,
-                                                              device=device)
+            datasets[split] = tasks.NonBatchingCollatedTaskDataset(
+                path, device=device)
     return datasets
 
 
@@ -99,10 +99,10 @@ def train(data_path: pathlib.Path,
 
     datasets = load(data_path, batch=batch, device=device if cache else None)
 
-    ndims = datasets[splits.TRAIN].dimension
+    ndims = datasets[splits.TRAIN].sample_representations_shape[-1]
     log.info('representations have dimension %d')
 
-    ntags = datasets[splits.TRAIN].tags.attrs.get('ntags')
+    ntags = datasets[splits.TRAIN].count_unique_features()
     assert ntags is not None, 'no tag count, maybe h5 file stores other task?'
     log.info('part of speech task has %d tags', ntags)
 
@@ -232,10 +232,10 @@ def nullify(data_path: pathlib.Path,
                     batch=batch,
                     device=device if cache else None)
 
-    ndims = datasets[splits.TRAIN].dimension
+    ndims = datasets[splits.TRAIN].sample_representations_shape[-1]
     log.info('representations have dimension %d')
 
-    ntags = datasets[splits.TRAIN].tags.attrs.get('ntags')
+    ntags = datasets[splits.TRAIN].count_unique_features()
     assert ntags is not None, 'no tag count, maybe h5 file stores other task?'
     log.info('part of speech task has %d tags', ntags)
 

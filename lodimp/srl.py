@@ -16,7 +16,7 @@ from typing import Dict, Iterator, Sequence, Set, Tuple, Union
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 from lodimp import datasets
-from lodimp.common import learning
+from lodimp.common import learning, tasks
 from lodimp.common.data import ontonotes
 from lodimp.common.models import probes, projections
 
@@ -137,7 +137,7 @@ for split in ('train', 'dev', 'test'):
     h5 = (options.data / 'srl' / options.model / str(options.layer) /
           f'{split}.h5')
     logging.info('reading %s %s set from %s', options.model, split, h5)
-    reps_by_split[split] = learning.SentenceBatchingTaskDataset(
+    reps_by_split[split] = tasks.SentenceBatchingCollatedTaskDataset(
         h5, device=device if options.no_batch else None)
 
 
@@ -206,12 +206,13 @@ task = SemanticRoleLabelingTask(*tuple(annotations.values()))
 class SemanticRoleLabelingDataset(data.IterableDataset):
     """Simple wrapper around representations and annotations data."""
 
-    def __init__(self, reps: learning.SentenceBatchingTaskDataset,
+    def __init__(self, reps: tasks.SentenceBatchingCollatedTaskDataset,
                  samples: Sequence[ontonotes.Sample]):
         """Initialize and preprocess the data.
 
         Args:
-            reps (datasets.SentenceBatchingTaskDataset): Dataset of reps.
+            reps (datasets.SentenceBatchingCollatedTaskDataset): Dataset of
+                reps.
             samples (Sequence[ontonotes.Sample]): Annotations for reps.
 
         """
@@ -266,7 +267,7 @@ for split in ('train', 'dev', 'test'):
     loaders[split] = SemanticRoleLabelingDataset(reps_by_split[split],
                                                  annotations[split])
 
-ndims = reps_by_split['train'].dimension
+ndims = reps_by_split['train'].sample_representations_shape[-1]
 if options.share_projection:
     projection = projections.PairwiseProjection(
         projections.Projection(ndims, options.dimension),)

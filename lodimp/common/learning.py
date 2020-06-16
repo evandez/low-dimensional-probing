@@ -1,228 +1,13 @@
 """Defines functions for training models."""
 
 import logging
-import pathlib
-from typing import Any, Iterator, Optional, Tuple
+from typing import Optional
 
-import h5py
+from lodimp.common import tasks
+
 import torch
 import wandb
 from torch import nn, optim
-from torch.utils import data
-
-
-class TaskDataset(data.IterableDataset):
-    """A standard dataset containing representations and tags.
-
-    Because we train many, many probes on the same tasks, we must preprocess
-    the representations and tags to make training as fast as possible.
-    The key to fast training is to avoid collation and I/O between disk,
-    RAM, and the GPU memory, ideally moving the entire dataset to the GPU
-    at the beginning of training and then relying on the GPU's finesse with
-    large matix multiplications. To faciliate this, we pre-collate
-    all representations into a contiguous array and store it in an h5 file.
-    We do the same for the tags, storing them in a separate array.
-
-    This class wraps the pre-computed h5 file, making few assumptions about
-    the format other than that there are two arrays: one for representations
-    and one for tags.
-    """
-
-    def __init__(self,
-                 path: pathlib.Path,
-                 reps_key: str = 'reps',
-                 tags_key: str = 'tags',
-                 device: Optional[torch.device] = None):
-        """Initialize the task dataset.
-
-        Args:
-            path (pathlib.Path): Path to the preprocessed h5 file.
-            reps_key (str, optional): Key for the dataset of representations
-                in the h5 file. Defaults to 'reps'.
-            tags_key (str, optional): Key for the dataset of tags in the h5
-                file. Defaults to 'tags'.
-            device (Optional[torch.device], optional): Move data to this
-                device. By default, data configured for CPU.
-
-        Raises:
-            KeyError: If an expected dataset is missing.
-
-        """
-        self.file = h5py.File(path, 'r')
-
-        for key in (reps_key, tags_key):
-            if key not in self.file:
-                raise KeyError(f'dataset not in h5 file: {key}')
-
-        self.representations = self.file[reps_key]
-        self.tags = self.file[tags_key]
-        assert len(self.tags) == len(self.representations)
-
-        self.representations_cache = None
-        self.tags_cache = None
-        if device is not None:
-            self.representations_cache = torch.tensor(self.representations[:],
-                                                      device=device)
-            self.tags_cache = torch.tensor(self.tags[:],
-                                           dtype=torch.long,
-                                           device=device)
-
-    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Returns the (representations, label) pair at the given index.
-
-        Args:
-            index (int): The index of the pair to retrieve.
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: The (representations, label)
-                tensors, the first with shape (1, dimension) and the second
-                with shape (1,).
-
-        """
-        if index < 0 or index >= len(self):
-            raise IndexError(f'sample index out of bounds: {index}')
-
-        if self.representations_cache is not None:
-            assert self.tags_cache is not None, 'tags not cached?'
-            reps = self.representations_cache[index]
-            tag = self.tags_cache[index]
-        else:
-            reps = torch.tensor(self.representations[index])
-            tag = torch.tensor(self.tags[index], dtype=torch.long)
-        return reps, tag
-
-    def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
-        """Yields every sample in the dataset in sequence."""
-        for index in range(len(self)):
-            reps, tag = self[index]
-            # Unsqueeze so the reps appear batch-like.
-            yield reps.unsqueeze(0), tag.unsqueeze(0)
-
-    def __len__(self) -> int:
-        """Returns the number of samples in this dataset."""
-        return len(self.representations)
-
-    @property
-    def dimension(self) -> int:
-        """Returns the representation dimensionality."""
-        return self.representations.shape[-1]
-
-
-class SentenceBatchingTaskDataset(TaskDataset):
-    """A TaskDataset that iterates at the sentence level.
-
-    While our chosen file layout inherently destroys sentence boundaries,
-    we record the start index of each sentence in a third dataset, which we
-    refer to as the "breaks" dataset. This class uses it to allow iteration
-    of representations/tags at the sentence level.
-    """
-
-    def __init__(self,
-                 path: pathlib.Path,
-                 breaks_key: str = 'breaks',
-                 **kwargs: Any):
-        """Initialize the dataset.
-
-        Args:
-            path (pathlib.Path): Path to the preprocessed h5 file.
-            reps_key (str, optional): Key for the dataset of representations
-                in the h5 file. Defaults to 'reps'.
-            tags_key (str, optional): Key for the dataset of tags in the h5
-                file. Defaults to 'tags'.
-
-        Raises:
-            KeyError: If breaks dataset not found.
-
-        """
-        super().__init__(path, **kwargs)
-        if breaks_key not in self.file:
-            raise KeyError(f'dataset not in h5 file: {breaks_key}')
-
-        # We never deliberately expose the breaks dataset, and it should never
-        # be so big that it does not fit into memory, so just read it all.
-        self.breaks = self.file[breaks_key][:]
-
-    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Returns all representations and tags for the index'th sentence.
-
-        Args:
-            index (int): Index of the sentence to retrieve.
-            device (Optional[torch.device], optional): Move data to this
-                device. By default, data configured for CPU.
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Shape (L, *) tensors, where
-                L is the length of the index'th sentence and * is whatever
-                shape the representations/tags would have if you accessed
-                them with PreprocessedDataset.
-
-        """
-        if index < 0 or index >= len(self):
-            raise IndexError(f'sentence index out of bounds: {index}')
-
-        start = self.breaks[index]
-        if index < len(self) - 1:
-            end = self.breaks[index + 1]
-        else:
-            assert index == len(self) - 1
-            end = len(self.representations)
-
-        if self.representations_cache is not None:
-            assert self.tags_cache is not None, 'tags not cached?'
-            reps = self.representations_cache[start:end]
-            tags = self.tags_cache[start:end]
-        else:
-            reps = torch.tensor(self.representations[start:end])
-            tags = torch.tensor(self.tags[start:end], dtype=torch.long)
-
-        return reps, tags
-
-    def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
-        """Iterate over (sentence representations, sentence labels) pairs."""
-        for index in range(len(self)):
-            yield self[index]
-
-    def __len__(self) -> int:
-        """Returns the number of sentences in the dataset."""
-        return self.breaks.shape[0]
-
-
-class NonBatchingTaskDataset(TaskDataset):
-    """A TaskDataset where all data is treated as one batch."""
-
-    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Return the collated dataset.
-
-        Args:
-            index (int): Index of the dataset. Must be 0. This parameter is
-                here for sake of type checking.
-
-        Raises:
-            IndexError: If the index is not 0.
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: The full (representations, tags)
-                dataset.
-
-        """
-        if index != 0:
-            raise IndexError(f'index must be 0, got {index}')
-        if self.representations_cache is not None:
-            assert self.tags_cache is not None, 'tags not cached?'
-            reps = self.representations_cache
-            tags = self.tags_cache
-        else:
-            reps = torch.tensor(self.representations[:])
-            tags = torch.tensor(self.tags[:], dtype=torch.long)
-        return reps, tags
-
-    def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
-        """Yields the one and only chunk of data."""
-        yield self[0]
-
-    def __len__(self) -> int:
-        """Returns 1 because there is only one chunk."""
-        return 1
 
 
 class EarlyStopping:
@@ -266,8 +51,8 @@ class EarlyStopping:
 
 
 def train(probe: nn.Module,
-          train_dataset: TaskDataset,
-          dev_dataset: Optional[TaskDataset] = None,
+          train_dataset: tasks.TaskDataset,
+          dev_dataset: Optional[tasks.TaskDataset] = None,
           stopper: Optional[EarlyStopping] = None,
           device: Optional[torch.device] = None,
           lr: float = 1e-3,
@@ -368,7 +153,7 @@ def train(probe: nn.Module,
 
 
 def test(probe: nn.Module,
-         dataset: TaskDataset,
+         dataset: tasks.TaskDataset,
          device: Optional[torch.device] = None) -> float:
     """Compute classification accuracy of a probe on the given data.
 

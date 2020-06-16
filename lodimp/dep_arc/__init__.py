@@ -5,7 +5,7 @@ import logging
 import pathlib
 from typing import Dict, Optional, Sequence, Set, Tuple, Type, Union
 
-from lodimp.common import learning
+from lodimp.common import learning, tasks
 from lodimp.common.data import splits
 from lodimp.common.models import probes, projections
 
@@ -19,7 +19,7 @@ def load(
     data_path: pathlib.Path,
     data_splits: Sequence[str] = splits.STANDARD_SPLITS,
     device: Optional[torch.device] = None,
-) -> Dict[str, learning.TaskDataset]:
+) -> Dict[str, tasks.TaskDataset]:
     """Load task data.
 
     Args:
@@ -30,16 +30,16 @@ def load(
             to this device. Defaults to CPU.
 
     Returns:
-        Dict[str, learning.TaskDataset]: Mapping from split name to dataset.
+        Dict[str, tasks.TaskDataset]: Mapping from split name to dataset.
 
     """
     log = logging.getLogger(__name__)
-    datasets: Dict[str, learning.TaskDataset] = {}
+    datasets: Dict[str, tasks.TaskDataset] = {}
     for split in splits.STANDARD_SPLITS:
         path = data_path / f'{split}.h5'
         log.info('loading task %s set from %s', split, path)
-        datasets[split] = learning.SentenceBatchingTaskDataset(path,
-                                                               device=device)
+        datasets[split] = tasks.SentenceBatchingCollatedTaskDataset(
+            path, device=device)
     return datasets
 
 
@@ -87,7 +87,7 @@ def train(data_path: pathlib.Path,
     device = device or torch.device('cpu')
     datasets = load(data_path, device=device if cache else None)
 
-    ndims = datasets[splits.TRAIN].dimension
+    ndims = datasets[splits.TRAIN].sample_representations_shape[-1]
     log.info('representations have dimension %d')
 
     if share_projection:
