@@ -5,5 +5,11 @@ dependency edge prediction (DEP), dependency label prediction (DLP), and
 semantic role labeling (SRL).
 
 Task-specific code is meant to be minimal. Most core logic can be found in
-common/ modules.
+common modules.
 """
+
+# Mapping from task to abbreviation. Useful when defining CLIs...
+PART_OF_SPEECH_TAGGING = 'pos'
+DEPENDENCY_LABEL_PREDICTION = 'dlp'
+DEPENDENCY_EDGE_PREDICTION = 'dep'
+SEMANTIC_ROLE_LABELING = 'srl'
