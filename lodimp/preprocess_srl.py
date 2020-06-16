@@ -12,7 +12,6 @@ from typing import Callable, Dict, List, Sequence
 
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
-from lodimp import tasks
 from lodimp.common.data import ontonotes, representations
 
 import h5py

@@ -1,6 +1,6 @@
 """Unit tests for the tasks module."""
 
-from lodimp import tasks
+from lodimp import maps
 from lodimp.common.data import ptb
 
 import torch
@@ -28,7 +28,7 @@ POS_TAGS = (
 
 def test_pos_task_init():
     """Test POSTask.__init__ assigns tags as expected."""
-    task = tasks.POSTask(SAMPLES)
+    task = maps.POSTask(SAMPLES)
     assert task.indexer == {
         'A': 0,
         'B': 1,
@@ -40,13 +40,13 @@ def test_pos_task_init():
 
 def test_pos_task_init_tags():
     """Test POSTask.__init__ indexes correctly when given tags=..."""
-    task = tasks.POSTask(SAMPLES, tags={'A', 'B', 'C'})
+    task = maps.POSTask(SAMPLES, tags={'A', 'B', 'C'})
     assert task.indexer == {'A': 0, 'B': 1, 'C': 2, 'UNK': 3}
 
 
 def test_pos_task_call():
     """Test POSTask.__call__ tags samples correctly."""
-    task = tasks.POSTask(SAMPLES)
+    task = maps.POSTask(SAMPLES)
     for sample, expected in zip(SAMPLES, POS_TAGS):
         actual = task(sample)
         assert torch.equal(actual, expected)
@@ -54,27 +54,27 @@ def test_pos_task_call():
 
 def test_pos_task_call_unknown_tag():
     """Test POSTask.__call__ handles unknown tags correctly."""
-    task = tasks.POSTask(SAMPLES)
+    task = maps.POSTask(SAMPLES)
     actual = task(ptb.Sample(('foo',), ('blah',), (-1,), ('root',)))
     assert actual.equal(torch.tensor([4]))
 
 
 def test_pos_task_len():
     """Test POSTask.__len__ returns correct number of tags."""
-    task = tasks.POSTask(SAMPLES)
+    task = maps.POSTask(SAMPLES)
     assert len(task) == 5
 
 
 def test_control_pos_task_init():
     """Test ControlPOSTask.__init__ sets state correctly."""
-    task = tasks.ControlPOSTask(SAMPLES)
+    task = maps.ControlPOSTask(SAMPLES)
     assert list(task.dist) == [0.4, 0.2, 0.2, 0.2]
     assert task.tags.keys() == {'foo', 'bar', 'baz', 'boof', 'biff'}
 
 
 def test_control_pos_task_call():
     """Test ControlPOSTask.__call__ tags sensibly."""
-    task = tasks.ControlPOSTask(SAMPLES)
+    task = maps.ControlPOSTask(SAMPLES)
     for sample in SAMPLES:
         actual = task(sample)
         assert len(actual) == len(sample.sentence)
@@ -82,7 +82,7 @@ def test_control_pos_task_call():
 
 def test_control_pos_task_len():
     """Test ControlPOSTask.__len__ returns correct number of tags."""
-    task = tasks.ControlPOSTask(SAMPLES)
+    task = maps.ControlPOSTask(SAMPLES)
     assert len(task) == 4
 
 
@@ -91,7 +91,7 @@ DEPENDENCY_ARCS = (torch.tensor([2, 0, 2]), torch.tensor([0, 0]))
 
 def test_dependency_arc_task_call():
     """Test DependencyArcTask.__call__ captures all arcs."""
-    task = tasks.DependencyArcTask(SAMPLES)
+    task = maps.DependencyArcTask(SAMPLES)
     for sample, expected in zip(SAMPLES, DEPENDENCY_ARCS):
         actual = task(sample)
         assert torch.equal(actual, expected)
@@ -99,7 +99,7 @@ def test_dependency_arc_task_call():
 
 def test_control_dependency_arc_task_init():
     """Test ControlDependencyArcTask.__init__ sets state correctly."""
-    task = tasks.ControlDependencyArcTask(SAMPLES)
+    task = maps.ControlDependencyArcTask(SAMPLES)
 
     assignments = sum((
         len(task.attach_to_self),
@@ -111,7 +111,7 @@ def test_control_dependency_arc_task_init():
 
 def test_control_dependency_arc_task_call():
     """Test ControlDependencyArcTask.__call__ returns reasonable labels."""
-    task = tasks.ControlDependencyArcTask(SAMPLES)
+    task = maps.ControlDependencyArcTask(SAMPLES)
 
     for sample in SAMPLES:
         labels = task(sample)
@@ -122,7 +122,7 @@ def test_control_dependency_arc_task_call():
 
 def test_control_dependency_arc_task_call_deterministic():
     """Test ControlDependencyArcTask.__call__ is deterministic."""
-    task = tasks.ControlDependencyArcTask(SAMPLES)
+    task = maps.ControlDependencyArcTask(SAMPLES)
     expecteds = [task(sample) for sample in SAMPLES]
     actuals = [task(sample) for sample in SAMPLES]
     for actual, expected in zip(actuals, expecteds):
@@ -144,7 +144,7 @@ DEPENDENCY_LABELS = (
 
 def test_dependency_label_task_init():
     """Test DependencyLabelTask.__init__ maps labels to integers correctly."""
-    task = tasks.DependencyLabelTask(SAMPLES)
+    task = maps.DependencyLabelTask(SAMPLES)
     assert task.indexer == {
         'unk': 0,
         'first': 1,
@@ -155,7 +155,7 @@ def test_dependency_label_task_init():
 
 def test_dependency_label_task_init_relations():
     """Test DependencyLabelTask.__init__ filters relations when provided."""
-    task = tasks.DependencyLabelTask(SAMPLES, relations={'first'})
+    task = maps.DependencyLabelTask(SAMPLES, relations={'first'})
     assert task.indexer == {
         'unk': 0,
         'first': 1,
@@ -164,7 +164,7 @@ def test_dependency_label_task_init_relations():
 
 def test_dependency_label_task_call():
     """Test DependencyLabelTask.__call__ returns correct label matrix."""
-    task = tasks.DependencyLabelTask(SAMPLES)
+    task = maps.DependencyLabelTask(SAMPLES)
     for sample, expected in zip(SAMPLES, DEPENDENCY_LABELS):
         actual = task(sample)
         assert torch.equal(actual, expected)
@@ -172,13 +172,13 @@ def test_dependency_label_task_call():
 
 def test_dependency_label_task_len():
     """Test DependencyLabelTask.__len__ returns number of labels."""
-    task = tasks.DependencyLabelTask(SAMPLES)
+    task = maps.DependencyLabelTask(SAMPLES)
     assert len(task) == 4
 
 
 def test_control_dependency_label_task_init():
     """Test ControlDependencyLabelTask.__init__ maps labels to integers."""
-    task = tasks.ControlDependencyLabelTask(SAMPLES)
+    task = maps.ControlDependencyLabelTask(SAMPLES)
     assert 0 not in task.rels
     assert len(task.dist) == 3
     assert len(task.rels) == 5
@@ -186,7 +186,7 @@ def test_control_dependency_label_task_init():
 
 def test_control_dependency_label_task_call():
     """Test ControlDependencyLabelTask.__call__ returns reasonable labels."""
-    task = tasks.ControlDependencyLabelTask(SAMPLES)
+    task = maps.ControlDependencyLabelTask(SAMPLES)
     for sample, expected in zip(SAMPLES, DEPENDENCY_LABELS):
         actual = task(sample)
         assert actual.shape == expected.shape
@@ -196,7 +196,7 @@ def test_control_dependency_label_task_call():
 
 def test_control_dependency_label_task_call_deterministic():
     """Test ControlDependencyLabelTask.__call__ is deterministic."""
-    task = tasks.ControlDependencyLabelTask(SAMPLES)
+    task = maps.ControlDependencyLabelTask(SAMPLES)
     expecteds = [task(sample) for sample in SAMPLES]
     actuals = [task(sample) for sample in SAMPLES]
     for actual, expected in zip(actuals, expecteds):
@@ -205,5 +205,5 @@ def test_control_dependency_label_task_call_deterministic():
 
 def test_control_dependency_label_task_len():
     """Test ControlDependencyLabelTask.__len__ returns correct length."""
-    task = tasks.ControlDependencyLabelTask(SAMPLES)
+    task = maps.ControlDependencyLabelTask(SAMPLES)
     assert len(task) == 4

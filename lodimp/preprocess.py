@@ -22,34 +22,34 @@ from typing import Callable, Dict, List, Sequence
 
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
-from lodimp import tasks
+from lodimp import maps
 from lodimp.common.data import ptb, representations
 
 import h5py
 import torch
 
-TaskFactory = Callable[[Sequence[ptb.Sample]], tasks.Task]
+TaskFactory = Callable[[Sequence[ptb.Sample]], maps.Task]
 
 # Unigram tasks map single words to tags.
 UNIGRAM_TASKS: Dict[str, TaskFactory] = {
-    'pos': tasks.POSTask,
-    'pos-verb': ft.partial(tasks.POSTask, tags=tasks.POS_VERBS),
-    'pos-verb-pres': ft.partial(tasks.POSTask, tags=tasks.POS_VERBS_PRESENT),
-    'pos-verb-past': ft.partial(tasks.POSTask, tags=tasks.POS_VERBS_PAST),
-    'pos-noun': ft.partial(tasks.POSTask, tags=tasks.POS_NOUNS),
-    'pos-noun-proper': ft.partial(tasks.POSTask, tags=tasks.POS_NOUNS_PROPER),
-    'pos-noun-plural': ft.partial(tasks.POSTask, tags=tasks.POS_NOUNS_PLURAL),
-    'pos-adj': ft.partial(tasks.POSTask, tags=tasks.POS_ADJECTIVES),
-    'pos-adv': ft.partial(tasks.POSTask, tags=tasks.POS_ADVERBS),
-    'pos-control': tasks.ControlPOSTask,
-    'dep-arc': tasks.DependencyArcTask,
-    'dep-arc-control': tasks.ControlDependencyArcTask,
+    'pos': maps.POSTask,
+    'pos-verb': ft.partial(maps.POSTask, tags=maps.POS_VERBS),
+    'pos-verb-pres': ft.partial(maps.POSTask, tags=maps.POS_VERBS_PRESENT),
+    'pos-verb-past': ft.partial(maps.POSTask, tags=maps.POS_VERBS_PAST),
+    'pos-noun': ft.partial(maps.POSTask, tags=maps.POS_NOUNS),
+    'pos-noun-proper': ft.partial(maps.POSTask, tags=maps.POS_NOUNS_PROPER),
+    'pos-noun-plural': ft.partial(maps.POSTask, tags=maps.POS_NOUNS_PLURAL),
+    'pos-adj': ft.partial(maps.POSTask, tags=maps.POS_ADJECTIVES),
+    'pos-adv': ft.partial(maps.POSTask, tags=maps.POS_ADVERBS),
+    'pos-control': maps.ControlPOSTask,
+    'dep-arc': maps.DependencyArcTask,
+    'dep-arc-control': maps.ControlDependencyArcTask,
 }
 
 # Bigram tasks map pairs of words to tags.
 BIGRAM_TASKS: Dict[str, TaskFactory] = {
-    'dep-label': tasks.DependencyLabelTask,
-    'dep-label-control': tasks.ControlDependencyLabelTask,
+    'dep-label': maps.DependencyLabelTask,
+    'dep-label-control': maps.ControlDependencyLabelTask,
 }
 
 NLAYERS = {
@@ -141,7 +141,7 @@ for layer in options.layers or range(NLAYERS[options.model]):
                 (nsamples, ndims),
                 dtype='f')
             tags_out = h5f.create_dataset('tags', shape=(nsamples,), dtype='i')
-            if isinstance(task, tasks.SizedTask):
+            if isinstance(task, maps.SizedTask):
                 # Write out how many valid tags there are, if that quantity
                 # is defined for the task.
                 tags_out.attrs['ntags'] = len(task)
