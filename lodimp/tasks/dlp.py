@@ -1,14 +1,19 @@
 """Core experiments for the dependency label prediction task."""
 
 import collections
-from typing import Any, Dict, Iterator, Optional, Sequence, Tuple, Type, Union
+import copy
+import logging
+from typing import (Any, Dict, Iterator, Optional, Sequence, Set, Tuple, Type,
+                    Union)
 
-from lodimp.common import tasks
+from lodimp.common import learning, tasks
 from lodimp.common.data import ptb
 from lodimp.common.data import representations as reps
+from lodimp.common.models import probes, projections
 
 import numpy as np
 import torch
+import wandb
 
 UNK = 'unk'
 
@@ -235,3 +240,140 @@ class DLPTaskDataset(tasks.TaskDataset):
     def count_unique_features(self) -> int:
         """Returns number of unique POS seen in data."""
         return len(self.indexer)
+
+
+# Define the valid probe types for this task.
+Probe = Union[probes.Linear, probes.MLP]
+
+
+def train(train_dataset: tasks.TaskDataset,
+          dev_dataset: tasks.TaskDataset,
+          test_dataset: tasks.TaskDataset,
+          probe_t: Type[Probe] = probes.Linear,
+          project_to: int = 10,
+          share_projection: bool = False,
+          epochs: int = 25,
+          patience: int = 4,
+          lr: float = 1e-3,
+          device: Optional[torch.device] = None,
+          also_log_to_wandb: bool = False) -> Tuple[Probe, float]:
+    """Train a probe on dependency label prediction.
+
+    Args:
+        train_dataset (TaskDataset): Training data for probe.
+        dev_dataset (TaskDataset): Validation data for probe, used for early
+            stopping.
+        test_dataset (TaskDataset): Test data for probe, used to compute
+            final accuracy after training.
+        probe_t (Type[Probe], optional): Probe type to train.
+            Defaults to probes.Linear.
+        project_to (int, optional): Project representations to this
+            dimensionality. Defaults to 10.
+        share_projection (bool): If set, project the left and right components
+            of pairwise probes with the same projection. E.g. if the probe is
+            bilinear of the form xAy, we will always compute (Px)A(Py) as
+            opposed to (Px)A(Qy) for distinct projections P, Q. Defaults to NOT
+            shared.
+        epochs (int, optional): Maximum passes through the training dataset.
+            Defaults to 25.
+        patience (int, optional): Allow dev loss to not improve for this many
+            epochs, then stop training. Defaults to 4.
+        lr (float, optional): Learning rate for optimizer. Defaults to 1e-3.
+        device (Optional[torch.device], optional): Torch device on which to
+            train probe. Defaults to CPU.
+        also_log_to_wandb (Optional[pathlib.Path], optional): If set, log
+            training data to wandb. By default, wandb is not used.
+
+    Returns:
+        Tuple[Probe, float]: The trained probe and its test accuracy.
+
+    """
+    log = logging.getLogger(__name__)
+
+    device = device or torch.device('cpu')
+
+    ndims = train_dataset.sample_representations_shape[-1]
+    log.info('representations have dimension %d', ndims)
+
+    ntags = train_dataset.count_unique_features()
+    assert ntags is not None, 'no label count, is dataset for different task?'
+    log.info('part of speech task has %d tags', ntags)
+
+    if ndims == project_to:
+        logging.info('projection dim = reps dim, not projecting')
+        projection = None
+    elif share_projection:
+        projection = projections.Projection(ndims, project_to)
+    else:
+        projection = projections.Projection(2 * ndims, 2 * project_to)
+
+    probe = probe_t(2 * project_to, ntags, project=projection)
+    learning.train(probe,
+                   train_dataset,
+                   dev_dataset=dev_dataset,
+                   stopper=learning.EarlyStopping(patience=patience),
+                   epochs=epochs,
+                   lr=lr,
+                   device=device,
+                   also_log_to_wandb=also_log_to_wandb)
+    accuracy = learning.test(probe, test_dataset, device=device)
+    return probe, accuracy
+
+
+# TODO(evandez): May as well commonize this, since it's shared with POS.
+def axis_alignment(probe: Probe,
+                   dev_dataset: tasks.TaskDataset,
+                   test_dataset: tasks.TaskDataset,
+                   device: Optional[torch.device] = None,
+                   also_log_to_wandb: bool = False) -> Sequence[float]:
+    """Measure whether the given probe is axis aligned.
+
+    Args:
+        probe (Probe): The probe to evaluate.
+        dev_dataset (tasks.TaskDataset): Data used to determine which axes to
+            cut.
+        test_dataset (tasks.TaskDataset): Data used to determine the effect of
+            cutting an axis.
+        device (Optional[torch.device], optional): Torch device on which to
+            train probe. Defaults to CPU.
+        also_log_to_wandb (bool, optional): If set, log results to wandb.
+
+    Returns:
+        The sequence of accuracies obtained by ablating the least harmful
+        axes, in order.
+
+    """
+    log = logging.getLogger(__name__)
+
+    projection = probe.project
+    assert projection is not None, 'no projection?'
+
+    axes = set(range(projection.project.in_features))
+    ablated: Set[int] = set()
+    accuracies = []
+    while axes:
+        best_model, best_axis, best_accuracy = probe, -1, -1.
+        for axis in axes:
+            model = copy.deepcopy(best_model).eval()
+            assert model.project is not None, 'no projection?'
+            model.project.project.weight.data[:, sorted(ablated | {axis})] = 0
+            accuracy = learning.test(model, dev_dataset)
+            if accuracy > best_accuracy:
+                best_model = model
+                best_axis = axis
+                best_accuracy = accuracy
+        accuracy = learning.test(best_model, test_dataset)
+
+        log.info('ablating axis %d, test accuracy %f', best_axis, accuracy)
+        if also_log_to_wandb:
+            wandb.log({
+                'axis': best_axis,
+                'dev accuracy': best_accuracy,
+                'test accuracy': accuracy,
+            })
+
+        axes.remove(best_axis)
+        ablated.add(best_axis)
+        accuracies.append(accuracy)
+
+    return accuracies
