@@ -1,14 +1,28 @@
 """Defines core experiments for part of speech tagging task."""
 
 import collections
+import copy
 import itertools
-from typing import Dict, Iterator, Optional, Sequence, Tuple, Union
+import logging
+from typing import (
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 
-from lodimp.common import tasks
+from lodimp.common import learning, linalg, tasks
 from lodimp.common.data import ptb, representations as reps
+from lodimp.common.models import probes, projections
 
 import numpy as np
 import torch
+import wandb
 
 # Standard unknown symbol.
 UNK = 'unk'
@@ -211,3 +225,221 @@ class POSTaskDataset(tasks.TaskDataset):
     def count_unique_features(self) -> int:
         """Returns number of unique POS seen in data."""
         return len(self.indexer)
+
+
+# Define the valid probe types for this task.
+Probe = Union[probes.Linear, probes.MLP]
+
+
+def train(train_dataset: tasks.TaskDataset,
+          dev_dataset: tasks.TaskDataset,
+          test_dataset: tasks.TaskDataset,
+          probe_t: Type[Probe] = probes.Linear,
+          project_to: int = 10,
+          project_from: Optional[projections.Projection] = None,
+          epochs: int = 25,
+          patience: int = 4,
+          lr: float = 1e-3,
+          device: Optional[torch.device] = None,
+          also_log_to_wandb: bool = False) -> Tuple[Probe, float]:
+    """Train a probe on part of speech tagging.
+
+    Args:
+        train_dataset (tasks.TaskDataset): Training data.
+        dev_dataset (tasks.TaskDataset): Validation data.
+        test_dataset (tasks.TaskDataset): Test data.
+        probe_t (Type[Probe], optional): Probe type to train.
+            Defaults to probes.Linear.
+        project_to (int, optional): Project representations to this
+            dimensionality. Defaults to 10.
+        project_from (Optional[projections.Projection], optional): Project
+            representations with this projection before applying the final
+            projection, which will be the only one with learnable parameters.
+            Defaults to None.
+        epochs (int, optional): Maximum passes through the training dataset.
+            Defaults to 25.
+        patience (int, optional): Allow dev loss to not improve for this many
+            epochs, then stop training. Defaults to 4.
+        lr (float, optional): Learning rate for optimizer. Defaults to 1e-3.
+        device (Optional[torch.device], optional): Torch device on which to
+            train probe. Defaults to CPU.
+        also_log_to_wandb (Optional[pathlib.Path], optional): If set, log
+            training data to wandb. By default, wandb is not used.
+
+    Returns:
+        Tuple[Probe, float]: The trained probe and its test accuracy.
+
+    """
+    log = logging.getLogger(__name__)
+
+    ndims = train_dataset.sample_representations_shape[-1]
+    log.info('representations have dimension %d')
+
+    ntags = train_dataset.count_unique_features()
+    assert ntags is not None, 'no tag count, maybe dataset is for other task?'
+    log.info('part of speech task has %d tags', ntags)
+
+    proj = projections.Projection(ndims, project_to, compose=project_from)
+    probe = probe_t(project_to, ntags, project=proj)
+    learning.train(probe,
+                   train_dataset,
+                   dev_dataset=dev_dataset,
+                   stopper=learning.EarlyStopping(patience=patience),
+                   epochs=epochs,
+                   lr=lr,
+                   device=device,
+                   also_log_to_wandb=also_log_to_wandb)
+    accuracy = learning.test(probe, test_dataset, device=device)
+    return probe, accuracy
+
+
+def axis_alignment(probe: Probe,
+                   dev_dataset: tasks.TaskDataset,
+                   test_dataset: tasks.TaskDataset,
+                   device: Optional[torch.device] = None,
+                   also_log_to_wandb: bool = False) -> Sequence[float]:
+    """Measure whether the given probe is axis aligned.
+
+    Args:
+        probe (Probe): The probe to evaluate.
+        dev_dataset (tasks.TaskDataset): Data used to determine which axes to
+            cut.
+        test_dataset (tasks.TaskDataset): Data used to determine the effect of
+            cutting an axis.
+        device (Optional[torch.device], optional): Torch device on which to
+            train probe. Defaults to CPU.
+        also_log_to_wandb (bool, optional): If set, log results to wandb.
+
+    Returns:
+        The sequence of accuracies obtained by ablating the least harmful
+        axes, in order.
+
+    """
+    log = logging.getLogger(__name__)
+
+    projection = probe.project
+    assert projection is not None, 'no projection?'
+
+    axes = set(range(projection.project.in_features))
+    ablated: Set[int] = set()
+    accuracies = []
+    while axes:
+        best_model, best_axis, best_accuracy = probe, -1, -1.
+        for axis in axes:
+            model = copy.deepcopy(best_model).eval()
+            assert model.project is not None, 'no projection?'
+            model.project.project.weight.data[:, sorted(ablated | {axis})] = 0
+            accuracy = learning.test(model, dev_dataset)
+            if accuracy > best_accuracy:
+                best_model = model
+                best_axis = axis
+                best_accuracy = accuracy
+        accuracy = learning.test(best_model, test_dataset)
+
+        log.info('ablating axis %d, test accuracy %f', best_axis, accuracy)
+        if also_log_to_wandb:
+            wandb.log({
+                'axis': best_axis,
+                'dev accuracy': best_accuracy,
+                'test accuracy': accuracy,
+            })
+
+        axes.remove(best_axis)
+        ablated.add(best_axis)
+        accuracies.append(accuracy)
+
+    return accuracies
+
+
+# TODO(evandez): Remove rank option, it does nothing.
+def inlp(train_dataset: tasks.TaskDataset,
+         dev_dataset: tasks.TaskDataset,
+         test_dataset: tasks.TaskDataset,
+         rank: int = 10,
+         attempts: int = 100,
+         tolerance: float = 5e-2,
+         epochs: int = 25,
+         lr: float = 1e-3,
+         device: Optional[torch.device] = None,
+         also_log_to_wandb: bool = False) -> projections.Projection:
+    """Compute the nullspace for all linear part of speech information.
+
+    Applies the method from this paper: https://arxiv.org/abs/2004.07667
+
+    Args:
+        train_dataset (tasks.TaskDataset): Training data for the linear probe.
+        dev_dataset (tasks.TaskDataset): Validation data for the linear probe.
+        test_dataset (tasks.TaskDataset): Test data for evaluating probe
+            accuracy after nullspace projection.
+        rank (int, optional): Maximum rank of linear classifier.
+            Achieved via LR factorization. Defaults to 10.
+        attempts (int, optional): Maximum number of nullspace projections
+            to compose before giving up. Defaults to 100.
+        tolerance (float, optional): How close to chance accuracy we can
+            get before giving up.
+        epochs (int, optional): Number of passes through the training set
+            for training each classifier. Defaults to 25.
+        lr (float, optional): Learning rate for training each probe.
+            Defaults to 1e-3.
+        device (Optional[torch.device], optional): Torch device on which to
+            train linear models. Defaults to CPU.
+        also_log_to_wandb (bool, optional): If set, log results to wandb.
+
+    Returns:
+        projections.Projection: Projection onto the "part of speech" nullspace.
+
+    """
+    log = logging.getLogger(__name__)
+
+    device = device or torch.device('cpu')
+
+    ndims = train_dataset.sample_representations_shape[-1]
+    log.info('representations have dimension %d')
+
+    ntags = train_dataset.count_unique_features()
+    assert ntags is not None, 'no tag count, maybe h5 file stores other task?'
+    log.info('part of speech task has %d tags', ntags)
+
+    # Cache some useful values.
+    eye = torch.eye(ndims, device=device)
+    zero = torch.zeros_like(eye)
+
+    rowspaces: List[torch.Tensor] = []
+
+    def get_nullspace_projection() -> torch.Tensor:
+        """Returns the current nullspace projection."""
+        return eye - linalg.rowspace(sum(rowspaces, zero))
+
+    for attempt in range(attempts):
+        nullspace = None
+        if rowspaces:
+            nullspace = projections.Projection(ndims, ndims)
+            matrix = nullspace.project.weight.data
+            matrix[:] = get_nullspace_projection()
+
+        projection = projections.Projection(ndims, rank, compose=nullspace)
+        classifier = probes.Linear(rank, ntags, project=projection)
+        learning.train(classifier,
+                       train_dataset,
+                       dev_dataset=dev_dataset,
+                       epochs=epochs,
+                       lr=lr,
+                       device=device)
+
+        projection_matrix = projection.project.weight.data
+        classifier_matrix = classifier.classify.weight.data
+        rowspace = linalg.rowspace(classifier_matrix.mm(projection_matrix))
+        rowspaces.append(rowspace)
+
+        accuracy = learning.test(classifier, test_dataset, device=device)
+
+        logging.info('attempt %d accuracy %f', attempt, accuracy)
+        if also_log_to_wandb:
+            wandb.log({'accuracy': accuracy})
+
+        if accuracy < 1 / ntags + tolerance:
+            break
+
+    nullspace = projections.Projection(ndims, ndims)
+    nullspace.project.weight.data[:] = get_nullspace_projection()
+    return nullspace
