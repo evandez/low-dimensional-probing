@@ -15,7 +15,6 @@ import sys
 from typing import Dict, Iterator, Sequence, Set, Tuple, Union
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
-from lodimp import datasets
 from lodimp.common import learning, tasks
 from lodimp.common.data import ontonotes
 from lodimp.common.models import probes, projections
@@ -211,7 +210,7 @@ class SemanticRoleLabelingDataset(data.IterableDataset):
         """Initialize and preprocess the data.
 
         Args:
-            reps (datasets.SentenceBatchingCollatedTaskDataset): Dataset of
+            reps (tasks.SentenceBatchingCollatedTaskDataset): Dataset of
                 reps.
             samples (Sequence[ontonotes.Sample]): Annotations for reps.
 
