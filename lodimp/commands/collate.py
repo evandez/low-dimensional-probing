@@ -44,7 +44,7 @@ REPRESENTATION_FILES_BY_MODEL = {
 
 def parser() -> argparse.ArgumentParser:
     """Returns the argument parser for this command."""
-    parser = argparse.ArgumentParser('collate', epilog=EPILOG)
+    parser = argparse.ArgumentParser(add_help=False, epilog=EPILOG)
     parser.add_argument('--representation-model',
                         choices=REPRESENTATION_MODELS,
                         default=ELMO,

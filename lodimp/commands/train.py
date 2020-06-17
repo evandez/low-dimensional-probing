@@ -45,7 +45,7 @@ PROBE_TYPES_BY_TASK = {
 
 def parser() -> argparse.ArgumentParser:
     """Returns the argument parser for this command."""
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--linear',
                         action='store_const',
                         dest='probe_type',

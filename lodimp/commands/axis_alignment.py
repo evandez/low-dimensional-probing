@@ -25,7 +25,7 @@ from torch import nn
 
 def parser() -> argparse.ArgumentParser:
     """Returns the argument parser for this command."""
-    parser = argparse.ArgumentParser('axis-alignment')
+    parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--representation-model',
                         choices=('elmo', 'bert-base-uncased'),
                         default='elmo',

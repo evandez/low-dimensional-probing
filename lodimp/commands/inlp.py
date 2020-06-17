@@ -20,7 +20,7 @@ import wandb
 
 def parser() -> argparse.ArgumentParser:
     """Returns the argument parser for this command."""
-    parser = argparse.ArgumentParser('inlp')
+    parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('data', type=pathlib.Path, help='Data path.')
     parser.add_argument('--representation-model',
                         choices=('elmo', 'bert-base-uncased'),
