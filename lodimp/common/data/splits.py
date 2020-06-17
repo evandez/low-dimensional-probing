@@ -21,9 +21,6 @@ BERT_REPRESENTATIONS = {
 # These constants define conventional file names for all kinds of
 # annotations we will use throughout the dataset.
 PTB_ANNOTATIONS = {key: f'ptb3-wsj-{key}.conllx' for key in STANDARD_SPLITS}
-ONTONOTES_ANNOTATIONS = {
-    key: f'ontonotes5-{key}.conll' for key in STANDARD_SPLITS
-}
 
 
 class Split(NamedTuple):

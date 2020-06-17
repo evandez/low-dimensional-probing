@@ -48,35 +48,6 @@ def pairwise_projection(projection):
 
 
 @pytest.fixture
-def bilinear(pairwise_projection):
-    """Returns a Bilinear probe for testing."""
-    return probes.Bilinear(PROJ_FEATURES,
-                           OUT_FEATURES,
-                           project=pairwise_projection)
-
-
-def test_bilinear_init(bilinear):
-    """Test Bilinear.__init__ sets state correctly."""
-    assert bilinear.in_features == PROJ_FEATURES
-    assert bilinear.out_features == OUT_FEATURES
-    assert bilinear.project is not None
-
-
-def test_bilinear_init_bad_features(pairwise_projection):
-    """Test Bilinear.__init__ dies when given bad features."""
-    bad = PROJ_FEATURES - 1
-    with pytest.raises(ValueError, match=f'.*{bad}.*'):
-        probes.Bilinear(bad, OUT_FEATURES, project=pairwise_projection)
-
-
-def test_bilinear_forward(bilinear):
-    """Test Bilinear.forward returns outputs of correct shape."""
-    lefts, rights = torch.randn(2, BATCH_SIZE, IN_FEATURES)
-    actual = bilinear(lefts, rights)
-    assert actual.shape == (BATCH_SIZE, OUT_FEATURES)
-
-
-@pytest.fixture
 def pairwise_bilinear(pairwise_projection):
     """Returns a PairwiseBilinear probe for testing."""
     return probes.PairwiseBilinear(PROJ_FEATURES, project=pairwise_projection)
@@ -139,36 +110,6 @@ def test_mlp_forward_coerced(projection):
     mlp = probes.MLP(PROJ_FEATURES * 2, OUT_FEATURES, project=projection)
     inputs = torch.randn(BATCH_SIZE, 2, IN_FEATURES)
     actual = mlp(inputs)
-    assert actual.shape == (BATCH_SIZE, OUT_FEATURES)
-
-
-@pytest.fixture
-def bimlp(pairwise_projection):
-    """Returns a BiMLP for testing."""
-    return probes.BiMLP(PROJ_FEATURES,
-                        OUT_FEATURES,
-                        project=pairwise_projection)
-
-
-def test_bimlp_init(bimlp):
-    """Test BiMLP.__init__ sets properties correctly."""
-    assert bimlp.in_features == PROJ_FEATURES
-    assert bimlp.hidden_features == PROJ_FEATURES
-    assert bimlp.out_features == OUT_FEATURES
-    assert bimlp.project is not None
-
-
-def test_bimlp_init_bad_features(pairwise_projection):
-    """Test BiMLP.__init__ dies when given bad features."""
-    bad = PROJ_FEATURES - 1
-    with pytest.raises(ValueError, match=f'.*{bad}.*'):
-        probes.BiMLP(bad, OUT_FEATURES, project=pairwise_projection)
-
-
-def test_bimlp_forward(bimlp):
-    """Test BiMLP.forward outputs correct shape."""
-    lefts, rights = torch.randn(2, BATCH_SIZE, IN_FEATURES)
-    actual = bimlp(lefts, rights)
     assert actual.shape == (BATCH_SIZE, OUT_FEATURES)
 
 

@@ -36,10 +36,6 @@ PROBE_TYPES_BY_TASK = {
         LINEAR_PROBE: probes.PairwiseBilinear,
         MLP_PROBE: probes.PairwiseMLP,
     },
-    tasks.SEMANTIC_ROLE_LABELING: {
-        LINEAR_PROBE: probes.Bilinear,
-        MLP_PROBE: probes.BiMLP,
-    },
 }
 
 
