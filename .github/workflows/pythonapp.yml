@@ -27,7 +27,7 @@ jobs:
     - name: Lint with isort
       run: |
         pip install isort
-        isort -c
+        isort -c lodimp
     - name: Type check
       run: |
         pip install mypy
