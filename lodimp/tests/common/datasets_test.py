@@ -2,7 +2,7 @@
 import pathlib
 import tempfile
 
-from lodimp.common import tasks
+from lodimp.common import datasets
 
 import h5py
 import pytest
@@ -57,7 +57,7 @@ def collated_breaks():
     return torch.tensor(breaks[:-1], dtype=torch.int)
 
 
-class FakeTaskDataset(tasks.TaskDataset):
+class FakeTaskDataset(datasets.TaskDataset):
     """A fake task dataset that iterates over pre-defined reps/feats pairs."""
 
     def __init__(self, reps_batches, feats_batches):
@@ -172,16 +172,16 @@ def collated_path(
             handle.create_dataset(BREAKS_KEY, data=collated_breaks)
             handle.create_dataset(REPS_KEY, data=collated_representations)
             feats = handle.create_dataset(FEATS_KEY, data=collated_features)
-            feats.attrs[tasks.H5_UNIQUE_FEATURES_KEY] = N_UNIQUE_FEATS
+            feats.attrs[datasets.H5_UNIQUE_FEATURES_KEY] = N_UNIQUE_FEATS
         yield path
 
 
 @pytest.fixture
 def collated_task_dataset(collated_path):
     """Returns a CollatedTaskDataset for testing."""
-    return tasks.CollatedTaskDataset(collated_path,
-                                     representations_key=REPS_KEY,
-                                     features_key=FEATS_KEY)
+    return datasets.CollatedTaskDataset(collated_path,
+                                        representations_key=REPS_KEY,
+                                        features_key=FEATS_KEY)
 
 
 def test_collated_task_dataset_init(collated_task_dataset):
@@ -195,10 +195,10 @@ def test_collated_task_dataset_init_cached(collated_path,
                                            collated_features):
     """Test CollatedTaskDataset.__init__ creates caches when device given."""
     device = torch.device('cpu')
-    dataset = tasks.CollatedTaskDataset(collated_path,
-                                        representations_key=REPS_KEY,
-                                        features_key=FEATS_KEY,
-                                        device=device)
+    dataset = datasets.CollatedTaskDataset(collated_path,
+                                           representations_key=REPS_KEY,
+                                           features_key=FEATS_KEY,
+                                           device=device)
 
     assert dataset.representations_cache is not None
     assert dataset.representations_cache.equal(collated_representations)
@@ -217,10 +217,10 @@ def test_collated_task_dataset_getitem(
     collated_features,
 ):
     """Test CollatedTaskDataset.__getitem__ returns all (reps, feats) pairs."""
-    dataset = tasks.CollatedTaskDataset(collated_path,
-                                        representations_key=REPS_KEY,
-                                        features_key=FEATS_KEY,
-                                        device=device)
+    dataset = datasets.CollatedTaskDataset(collated_path,
+                                           representations_key=REPS_KEY,
+                                           features_key=FEATS_KEY,
+                                           device=device)
     for index, (er, ef) in enumerate(
             zip(collated_representations, collated_features)):
         ar, af = dataset[index]
@@ -278,7 +278,7 @@ def test_collated_task_dataset_count_unique_features(collated_task_dataset):
 @pytest.fixture
 def sentence_batching_collated_task_dataset(collated_path):
     """Returns a SentenceBatchingCollatedTaskDataset for testing."""
-    return tasks.SentenceBatchingCollatedTaskDataset(
+    return datasets.SentenceBatchingCollatedTaskDataset(
         collated_path,
         breaks_key=BREAKS_KEY,
         representations_key=REPS_KEY,
@@ -290,7 +290,7 @@ def sentence_batching_collated_task_dataset(collated_path):
 def test_sentence_batching_collated_task_dataset_getitem(
         collated_path, device, collated_representations, collated_features):
     """Check SentenceBatchingCollatedTaskDataset.__getitem__ returns values."""
-    dataset = tasks.SentenceBatchingCollatedTaskDataset(
+    dataset = datasets.SentenceBatchingCollatedTaskDataset(
         collated_path,
         breaks_key=BREAKS_KEY,
         representations_key=REPS_KEY,
@@ -356,7 +356,7 @@ def test_sentence_batching_task_dataset_len(
 @pytest.fixture
 def non_batching_collated_task_dataset(collated_path):
     """Returns a NonBatchingCollatedTaskDataset for testing."""
-    return tasks.NonBatchingCollatedTaskDataset(
+    return datasets.NonBatchingCollatedTaskDataset(
         collated_path,
         representations_key=REPS_KEY,
         features_key=FEATS_KEY,
@@ -371,7 +371,7 @@ def test_non_batching_collated_task_dataset_getitem(
     collated_features,
 ):
     """Test NonBatchingCollatedTaskDataset.__getitem__ returns full dataset."""
-    dataset = tasks.NonBatchingCollatedTaskDataset(
+    dataset = datasets.NonBatchingCollatedTaskDataset(
         collated_path,
         representations_key=REPS_KEY,
         features_key=FEATS_KEY,

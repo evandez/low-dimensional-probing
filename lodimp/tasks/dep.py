@@ -4,7 +4,7 @@ import logging
 import random
 from typing import Any, Iterator, Optional, Sequence, Set, Tuple, Type, Union
 
-from lodimp.common import learning, tasks
+from lodimp.common import datasets, learning
 from lodimp.common.models import probes, projections
 from lodimp.common.parse import ptb
 from lodimp.common.parse import representations as reps
@@ -102,7 +102,7 @@ class ControlDEPIndexer:
         return torch.tensor(labels, dtype=torch.long)
 
 
-class DEPTaskDataset(tasks.TaskDataset):
+class DEPTaskDataset(datasets.TaskDataset):
     """Iterates over (word representation, index of head) pairs."""
 
     def __init__(
@@ -199,9 +199,9 @@ class DEPTaskDataset(tasks.TaskDataset):
 Probe = Union[probes.PairwiseBilinear, probes.PairwiseMLP]
 
 
-def train(train_dataset: tasks.TaskDataset,
-          dev_dataset: tasks.TaskDataset,
-          test_dataset: tasks.TaskDataset,
+def train(train_dataset: datasets.TaskDataset,
+          dev_dataset: datasets.TaskDataset,
+          test_dataset: datasets.TaskDataset,
           probe_t: Type[Probe] = probes.PairwiseBilinear,
           project_to: int = 10,
           share_projection: bool = False,
@@ -213,11 +213,11 @@ def train(train_dataset: tasks.TaskDataset,
     """Train a probe on dependency edge prediction.
 
     Args:
-        train_dataset (TaskDataset): Training data for probe.
-        dev_dataset (TaskDataset): Validation data for probe, used for early
-            stopping.
-        test_dataset (TaskDataset): Test data for probe, used to compute
-            final accuracy after training.
+        train_dataset (datasets.TaskDataset): Training data for probe.
+        dev_dataset (datasets.TaskDataset): Validation data for probe, used for
+            early stopping.
+        test_dataset (datasets.TaskDataset): Test data for probe, used to
+            compute final accuracy after training.
         probe_t (Type[Probe], optional): Probe type to train.
             Defaults to probes.Linear.
         project_to (int, optional): Project representations to this

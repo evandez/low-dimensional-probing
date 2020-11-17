@@ -10,7 +10,7 @@ import logging
 import pathlib
 from typing import Dict
 
-from lodimp.common import tasks as task_data
+from lodimp.common import datasets
 from lodimp.common.parse import splits
 from lodimp.tasks import pos
 
@@ -119,20 +119,20 @@ def run(options: argparse.Namespace) -> None:
     data_path = options.data / representaiton_model / str(representation_layer)
     cache = device if options.cache else None
 
-    datasets: Dict[str, task_data.CollatedTaskDataset] = {}
+    data: Dict[str, datasets.CollatedTaskDataset] = {}
     for split in splits.STANDARD_SPLITS:
         split_path = data_path / f'{split}.hdf5'
         if options.no_batch:
-            datasets[split] = task_data.NonBatchingCollatedTaskDataset(
-                split_path, device=cache)
+            data[split] = datasets.NonBatchingCollatedTaskDataset(split_path,
+                                                                  device=cache)
         else:
-            datasets[split] = task_data.SentenceBatchingCollatedTaskDataset(
+            data[split] = datasets.SentenceBatchingCollatedTaskDataset(
                 split_path, device=cache)
 
     nullspace = pos.inlp(
-        datasets[splits.TRAIN],
-        datasets[splits.DEV],
-        datasets[splits.TEST],
+        data[splits.TRAIN],
+        data[splits.DEV],
+        data[splits.TEST],
         rank=options.project_to,
         attempts=options.attempts,
         tolerance=options.tolerance,

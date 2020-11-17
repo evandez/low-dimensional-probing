@@ -3,7 +3,7 @@
 import logging
 from typing import Optional
 
-from lodimp.common import tasks
+from lodimp.common import datasets
 
 import torch
 import wandb
@@ -51,8 +51,8 @@ class EarlyStopping:
 
 
 def train(probe: nn.Module,
-          train_dataset: tasks.TaskDataset,
-          dev_dataset: Optional[tasks.TaskDataset] = None,
+          train_dataset: datasets.TaskDataset,
+          dev_dataset: Optional[datasets.TaskDataset] = None,
           stopper: Optional[EarlyStopping] = None,
           device: Optional[torch.device] = None,
           lr: float = 1e-3,
@@ -73,13 +73,13 @@ def train(probe: nn.Module,
 
     Args:
         probe (nn.Module): The model to train.
-        train_dataset (TaskDataset): The data on which to train.
+        train_dataset (datasets.TaskDataset): The data on which to train.
             Iterates are (tensor, tensor) pairs, the former being model
             inputs that will be fed directly to the probe, and the latter
             integral tags that will be fed directly to the cross entropy loss.
             These tensors will not be reshaped in any way; the probe will have
             to do that internally.
-        dev_dataset (Optional[TaskDataset], optional): Same format as
+        dev_dataset (Optional[datasets.TaskDataset], optional): Same format as
             `train_dataset`. If set, probe will be evaluated on this dataset
             after every epoch. Defaults to None.
         stopper (Optional[EarlyStopping], optional): If set, track the loss
@@ -153,7 +153,7 @@ def train(probe: nn.Module,
 
 
 def test(probe: nn.Module,
-         dataset: tasks.TaskDataset,
+         dataset: datasets.TaskDataset,
          device: Optional[torch.device] = None) -> float:
     """Compute classification accuracy of a probe on the given data.
 
@@ -163,8 +163,8 @@ def test(probe: nn.Module,
 
     Args:
         probe (nn.Module): The classifier probe.
-        dataset (Iterable[Batch]): Inputs to classify paired with labels. See
-            `train_dataset` parameter in `train`.
+        dataset (datasets.TaskDataset): Inputs to classify paired with labels.
+            See `train_dataset` parameter in `train`.
         device (Optional[torch.device], optional): Probe, inputs, and tags
             will be sent to this device. By default, device is not changed
             on any module or tensor.

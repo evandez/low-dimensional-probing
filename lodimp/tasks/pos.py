@@ -6,7 +6,7 @@ import logging
 from typing import (Any, Dict, Iterator, List, Optional, Sequence, Set, Tuple,
                     Type, Union)
 
-from lodimp.common import learning, linalg, tasks
+from lodimp.common import datasets, learning, linalg
 from lodimp.common.models import probes, projections
 from lodimp.common.parse import ptb
 from lodimp.common.parse import representations as reps
@@ -134,7 +134,7 @@ class ControlPOSIndexer:
         return len(self.dist) + 1  # add 1 for unk tag
 
 
-class POSTaskDataset(tasks.TaskDataset):
+class POSTaskDataset(datasets.TaskDataset):
     """Iterates over (word representation, POS tag) pairs."""
 
     def __init__(
@@ -229,9 +229,9 @@ class POSTaskDataset(tasks.TaskDataset):
 Probe = Union[probes.Linear, probes.MLP]
 
 
-def train(train_dataset: tasks.TaskDataset,
-          dev_dataset: tasks.TaskDataset,
-          test_dataset: tasks.TaskDataset,
+def train(train_dataset: datasets.TaskDataset,
+          dev_dataset: datasets.TaskDataset,
+          test_dataset: datasets.TaskDataset,
           probe_t: Type[Probe] = probes.Linear,
           project_to: int = 10,
           project_from: Optional[projections.Projection] = None,
@@ -243,10 +243,10 @@ def train(train_dataset: tasks.TaskDataset,
     """Train a probe on part of speech tagging.
 
     Args:
-        train_dataset (tasks.TaskDataset): Training data.
-        dev_dataset (tasks.TaskDataset): Validation data, used for early
+        train_dataset (datasets.TaskDataset): Training data.
+        dev_dataset (datasets.TaskDataset): Validation data, used for early
             stopping.
-        test_dataset (tasks.TaskDataset): Test data, used to compute final
+        test_dataset (datasets.TaskDataset): Test data, used to compute final
             accuracy after training.
         probe_t (Type[Probe], optional): Probe type to train.
             Defaults to probes.Linear.
@@ -294,18 +294,18 @@ def train(train_dataset: tasks.TaskDataset,
 
 
 def axis_alignment(probe: Probe,
-                   dev_dataset: tasks.TaskDataset,
-                   test_dataset: tasks.TaskDataset,
+                   dev_dataset: datasets.TaskDataset,
+                   test_dataset: datasets.TaskDataset,
                    device: Optional[torch.device] = None,
                    also_log_to_wandb: bool = False) -> Sequence[float]:
     """Measure whether the given probe is axis aligned.
 
     Args:
         probe (Probe): The probe to evaluate.
-        dev_dataset (tasks.TaskDataset): Data used to determine which axes to
-            cut.
-        test_dataset (tasks.TaskDataset): Data used to determine the effect of
-            cutting an axis.
+        dev_dataset (datasets.TaskDataset): Data used to determine which axes
+            to cut.
+        test_dataset (datasets.TaskDataset): Data used to determine the effect
+            of cutting an axis.
         device (Optional[torch.device], optional): Torch device on which to
             train probe. Defaults to CPU.
         also_log_to_wandb (bool, optional): If set, log results to wandb.
@@ -352,9 +352,9 @@ def axis_alignment(probe: Probe,
 
 
 # TODO(evandez): Remove rank option, it does nothing.
-def inlp(train_dataset: tasks.TaskDataset,
-         dev_dataset: tasks.TaskDataset,
-         test_dataset: tasks.TaskDataset,
+def inlp(train_dataset: datasets.TaskDataset,
+         dev_dataset: datasets.TaskDataset,
+         test_dataset: datasets.TaskDataset,
          rank: int = 10,
          attempts: int = 100,
          tolerance: float = 5e-2,
@@ -367,9 +367,9 @@ def inlp(train_dataset: tasks.TaskDataset,
     Applies the method from this paper: https://arxiv.org/abs/2004.07667
 
     Args:
-        train_dataset (tasks.TaskDataset): Training data for the linear probe.
-        dev_dataset (tasks.TaskDataset): Validation data for the linear probe.
-        test_dataset (tasks.TaskDataset): Test data for evaluating probe
+        train_dataset (datasets.TaskDataset): Training data for the probe.
+        dev_dataset (datasets.TaskDataset): Validation data for the probe.
+        test_dataset (datasets.TaskDataset): Test data for evaluating probe
             accuracy after nullspace projection.
         rank (int, optional): Maximum rank of linear classifier.
             Achieved via LR factorization. Defaults to 10.

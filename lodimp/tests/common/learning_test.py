@@ -1,6 +1,6 @@
 """Unit and functional tests for the learning module."""
 
-from lodimp.common import learning, tasks
+from lodimp.common import datasets, learning
 
 import pytest
 import torch
@@ -58,7 +58,7 @@ N_UNIQUE_FEATS = 3
 SEQ_LENGTHS = (3, 2)
 
 
-class FakeTaskDataset(tasks.TaskDataset):
+class FakeTaskDataset(datasets.TaskDataset):
     """A fake task dataset that iterates over pre-defined reps/feats pairs."""
 
     def __init__(self, reps_batches, feats_batches):

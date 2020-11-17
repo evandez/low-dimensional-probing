@@ -6,7 +6,7 @@ import logging
 from typing import (Any, Dict, Iterator, Optional, Sequence, Set, Tuple, Type,
                     Union)
 
-from lodimp.common import learning, tasks
+from lodimp.common import datasets, learning
 from lodimp.common.models import probes, projections
 from lodimp.common.parse import ptb
 from lodimp.common.parse import representations as reps
@@ -136,7 +136,7 @@ class ControlDLPIndexer:
         return len(self.dist) + 1
 
 
-class DLPTaskDataset(tasks.TaskDataset):
+class DLPTaskDataset(datasets.TaskDataset):
     """Iterates over (word representation pair, dependency label) pairs."""
 
     def __init__(
@@ -246,9 +246,9 @@ class DLPTaskDataset(tasks.TaskDataset):
 Probe = Union[probes.Linear, probes.MLP]
 
 
-def train(train_dataset: tasks.TaskDataset,
-          dev_dataset: tasks.TaskDataset,
-          test_dataset: tasks.TaskDataset,
+def train(train_dataset: datasets.TaskDataset,
+          dev_dataset: datasets.TaskDataset,
+          test_dataset: datasets.TaskDataset,
           probe_t: Type[Probe] = probes.Linear,
           project_to: int = 10,
           share_projection: bool = False,
@@ -322,18 +322,18 @@ def train(train_dataset: tasks.TaskDataset,
 
 # TODO(evandez): May as well commonize this, since it's shared with POS.
 def axis_alignment(probe: Probe,
-                   dev_dataset: tasks.TaskDataset,
-                   test_dataset: tasks.TaskDataset,
+                   dev_dataset: datasets.TaskDataset,
+                   test_dataset: datasets.TaskDataset,
                    device: Optional[torch.device] = None,
                    also_log_to_wandb: bool = False) -> Sequence[float]:
     """Measure whether the given probe is axis aligned.
 
     Args:
         probe (Probe): The probe to evaluate.
-        dev_dataset (tasks.TaskDataset): Data used to determine which axes to
-            cut.
-        test_dataset (tasks.TaskDataset): Data used to determine the effect of
-            cutting an axis.
+        dev_dataset (datasets.TaskDataset): Data used to determine which axes
+            to cut.
+        test_dataset (datasets.TaskDataset): Data used to determine the effect
+            of cutting an axis.
         device (Optional[torch.device], optional): Torch device on which to
             train probe. Defaults to CPU.
         also_log_to_wandb (bool, optional): If set, log results to wandb.

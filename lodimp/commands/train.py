@@ -11,7 +11,7 @@ import pathlib
 from typing import Dict
 
 from lodimp import tasks
-from lodimp.common import tasks as task_data
+from lodimp.common import datasets
 from lodimp.common.models import probes
 from lodimp.common.parse import splits
 from lodimp.tasks import dep, dlp, pos
@@ -165,23 +165,23 @@ def run(options: argparse.Namespace) -> None:
     data_path = options.data / model / str(layer)
     cache = device if options.cache else None
 
-    datasets: Dict[str, task_data.CollatedTaskDataset] = {}
+    data: Dict[str, datasets.CollatedTaskDataset] = {}
     for split in splits.STANDARD_SPLITS:
         split_path = data_path / f'{split}.hdf5'
         if options.no_batch:
-            datasets[split] = task_data.NonBatchingCollatedTaskDataset(
-                split_path, device=cache)
+            data[split] = datasets.NonBatchingCollatedTaskDataset(split_path,
+                                                                  device=cache)
         else:
-            datasets[split] = task_data.SentenceBatchingCollatedTaskDataset(
+            data[split] = datasets.SentenceBatchingCollatedTaskDataset(
                 split_path, device=cache)
 
     # Start training!
     probe: nn.Module
     if options.task == tasks.PART_OF_SPEECH_TAGGING:
         probe, accuracy = pos.train(
-            datasets[splits.TRAIN],
-            datasets[splits.DEV],
-            datasets[splits.TEST],
+            data[splits.TRAIN],
+            data[splits.DEV],
+            data[splits.TEST],
             probe_t=PROBE_TYPES_BY_TASK[options.task][options.probe_type],
             project_to=options.project_to,
             epochs=options.epochs,

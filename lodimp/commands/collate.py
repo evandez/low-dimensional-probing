@@ -6,7 +6,7 @@ import logging
 import pathlib
 
 from lodimp import tasks
-from lodimp.common import tasks as task_data
+from lodimp.common import datasets
 from lodimp.common.parse import ptb, representations, splits
 from lodimp.tasks import dep, dlp, pos
 
@@ -111,7 +111,7 @@ def run(options: argparse.Namespace) -> None:
         log.info('reading %s set annotations from %s', split, annos_path)
         annos[split] = ptb.load(files[split].annotations)
 
-    dataset: task_data.TaskDataset
+    dataset: datasets.TaskDataset
     for layer in options.representation_layers:
         layer_path = options.out / options.representation_model / str(layer)
         log.info('collating data for %s layer %d in directory %s',
