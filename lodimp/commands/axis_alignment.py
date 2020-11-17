@@ -127,9 +127,9 @@ def run(options: argparse.Namespace) -> None:
     }
 
     # TODO(evandez): Factor out and share this code as well.
-    representaiton_model = options.representaiton_model
+    representation_model = options.representation_model
     representation_layer = options.representation_layer
-    data_path = options.data / representaiton_model / str(representation_layer)
+    data_path = options.data / representation_model / str(representation_layer)
     cache = device if options.cache else None
 
     data: Dict[str, datasets.CollatedTaskDataset] = {}
