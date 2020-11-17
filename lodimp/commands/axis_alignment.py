@@ -62,7 +62,7 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument('data', type=pathlib.Path, help='Task data path.')
     parser.add_argument('probe',
                         help='Path to probe, or WandB run path if '
-                        '--download-from-wandb is set.')
+                        '--download-probe-to is set.')
     return parser
 
 
