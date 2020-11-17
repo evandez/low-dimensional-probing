@@ -85,6 +85,7 @@ def run(options: argparse.Namespace) -> None:
                name=options.wandb_name,
                group=options.wandb_group,
                dir=str(options.wandb_path))
+    assert wandb.run is not None, 'null run?'
     log = logging.getLogger(__name__)
 
     device = torch.device('cuda') if options.cuda else torch.device('cpu')

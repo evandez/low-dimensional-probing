@@ -153,6 +153,7 @@ def run(options: argparse.Namespace) -> None:
                    },
                },
                dir=str(options.wandb_path))
+    assert wandb.run is not None, 'null run?'
 
     log = logging.getLogger(__name__)
 
