@@ -62,7 +62,7 @@ class TaskDataset(data.IterableDataset):
     @property
     def sample_features_shape(self) -> Sequence[int]:
         """Returns the shape of the features tensor for one sample."""
-        pass
+        raise NotImplementedError
 
     def count_samples(self) -> int:
         """Returns the number of individual samples in the dataset.
@@ -76,7 +76,7 @@ class TaskDataset(data.IterableDataset):
         computation, e.g. if all sentences have to be read from disk to
         determine the number of words in each sentence.
         """
-        pass
+        raise NotImplementedError
 
     def count_unique_features(self) -> Optional[int]:
         """Returns number of unique features, if that quantity makes sense.
@@ -149,7 +149,7 @@ class TaskDataset(data.IterableDataset):
                 shape=(n_samples, *self.sample_features_shape),
                 dtype='i',
             )
-            start = 0
+            start, end = 0, 0
             for index, (reps, features) in enumerate(self):
                 log.info('writing %d of %d', index + 1, len(reps))
                 end = start + len(reps)
