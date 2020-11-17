@@ -191,9 +191,9 @@ def run(options: argparse.Namespace) -> None:
             also_log_to_wandb=True)
     elif options.task == tasks.DEPENDENCY_LABEL_PREDICTION:
         probe, accuracy = dlp.train(
-            datasets[splits.TRAIN],
-            datasets[splits.DEV],
-            datasets[splits.TEST],
+            data[splits.TRAIN],
+            data[splits.DEV],
+            data[splits.TEST],
             probe_t=PROBE_TYPES_BY_TASK[options.task][options.probe_type],
             project_to=options.project_to,
             share_projection=options.share_projection,
@@ -204,9 +204,9 @@ def run(options: argparse.Namespace) -> None:
             also_log_to_wandb=True)
     elif options.task == tasks.DEPENDENCY_EDGE_PREDICTION:
         probe, accuracy = dep.train(
-            datasets[splits.TRAIN],
-            datasets[splits.DEV],
-            datasets[splits.TEST],
+            data[splits.TRAIN],
+            data[splits.DEV],
+            data[splits.TEST],
             probe_t=PROBE_TYPES_BY_TASK[options.task][options.probe_type],
             project_to=options.project_to,
             share_projection=options.share_projection,
