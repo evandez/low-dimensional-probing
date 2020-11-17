@@ -351,7 +351,6 @@ def axis_alignment(probe: Probe,
     return accuracies
 
 
-# TODO(evandez): Remove rank option, it does nothing.
 def inlp(train_dataset: datasets.TaskDataset,
          dev_dataset: datasets.TaskDataset,
          test_dataset: datasets.TaskDataset,
