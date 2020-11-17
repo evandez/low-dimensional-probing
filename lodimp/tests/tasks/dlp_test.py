@@ -3,7 +3,7 @@
 import pathlib
 import tempfile
 
-from lodimp.common.data import ptb, representations
+from lodimp.common.parse import ptb, representations
 from lodimp.tasks import dlp
 
 import h5py

@@ -7,9 +7,9 @@ from typing import (Any, Dict, Iterator, Optional, Sequence, Set, Tuple, Type,
                     Union)
 
 from lodimp.common import learning, tasks
-from lodimp.common.data import ptb
-from lodimp.common.data import representations as reps
 from lodimp.common.models import probes, projections
+from lodimp.common.parse import ptb
+from lodimp.common.parse import representations as reps
 
 import numpy as np
 import torch

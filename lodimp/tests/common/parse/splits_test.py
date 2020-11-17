@@ -3,7 +3,7 @@
 import pathlib
 import tempfile
 
-from lodimp.common.data import splits
+from lodimp.common.parse import splits
 
 import pytest
 

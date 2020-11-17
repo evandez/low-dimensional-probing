@@ -12,8 +12,8 @@ from typing import Dict
 
 from lodimp import tasks
 from lodimp.common import tasks as task_data
-from lodimp.common.data import splits
 from lodimp.common.models import probes
+from lodimp.common.parse import splits
 from lodimp.tasks import dep, dlp, pos
 
 import torch

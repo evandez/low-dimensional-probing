@@ -7,7 +7,7 @@ import pathlib
 
 from lodimp import tasks
 from lodimp.common import tasks as task_data
-from lodimp.common.data import ptb, representations, splits
+from lodimp.common.parse import ptb, representations, splits
 from lodimp.tasks import dep, dlp, pos
 
 EPILOG = '''\

@@ -11,7 +11,7 @@ import pathlib
 from typing import Dict
 
 from lodimp.common import tasks as task_data
-from lodimp.common.data import splits
+from lodimp.common.parse import splits
 from lodimp.tasks import pos
 
 import torch
