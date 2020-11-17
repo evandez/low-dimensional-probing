@@ -357,12 +357,12 @@ def axis_alignment(probe: Probe,
             model = copy.deepcopy(best_model).eval()
             assert model.project is not None, 'no projection?'
             model.project.project.weight.data[:, sorted(ablated | {axis})] = 0
-            accuracy = learning.test(model, dev_dataset)
+            accuracy = learning.test(model, dev_dataset, device=device)
             if accuracy > best_accuracy:
                 best_model = model
                 best_axis = axis
                 best_accuracy = accuracy
-        accuracy = learning.test(best_model, test_dataset)
+        accuracy = learning.test(best_model, test_dataset, device=device)
 
         log.info('ablating axis %d, test accuracy %f', best_axis, accuracy)
         if also_log_to_wandb:
