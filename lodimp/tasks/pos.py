@@ -3,21 +3,12 @@
 import collections
 import copy
 import logging
-from typing import (
-    Any,
-    Dict,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import (Any, Dict, Iterator, List, Optional, Sequence, Set, Tuple,
+                    Type, Union)
 
 from lodimp.common import learning, linalg, tasks
-from lodimp.common.data import ptb, representations as reps
+from lodimp.common.data import ptb
+from lodimp.common.data import representations as reps
 from lodimp.common.models import probes, projections
 
 import numpy as np
