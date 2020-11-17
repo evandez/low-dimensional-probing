@@ -102,11 +102,10 @@ def parser() -> argparse.ArgumentParser:
     subparsers.add_parser(tasks.PART_OF_SPEECH_TAGGING)
     dlp_parser = subparsers.add_parser(tasks.DEPENDENCY_LABEL_PREDICTION)
     dep_parser = subparsers.add_parser(tasks.DEPENDENCY_EDGE_PREDICTION)
-    srl_parser = subparsers.add_parser(tasks.SEMANTIC_ROLE_LABELING)
     parser.add_argument('data', type=pathlib.Path, help='Data path.')
 
     # Okay, we've defined the full command. Now define task-specific options.
-    for subparser in (dlp_parser, dep_parser, srl_parser):
+    for subparser in (dlp_parser, dep_parser):
         subparser.add_argument(
             '--share-projection',
             action='store_true',
@@ -123,10 +122,6 @@ def run(options: argparse.Namespace) -> None:
             of flags.
 
     """
-    if options.task == tasks.SEMANTIC_ROLE_LABELING:
-        raise NotImplementedError('SRL not yet supported, use lodimp/srl.py')
-
-    # Initialize the runtime.
     options.model_path.parent.mkdir(parents=True, exist_ok=True)
     options.wandb_path.mkdir(parents=True, exist_ok=True)
     wandb.init(project='lodimp',

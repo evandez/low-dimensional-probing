@@ -71,7 +71,6 @@ def parser() -> argparse.ArgumentParser:
                             'collapse the rest. Cannot use with --control.')
     subparsers.add_parser(tasks.DEPENDENCY_LABEL_PREDICTION)
     subparsers.add_parser(tasks.DEPENDENCY_EDGE_PREDICTION)
-    # TODO(evandez): Support SRL.
 
     parser.add_argument('data', type=pathlib.Path, help='Path to data.')
     parser.add_argument('out', type=pathlib.Path, help='Output path.')
@@ -164,6 +163,9 @@ def run(options: argparse.Namespace) -> None:
                 else:
                     log.info('will use ordinary DEP task')
                     dataset = dep.DEPTaskDataset(split_reps, split_annos)
+
+            else:
+                raise ValueError(f'unknown task: {options.task}')
 
             split_path = layer_path / f'{split}.hdf5'
             log.info('collating %s set to %s', split, split_path)
