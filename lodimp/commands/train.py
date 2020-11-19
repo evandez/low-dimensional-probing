@@ -78,6 +78,15 @@ def parser() -> argparse.ArgumentParser:
                         type=pathlib.Path,
                         default='/tmp/lodimp/models/probe.pth',
                         help='Directory to write finished model.')
+    parser.add_argument('--representations-key',
+                        default=datasets.DEFAULT_H5_REPRESENTATIONS_KEY,
+                        help='Key for representations dataset in h5 file.')
+    parser.add_argument('--features-key',
+                        default=datasets.DEFAULT_H5_FEATURES_KEY,
+                        help='Key for features dataset in h5 file.')
+    parser.add_argument('--breaks-key',
+                        default=datasets.DEFAULT_H5_BREAKS_KEY,
+                        help='Key for breaks dataset in h5 file.')
     parser.add_argument('--wandb-id', help='Experiment ID. Use carefully!')
     parser.add_argument('--wandb-group', help='Experiment group.')
     parser.add_argument('--wandb-name', help='Experiment name.')
@@ -166,14 +175,18 @@ def run(options: argparse.Namespace) -> None:
     cache = device if options.cache else None
 
     data: Dict[str, datasets.CollatedTaskDataset] = {}
+    kwargs = dict(device=cache,
+                  representations_key=options.representations_key,
+                  features_key=options.features_key,
+                  breaks_key=options.breaks_key)
     for split in splits.STANDARD_SPLITS:
         split_path = data_path / f'{split}.hdf5'
         if options.no_batch:
-            data[split] = datasets.NonBatchingCollatedTaskDataset(split_path,
-                                                                  device=cache)
+            data[split] = datasets.NonBatchingCollatedTaskDataset(
+                split_path, **kwargs)
         else:
             data[split] = datasets.SentenceBatchingCollatedTaskDataset(
-                split_path, device=cache)
+                split_path, **kwargs)
 
     # Start training!
     probe: nn.Module
