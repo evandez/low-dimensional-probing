@@ -59,9 +59,6 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument('--features-key',
                         default=datasets.DEFAULT_H5_FEATURES_KEY,
                         help='Key for features dataset in h5 file.')
-    parser.add_argument('--breaks-key',
-                        default=datasets.DEFAULT_H5_BREAKS_KEY,
-                        help='Key for breaks dataset in h5 file.')
     parser.add_argument('task',
                         choices=(
                             tasks.PART_OF_SPEECH_TAGGING,
@@ -144,8 +141,7 @@ def run(options: argparse.Namespace) -> None:
     data: Dict[str, datasets.CollatedTaskDataset] = {}
     kwargs = dict(device=cache,
                   representations_key=options.representations_key,
-                  features_key=options.features_key,
-                  breaks_key=options.breaks_key)
+                  features_key=options.features_key)
     for split in splits.STANDARD_SPLITS:
         split_path = data_path / f'{split}.hdf5'
         if options.no_batch:
