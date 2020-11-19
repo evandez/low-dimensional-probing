@@ -88,7 +88,7 @@ def run(options: argparse.Namespace) -> None:
             of flags.
 
     """
-    options.model_path.mkdir(parents=True, exist_ok=True)
+    options.model_path.parent.mkdir(parents=True, exist_ok=True)
     options.wandb_path.mkdir(parents=True, exist_ok=True)
     wandb.init(project='lodimp',
                id=options.wandb_id,
