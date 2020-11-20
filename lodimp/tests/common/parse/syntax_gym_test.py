@@ -1,6 +1,5 @@
 """Unit tests for the syntax_gym module."""
 
-from os import error
 import pathlib
 import tempfile
 
