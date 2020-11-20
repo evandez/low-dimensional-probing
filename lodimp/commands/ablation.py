@@ -148,7 +148,8 @@ class SyntaxGymEvaluator:
 
         """
         inputs = torch.tensor([tokens], device=self.device)
-        representations, *_ = self.bert.bert(inputs)
+        with torch.no_grad():
+            representations, *_ = self.bert.bert(inputs)
         return representations
 
     def lm(self, representations: torch.Tensor) -> torch.Tensor:
@@ -163,7 +164,8 @@ class SyntaxGymEvaluator:
                 containing log probabilities for each word in the sequence.
 
         """
-        logits = self.bert.cls(representations)
+        with torch.no_grad():
+            logits = self.bert.cls(representations)
         return torch.log_softmax(logits, dim=-1)
 
     def word_representations(
@@ -200,7 +202,7 @@ class SyntaxGymEvaluator:
         decoded = self.tokenizer.decode(decoded_indices)
 
         return WordRepresentationResults(word_prob=word_prob.item(),
-                                         top5_words=top5_words,
+                                         top5_words=top5_words.split(),
                                          top5_probs=top5_probs.tolist(),
                                          top5_nouns=top5_nouns,
                                          top5_verbs=top5_verbs,
@@ -223,8 +225,8 @@ class SyntaxGymEvaluator:
         # Handle annoying special case where word is compound noun.
         parts = word.split()
         if len(parts) > 1:
-            assert word.startswith('driver'), 'must be "taxi driver(s)"'
             word = parts[-1]
+            assert word.startswith('driver'), 'must be "taxi driver(s)"'
 
         # Compute important meatadata.
         word_index_in_vocabulary, = self.tokenizer.encode(
@@ -302,7 +304,6 @@ def run(options: argparse.Namespace) -> None:
     """Run the ablation experiment with the given options."""
     options.wandb_path.mkdir(parents=True, exist_ok=True)
     wandb.init(project='lodimp',
-               id=options.wandb_id,
                name=options.wandb_name,
                group=options.wandb_group,
                dir=str(options.wandb_path))
@@ -380,5 +381,5 @@ def run(options: argparse.Namespace) -> None:
 
         wandb.run.summary['avg_verb_prob_diff_before'] =\
             verb_prob_diff_before / count
-        wandb.run.summary['avg_verb_prof_diff_after'] =\
+        wandb.run.summary['avg_verb_prob_diff_after'] =\
             verb_prob_diff_after / count

@@ -122,7 +122,7 @@ def load_suite_json(json_file: pathlib.Path,
                     items_key: str = 'items',
                     item_number_key: str = 'item_number',
                     conditions_key: str = 'conditions',
-                    condition_name_key: str = 'name',
+                    condition_name_key: str = 'condition_name',
                     regions_key: str = 'regions',
                     region_number_key: str = 'region_number',
                     region_content_key: str = 'content') -> Suite:
@@ -155,12 +155,6 @@ def load_suite_json(json_file: pathlib.Path,
         item_number = item_content.get(item_number_key)
         if item_number is None:
             raise ValueError(f'item {item_index} missing item_number')
-        if not isinstance(item_number, str):
-            raise ValueError(
-                f'item {item_index} non-str item_number: {item_number}')
-        if not item_number.isdigit():
-            raise ValueError(
-                f'cannot cast item {item_index} item_number to int')
 
         # For every item, parse conditions...
         item_conditions = []
@@ -188,23 +182,15 @@ def load_suite_json(json_file: pathlib.Path,
                         raise ValueError(
                             f'item {item_index} condition {condition_index} '
                             f'region {region_index} missing {name}')
-                    if not isinstance(value, str):
-                        raise ValueError(
-                            f'item {item_index} condition {condition_index} '
-                            f'region {region_index} non-str {name}: {value}')
 
-                if not region_number.isdigit():
-                    raise ValueError(f'region number "{region_number}" not '
-                                     'castable to int')
-
-                region = Region(int(region_number), region_content)
+                region = Region(region_number, region_content)
                 condition_regions.append(region)
 
-            condition = Condition(int(item_number), condition_name,
+            condition = Condition(item_number, condition_name,
                                   tuple(condition_regions), region_meta)
             item_conditions.append(condition)
 
-        item = Item(int(item_number), tuple(item_conditions), region_meta)
+        item = Item(item_number, tuple(item_conditions), region_meta)
         items.append(item)
 
     return Suite(tuple(items), region_meta)

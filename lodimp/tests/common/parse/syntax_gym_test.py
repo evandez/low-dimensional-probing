@@ -13,68 +13,68 @@ JSON = '''\
         {
             "conditions": [
                 {
-                    "name": "condition-1",
+                    "condition_name": "condition-1",
                     "regions": [
                         {
                             "content": "item-1-condition-1-region-1",
-                            "region_number": "1"
+                            "region_number": 1
                         },
                         {
                             "content": "item-1-condition-1-region-2",
-                            "region_number": "2"
+                            "region_number": 2
                         }
                     ],
                     "content": "condition-2-content"
                 },
                 {
-                    "name": "condition-2",
+                    "condition_name": "condition-2",
                     "regions": [
                         {
                             "content": "item-1-condition-2-region-1",
-                            "region_number": "1"
+                            "region_number": 1
                         },
                         {
                             "content": "item-1-condition-2-region-2",
-                            "region_number": "2"
+                            "region_number": 2
                         }
                     ],
                     "content": "condition-2-content"
                 }
             ],
-            "item_number": "1"
+            "item_number": 1
         },
         {
             "conditions": [
                 {
-                    "name": "condition-1",
+                    "condition_name": "condition-1",
                     "regions": [
                         {
                             "content": "item-2-condition-1-region-1",
-                            "region_number": "1"
+                            "region_number": 1
                         },
                         {
                             "content": "item-2-condition-1-region-2",
-                            "region_number": "2"
+                            "region_number": 2
                         }
                     ],
                     "content": "condition-2-content"
                 },
                 {
-                    "name": "condition-2",
+                    "condition_name": "condition-2",
                     "regions": [
                         {
                             "content": "item-2-condition-2-region-1",
-                            "region_number": "1"
+                            "region_number": 1
                         },
                         {
                             "content": "item-2-condition-2-region-2",
-                            "region_number": "2"
+                            "region_number": 2
                         }
                     ],
                     "content": "condition-2-content"
                 }
             ],
-            "item_number": "2"
+            "item_number": 2
         }
     ],
     "region_meta": {
