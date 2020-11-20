@@ -9,7 +9,7 @@ import sys
 root = pathlib.Path(__file__).parent.parent
 sys.path.append(str(root))
 
-from lodimp.commands import axis_alignment, collate, inlp, train  # noqa: E402
+from lodimp.commands import ablation, axis_alignment, collate, inlp, train  # noqa: E402, E501
 
 parser = argparse.ArgumentParser(description='Run a LoDimP script.')
 parser.add_argument('--quiet',
@@ -23,6 +23,7 @@ subparsers.add_parser('collate', parents=[collate.parser()])
 subparsers.add_parser('train', parents=[train.parser()])
 subparsers.add_parser('inlp', parents=[inlp.parser()])
 subparsers.add_parser('axis-alignment', parents=[axis_alignment.parser()])
+subparsers.add_parser('ablation', parents=[ablation.parser()])
 options = parser.parse_args()
 
 logging.basicConfig(stream=sys.stdout,
@@ -38,3 +39,7 @@ elif options.command == 'inlp':
     inlp.run(options)
 elif options.command == 'axis-alignment':
     axis_alignment.run(options)
+elif options.command == 'ablation':
+    ablation.run(options)
+else:
+    raise ValueError(f'unknown command: {options.command}')
