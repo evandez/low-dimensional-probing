@@ -16,7 +16,7 @@ import argparse
 import dataclasses
 import logging
 import pathlib
-from typing import Any, Iterator, Mapping, Sequence
+from typing import Any, AbstractSet, Iterator, Mapping, Sequence
 
 from lodimp.common.models import projections
 from lodimp.common.parse import syntax_gym
@@ -128,6 +128,8 @@ class SyntaxGymEvaluator:
     device: torch.device = torch.device('cpu')
     nlp: spacy.lang.en.English = dataclasses.field(
         default_factory=lambda: spacy.load('en_core_web_sm'))
+    verb_upos: AbstractSet[str] = frozenset({'AUX', 'VERB'})
+    noun_upos: AbstractSet[str] = frozenset({'NOUN', 'PRON', 'PROPN'})
 
     @property
     def mask_vocabulary_index(self) -> int:
@@ -194,9 +196,17 @@ class SyntaxGymEvaluator:
                                            clean_up_tokenization_spaces=False)
 
         top5_pos = [token.pos_ for token in self.nlp(top5_words)]
-        assert len(top5_pos) == 5, 'should only be 5 tokens?'
-        top5_nouns = top5_pos.count('NOUN')
-        top5_verbs = top5_pos.count('VERB')
+        assert len(top5_pos) == 5, top5_pos
+
+        top5_nouns = 0
+        for tag in self.noun_upos:
+            top5_nouns += top5_pos.count(tag)
+        assert top5_nouns <= 5, 'should only be 5 tokens?'
+
+        top5_verbs = 0
+        for tag in self.verb_upos:
+            top5_verbs += top5_pos.count(tag)
+        assert top5_verbs <= 5, 'should only be 5 tokens?'
 
         decoded_indices = log_probs.argmax(dim=-1).tolist()
         decoded = self.tokenizer.decode(decoded_indices)
@@ -316,7 +326,7 @@ def run(options: argparse.Namespace) -> None:
 
     projection_file = options.projection_file
     log.info('loading projection from: %s', projection_file.resolve())
-    projection = torch.load(projection_file, map_location=device)
+    projection = torch.load(projection_file, map_location=device).eval()
 
     bert_config = options.bert_config
 
