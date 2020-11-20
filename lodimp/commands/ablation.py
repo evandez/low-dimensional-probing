@@ -323,4 +323,4 @@ def run(options: argparse.Namespace) -> None:
         logging.info('evaluating suite %s', sg_file)
         suite = syntax_gym.load_suite_json(sg_file)
         for result in evaluate.suite(suite):
-            wandb.log(result.dump())
+            wandb.log({'suite': sg_file.name, **result.dump()})
