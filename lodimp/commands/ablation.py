@@ -112,6 +112,9 @@ class ConditionResults:
         }
 
 
+ItemResults = Mapping[str, ConditionResults]
+
+
 @dataclasses.dataclass(frozen=True)
 class SyntaxGymEvaluator:
     """Evaluates ablated representations on Syntax Gym suites."""
@@ -266,7 +269,7 @@ class SyntaxGymEvaluator:
         verb = self.word(condition, verb_region_name)
         return ConditionResults(condition=condition, noun=noun, verb=verb)
 
-    def item(self, item: syntax_gym.Item) -> Iterator[ConditionResults]:
+    def item(self, item: syntax_gym.Item) -> ItemResults:
         """Process all conditions in the item.
 
         Args:
@@ -276,19 +279,23 @@ class SyntaxGymEvaluator:
             ItemResults: Results from processing all conditions.
 
         """
+        results = {}
         for condition in item.conditions:
-            yield self.condition(condition)
+            results[condition.name] = self.condition(condition)
+        return results
 
-    def suite(self, suite: syntax_gym.Suite) -> Iterator[ConditionResults]:
+    def suite(self, suite: syntax_gym.Suite) -> Iterator[ItemResults]:
         """Evaluate the suite.
 
         Args:
             suite (syntax_gym.Suite): The SyntaxGym suite.
 
+        Yields:
+            ItemResults: Results from processing each item.
+
         """
         for item in suite.items:
-            for condition_result in self.item(item):
-                yield condition_result
+            yield self.item(item)
 
 
 def run(options: argparse.Namespace) -> None:
@@ -319,8 +326,59 @@ def run(options: argparse.Namespace) -> None:
     bert = transformers.BertForMaskedLM.from_pretrained(bert_config).eval()
 
     evaluate = SyntaxGymEvaluator(projection, tokenizer, bert, device=device)
+
+    noun_prob_diff_before, noun_prob_diff_after = 0., 0.
+    verb_prob_diff_before, verb_prob_diff_after = 0., 0.
+    nouns_before, nouns_after = 0, 0
+    verbs_before, verbs_after = 0, 0
+    count = 0
+
     for sg_file in options.sg_files:
         logging.info('evaluating suite %s', sg_file)
         suite = syntax_gym.load_suite_json(sg_file)
         for result in evaluate.suite(suite):
-            wandb.log({'suite': sg_file.name, **result.dump()})
+            # Log each condition as a separate item.
+            for subresult in result.values():
+                wandb.log({'suite': sg_file.name, **subresult.dump()})
+
+            # Then record aggregates.
+            for match_key, mismatch_key in (
+                ('match_sing', 'mismatch_sing'),
+                ('match_plural', 'mismatch_plural'),
+            ):
+                match = result[match_key]
+                mismatch = result[mismatch_key]
+
+                noun_prob_diff_before += (match.noun.real.word_prob -
+                                          mismatch.noun.real.word_prob)
+                noun_prob_diff_after += (match.noun.nulled.word_prob -
+                                         mismatch.noun.nulled.word_prob)
+
+                verb_prob_diff_before += (match.verb.real.word_prob -
+                                          mismatch.verb.real.word_prob)
+                verb_prob_diff_after += (match.verb.nulled.word_prob -
+                                         mismatch.verb.nulled.word_prob)
+
+                nouns_before += match.noun.real.top5_nouns
+                nouns_after += match.noun.nulled.top5_nouns
+
+                verbs_before += match.verb.real.top5_verbs
+                verbs_after += match.verb.nulled.top5_verbs
+
+                count += 1
+
+        wandb.run.summary['avg_nouns_before'] = nouns_before / count
+        wandb.run.summary['avg_nouns_after'] = nouns_after / count
+
+        wandb.run.summary['avg_verbs_before'] = verbs_before / count
+        wandb.run.summary['avg_verbs_after'] = verbs_after / count
+
+        wandb.run.summary['avg_noun_prob_diff_before'] =\
+            noun_prob_diff_before / count
+        wandb.run.summary['avg_noun_prob_diff_after'] =\
+            noun_prob_diff_after / count
+
+        wandb.run.summary['avg_verb_prob_diff_before'] =\
+            verb_prob_diff_before / count
+        wandb.run.summary['avg_verb_prof_diff_after'] =\
+            verb_prob_diff_after / count
