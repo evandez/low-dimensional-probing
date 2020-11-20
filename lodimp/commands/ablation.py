@@ -21,6 +21,8 @@ from typing import Any, Iterator, Mapping, Sequence
 from lodimp.common.models import projections
 from lodimp.common.parse import syntax_gym
 
+import spacy
+import spacy.lang.en
 import torch
 import transformers
 import wandb
@@ -58,6 +60,8 @@ class WordRepresentationResults:
     word_prob: float
     top5_words: Sequence[str]
     top5_probs: Sequence[float]
+    top5_nouns: int
+    top5_verbs: int
     decoded: str
 
     def dump(self) -> Mapping[str, Any]:
@@ -66,6 +70,8 @@ class WordRepresentationResults:
             'word_prob': self.word_prob,
             'top5_words': self.top5_words,
             'top5_probs': self.top5_probs,
+            'top5_nouns': self.top5_nouns,
+            'top5_verbs': self.top5_verbs,
             'decoded': self.decoded,
         }
 
@@ -113,8 +119,12 @@ class SyntaxGymEvaluator:
     projection: projections.Projection
     tokenizer: transformers.BertTokenizer
     bert: transformers.BertForMaskedLM
+
+    # Optional configuration, usually does not need to be changed.
     mask: str = '[MASK]'
     device: torch.device = torch.device('cpu')
+    nlp: spacy.lang.en.English = dataclasses.field(
+        default_factory=lambda: spacy.load('en_core_web_sm'))
 
     @property
     def mask_vocabulary_index(self) -> int:
@@ -178,12 +188,19 @@ class SyntaxGymEvaluator:
         top5_words = self.tokenizer.decode(top5_indices,
                                            clean_up_tokenization_spaces=False)
 
+        top5_pos = [token.pos_ for token in self.nlp(top5_words)]
+        assert len(top5_pos) == 5, 'should only be 5 tokens?'
+        top5_nouns = top5_pos.count('NOUN')
+        top5_verbs = top5_pos.count('VERB')
+
         decoded_indices = log_probs.argmax(dim=-1).tolist()
         decoded = self.tokenizer.decode(decoded_indices)
 
         return WordRepresentationResults(word_prob=word_prob.item(),
                                          top5_words=top5_words,
                                          top5_probs=top5_probs.tolist(),
+                                         top5_nouns=top5_nouns,
+                                         top5_verbs=top5_verbs,
                                          decoded=decoded)
 
     def word(self, condition: syntax_gym.Condition,
