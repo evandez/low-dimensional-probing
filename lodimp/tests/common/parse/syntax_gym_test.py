@@ -170,6 +170,6 @@ def test_load_suite_json(json_file):
 
 def test_load_suite_bad_file():
     """Test load_suite_json dies on bad file."""
-    bad = 'bad.json'
+    bad = pathlib.Path('bad.json')
     with pytest.raises(FileNotFoundError, match=f'.*{bad}.*'):
         syntax_gym.load_suite_json(bad)
