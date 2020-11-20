@@ -16,7 +16,7 @@ import argparse
 import dataclasses
 import logging
 import pathlib
-from typing import Any, AbstractSet, Iterator, Mapping, Sequence
+from typing import AbstractSet, Any, Iterator, Mapping, Sequence
 
 from lodimp.common.models import projections
 from lodimp.common.parse import syntax_gym
