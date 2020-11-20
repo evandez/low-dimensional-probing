@@ -322,5 +322,5 @@ def run(options: argparse.Namespace) -> None:
     for sg_file in options.sg_files:
         logging.info('evaluating suite %s', sg_file)
         suite = syntax_gym.load_suite_json(sg_file)
-        result = evaluate.suite(suite, projection, tokenizer, bert)
-        wandb.log(result.dump())
+        for result in evaluate.suite(suite):
+            wandb.log(result.dump())
