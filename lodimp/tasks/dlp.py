@@ -297,7 +297,7 @@ def train(train_dataset: datasets.TaskDataset,
 
     ntags = train_dataset.count_unique_features()
     assert ntags is not None, 'no label count, is dataset for different task?'
-    log.info('part of speech task has %d tags', ntags)
+    log.info('dependency labeling task has %d tags', ntags)
 
     if ndims == project_to:
         logging.info('projection dim = reps dim, not projecting')
