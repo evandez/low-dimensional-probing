@@ -89,8 +89,7 @@ parser.add_argument('--cuda', action='store_true', help='use cuda')
 options = parser.parse_args()
 
 for config in CONFIGS:
-    data_dir = options.tasks_dir / config.task
-    command = ['python3', 'lodimp', 'train', TASKS[config.task], str(data_dir)]
+    command = ['python3', 'lodimp', 'train']
     command += ['--linear']
     command += ['--cache']
     command += ['--representation-model', config.model]
@@ -113,4 +112,5 @@ for config in CONFIGS:
     if options.cuda:
         command += ['--cuda']
 
+    command += [TASKS[config.task], str(options.tasks_dir / config.task)]
     subprocess.call(command)
