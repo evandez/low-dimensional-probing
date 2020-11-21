@@ -104,9 +104,9 @@ for config in CONFIGS:
     # Task-dependent runtime settings.
     if config.task not in (DEP, DEPC):
         command += ['--no-batch']
-        command += ['--epochs', '4']
-    else:
         command += ['--epochs', '1000']
+    else:
+        command += ['--epochs', '4']
 
     # Args-dependent runtime settings.
     if options.cuda:
