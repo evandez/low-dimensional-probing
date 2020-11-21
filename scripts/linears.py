@@ -16,12 +16,21 @@ class Config(NamedTuple):
 
 ELMO = 'elmo'
 BERT = 'bert-base-uncased'
+
 POS = 'pos'
 POSC = 'pos-control'
 DLP = 'dep-label'
 DLPC = 'dep-label-control'
 DEP = 'dep-arc'
 DEPC = 'dep-arc-control'
+TASKS = {
+    POS: 'pos',
+    POSC: 'pos',
+    DLP: 'dlp',
+    DLPC: 'dlp',
+    DEP: 'dep',
+    DEPC: 'depc',
+}
 
 CONFIGS = (
     Config(model=ELMO, layer=0, task=POS, dimension=6),
@@ -81,7 +90,7 @@ options = parser.parse_args()
 
 for config in CONFIGS:
     data_dir = options.tasks_dir / config.task
-    command = ['python3', 'lodimp', 'train', str(data_dir)]
+    command = ['python3', 'lodimp', 'train', TASKS[config.task], str(data_dir)]
     command += ['--linear']
     command += ['--cache']
     command += ['--representation-model', config.model]
