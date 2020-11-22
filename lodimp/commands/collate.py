@@ -112,7 +112,8 @@ def run(options: argparse.Namespace) -> None:
         annos[split] = ptb.load(files[split].annotations)
 
     dataset: datasets.TaskDataset
-    for layer in options.representation_layers:
+    layers = options.representation_layers or range(reps[splits.TRAIN].layers)
+    for layer in layers:
         layer_path = options.out / options.representation_model / str(layer)
         log.info('collating data for %s layer %d in directory %s',
                  options.representation_model, layer, layer_path)
