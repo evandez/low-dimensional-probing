@@ -357,10 +357,28 @@ def run(options: argparse.Namespace) -> None:
             for subresult in result.values():
                 wandb.log({'suite': sg_file.name, **subresult.dump()})
 
-            # Then record aggregates.
+            # Record verb aggregates.
             for match_key, mismatch_key in (
                 ('match_sing', 'mismatch_sing'),
                 ('match_plural', 'mismatch_plural'),
+            ):
+                match = result[match_key]
+                mismatch = result[mismatch_key]
+
+                verb_prob_diff_before += (match.verb.real.word_prob -
+                                          mismatch.verb.real.word_prob)
+                verb_prob_diff_after += (match.verb.nulled.word_prob -
+                                         mismatch.verb.nulled.word_prob)
+
+                verbs_before += match.verb.real.top5_verbs
+                verbs_after += match.verb.nulled.top5_verbs
+
+            # Record noun aggregates. Notice the change in keys here; the
+            # match vs. mismatch tags in Syntax Gym refer to *verbs* matching,
+            # so we have to flip it around when we work with *nouns* matching.
+            for match_key, mismatch_key in (
+                ('match_plural', 'mismatch_sing'),
+                ('match_sing', 'mismatch_plural'),
             ):
                 match = result[match_key]
                 mismatch = result[mismatch_key]
@@ -370,18 +388,10 @@ def run(options: argparse.Namespace) -> None:
                 noun_prob_diff_after += (match.noun.nulled.word_prob -
                                          mismatch.noun.nulled.word_prob)
 
-                verb_prob_diff_before += (match.verb.real.word_prob -
-                                          mismatch.verb.real.word_prob)
-                verb_prob_diff_after += (match.verb.nulled.word_prob -
-                                         mismatch.verb.nulled.word_prob)
-
                 nouns_before += match.noun.real.top5_nouns
                 nouns_after += match.noun.nulled.top5_nouns
 
-                verbs_before += match.verb.real.top5_verbs
-                verbs_after += match.verb.nulled.top5_verbs
-
-                count += 1
+            count += 2
 
         wandb.run.summary['avg_nouns_before'] = nouns_before / count
         wandb.run.summary['avg_nouns_after'] = nouns_after / count
