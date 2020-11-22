@@ -29,7 +29,7 @@ TASKS = {
     DLP: 'dlp',
     DLPC: 'dlp',
     DEP: 'dep',
-    DEPC: 'depc',
+    DEPC: 'dep',
 }
 
 CONFIGS = (
