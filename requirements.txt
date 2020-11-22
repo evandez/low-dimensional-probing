@@ -8,6 +8,7 @@ configparser==5.0.1
 cymem==2.0.4
 dataclasses==0.6
 docker-pycreds==0.4.0
+en-core-web-sm==2.3.1
 filelock==3.0.12
 flake8==3.8.4
 flake8-docstrings==1.5.0
@@ -63,7 +64,7 @@ transformers==3.5.1
 typed-ast==1.4.1
 typing-extensions==3.7.4.3
 urllib3==1.26.2
-wandb==0.10.10
+wandb==0.10.11
 wasabi==0.8.0
 watchdog==0.10.3
 yapf==0.30.0
