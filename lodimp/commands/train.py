@@ -236,7 +236,7 @@ def run(options: argparse.Namespace) -> None:
     # For convenience, compute POS nullspaces for downstream testing.
     if task == tasks.PART_OF_SPEECH_TAGGING and probe.project is not None:
         log.info('task is pos, so computing projection nullspace')
-        rowspace = linalg.rowspace(probe.project.weight.data)
+        rowspace = linalg.rowspace(probe.project.project.weight.data)
         nullspace = projections.Projection(*rowspace.shape)
         eye = torch.eye(len(rowspace), device=device)
         nullspace.project.weight.data[:] = eye - rowspace
