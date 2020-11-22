@@ -151,7 +151,7 @@ class TaskDataset(data.IterableDataset):
             )
             start, end = 0, 0
             for index, (reps, features) in enumerate(self):
-                log.info('writing %d of %d', index + 1, len(reps))
+                log.info('writing %d of %d', index + 1, len(self))
                 end = start + len(reps)
                 breaks_out[index] = start
                 reps_out[start:end] = reps
