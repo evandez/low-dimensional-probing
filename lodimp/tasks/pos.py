@@ -273,7 +273,7 @@ def train(train_dataset: datasets.TaskDataset,
     log = logging.getLogger(__name__)
 
     ndims = train_dataset.sample_representations_shape[-1]
-    log.info('representations have dimension %d')
+    log.info('representations have dimension %d', ndims)
 
     ntags = train_dataset.count_unique_features()
     assert ntags is not None, 'no tag count, maybe dataset is for other task?'
