@@ -21,7 +21,7 @@ UNK = 'unk'
 # Frequently used POS tags.
 NOUNS = ('NN', 'NNS', 'NNP', 'NNPS')
 NOUNS_PROPER = ('NNP', 'NNPS')
-NOUNS_PLURAL = ('NNS', 'NNPS')
+NOUNS_COMMON = ('NN', 'NNS')
 VERBS = ('VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ')
 VERBS_PRESENT = ('VBZ', 'VBP', 'VBG')
 VERBS_PAST = ('VBD', 'VBN')

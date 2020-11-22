@@ -25,7 +25,7 @@ in the collated format output by this command.
 PART_OF_SPEECH_SUBTASKS = {
     'nouns': pos.NOUNS,
     'proper-nouns': pos.NOUNS_PROPER,
-    'plural-nouns': pos.NOUNS_PLURAL,
+    'common-nouns': pos.NOUNS_COMMON,
     'verbs': pos.VERBS,
     'verbs-present': pos.VERBS_PRESENT,
     'verbs-past': pos.VERBS_PAST,
