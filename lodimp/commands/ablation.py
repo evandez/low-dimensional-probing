@@ -196,7 +196,12 @@ class SyntaxGymEvaluator:
                                            clean_up_tokenization_spaces=False)
 
         top5_pos = [token.pos_ for token in self.nlp(top5_words)]
-        assert len(top5_pos) == 5, top5_pos
+        if len(top5_pos) != 5:
+            logging.warning(
+                'top5 words computation returned != 5 words: '
+                '"%s"; this can happen when bert predicts a '
+                'special token as one of its top-5 words and it '
+                'should not affect the results', top5_words)
 
         top5_nouns = 0
         for tag in self.noun_upos:
