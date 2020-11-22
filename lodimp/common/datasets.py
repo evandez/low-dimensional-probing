@@ -12,9 +12,14 @@ import torch
 from torch.utils import data
 
 DEFAULT_H5_BREAKS_KEY = 'breaks'
-DEFAULT_H5_REPRESENTATIONS_KEY = 'representations'
-DEFAULT_H5_FEATURES_KEY = 'features'
-H5_UNIQUE_FEATURES_KEY = 'unique-features'
+# TODO(evandez): The defaults below are better, but we have to migrate
+# the existing data :(
+# DEFAULT_H5_REPRESENTATIONS_KEY = 'representations'
+# DEFAULT_H5_FEATURES_KEY = 'features'
+# H5_UNIQUE_FEATURES_KEY = 'unique-features'
+DEFAULT_H5_REPRESENTATIONS_KEY = 'reps'
+DEFAULT_H5_FEATURES_KEY = 'tags'
+H5_UNIQUE_FEATURES_KEY = 'ntags'
 
 
 class TaskDataset(data.IterableDataset):
