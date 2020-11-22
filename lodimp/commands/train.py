@@ -11,8 +11,8 @@ import pathlib
 from typing import Dict
 
 from lodimp import tasks
-from lodimp.common import datasets
-from lodimp.common.models import probes
+from lodimp.common import datasets, linalg
+from lodimp.common.models import probes, projections
 from lodimp.common.parse import splits
 from lodimp.tasks import dep, dlp, pos
 
@@ -74,9 +74,9 @@ def parser() -> argparse.ArgumentParser:
         type=int,
         default=4,
         help='Epochs for dev loss to decrease to stop training. Default 4.')
-    parser.add_argument('--model-path',
+    parser.add_argument('--model-dir',
                         type=pathlib.Path,
-                        default='/tmp/lodimp/models/probe.pth',
+                        default='/tmp/lodimp/models',
                         help='Directory to write finished model.')
     parser.add_argument('--representations-key',
                         default=datasets.DEFAULT_H5_REPRESENTATIONS_KEY,
@@ -87,7 +87,7 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument('--wandb-id', help='Experiment ID. Use carefully!')
     parser.add_argument('--wandb-group', help='Experiment group.')
     parser.add_argument('--wandb-name', help='Experiment name.')
-    parser.add_argument('--wandb-path',
+    parser.add_argument('--wandb-dir',
                         type=pathlib.Path,
                         default='/tmp/lodimp/wandb',
                         help='Path to write Weights and Biases data.')
@@ -108,7 +108,7 @@ def parser() -> argparse.ArgumentParser:
     subparsers.add_parser(tasks.PART_OF_SPEECH_TAGGING)
     dlp_parser = subparsers.add_parser(tasks.DEPENDENCY_LABEL_PREDICTION)
     dep_parser = subparsers.add_parser(tasks.DEPENDENCY_EDGE_PREDICTION)
-    parser.add_argument('data', type=pathlib.Path, help='Data path.')
+    parser.add_argument('data_dir', type=pathlib.Path, help='Data directory.')
 
     # Okay, we've defined the full command. Now define task-specific options.
     for subparser in (dlp_parser, dep_parser):
@@ -128,8 +128,8 @@ def run(options: argparse.Namespace) -> None:
             of flags.
 
     """
-    options.model_path.parent.mkdir(parents=True, exist_ok=True)
-    options.wandb_path.mkdir(parents=True, exist_ok=True)
+    options.model_dir.mkdir(parents=True, exist_ok=True)
+    options.wandb_dir.mkdir(parents=True, exist_ok=True)
     wandb.init(project='lodimp',
                id=options.wandb_id,
                name=options.wandb_name,
@@ -158,7 +158,7 @@ def run(options: argparse.Namespace) -> None:
                        'patience': options.patience,
                    },
                },
-               dir=str(options.wandb_path))
+               dir=str(options.wandb_dir))
     assert wandb.run is not None, 'null run?'
 
     log = logging.getLogger(__name__)
@@ -168,7 +168,7 @@ def run(options: argparse.Namespace) -> None:
 
     # Load the datasets.
     model, layer = options.representation_model, options.representation_layer
-    data_path = options.data / model / str(layer)
+    data_dir = options.data_dir / model / str(layer)
     cache = device if options.cache else None
 
     data: Dict[str, datasets.CollatedTaskDataset] = {}
@@ -176,17 +176,18 @@ def run(options: argparse.Namespace) -> None:
                   representations_key=options.representations_key,
                   features_key=options.features_key)
     for split in splits.STANDARD_SPLITS:
-        split_path = data_path / f'{split}.hdf5'
+        split_file = data_dir / f'{split}.hdf5'
         if options.no_batch:
             data[split] = datasets.NonBatchingCollatedTaskDataset(
-                split_path, **kwargs)
+                split_file, **kwargs)
         else:
             data[split] = datasets.SentenceBatchingCollatedTaskDataset(
-                split_path, **kwargs)
+                split_file, **kwargs)
 
     # Start training!
     probe: nn.Module
-    if options.task == tasks.PART_OF_SPEECH_TAGGING:
+    task = options.task
+    if task == tasks.PART_OF_SPEECH_TAGGING:
         probe, accuracy = pos.train(
             data[splits.TRAIN],
             data[splits.DEV],
@@ -198,7 +199,7 @@ def run(options: argparse.Namespace) -> None:
             lr=options.lr,
             device=device,
             also_log_to_wandb=True)
-    elif options.task == tasks.DEPENDENCY_LABEL_PREDICTION:
+    elif task == tasks.DEPENDENCY_LABEL_PREDICTION:
         probe, accuracy = dlp.train(
             data[splits.TRAIN],
             data[splits.DEV],
@@ -211,7 +212,7 @@ def run(options: argparse.Namespace) -> None:
             lr=options.lr,
             device=device,
             also_log_to_wandb=True)
-    elif options.task == tasks.DEPENDENCY_EDGE_PREDICTION:
+    elif task == tasks.DEPENDENCY_EDGE_PREDICTION:
         probe, accuracy = dep.train(
             data[splits.TRAIN],
             data[splits.DEV],
@@ -225,11 +226,25 @@ def run(options: argparse.Namespace) -> None:
             device=device,
             also_log_to_wandb=True)
     else:
-        raise ValueError(f'unknown task: {options.task}')
+        raise ValueError(f'unknown task: {task}')
 
-    logging.info('saving model to %s', options.model_path)
-    torch.save(probe, options.model_path)
-    wandb.save(str(options.model_path))
+    probe_file = options.model_dir / 'probe.pth'
+    log.info('saving probe to %s', probe_file)
+    torch.save(probe, probe_file)
+    wandb.save(str(probe_file))
 
-    logging.info('test accuracy %f', accuracy)
+    # For convenience, compute POS nullspaces for downstream testing.
+    if task == tasks.PART_OF_SPEECH_TAGGING and probe.project is not None:
+        log.info('task is pos, so computing projection nullspace')
+        rowspace = linalg.rowspace(probe.project.weight.data)
+        nullspace = projections.Projection(*rowspace.shape)
+        eye = torch.eye(len(rowspace), device=device)
+        nullspace.project.weight.data[:] = eye - rowspace
+
+        nullspace_file = options.model_dir / 'nullspace.pth'
+        log.info('saving nullspace to %s', nullspace_file)
+        torch.save(nullspace, nullspace_file)
+        wandb.save(str(nullspace_file))
+
+    log.info('test accuracy %f', accuracy)
     wandb.run.summary['accuracy'] = accuracy
