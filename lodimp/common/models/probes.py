@@ -49,7 +49,7 @@ class Linear(nn.Module):
         if self.project is not None:
             inputs = inputs.view(-1, self.project.in_features)
             inputs = self.project(inputs)
-            inputs = inputs.view(-1, self.classify.in_features)
+        inputs = inputs.view(-1, self.classify.in_features)
         return self.classify(inputs)
 
 
