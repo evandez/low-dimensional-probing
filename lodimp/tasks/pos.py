@@ -233,7 +233,7 @@ def train(train_dataset: datasets.TaskDataset,
           dev_dataset: datasets.TaskDataset,
           test_dataset: datasets.TaskDataset,
           probe_t: Type[Probe] = probes.Linear,
-          project_to: int = 10,
+          project_to: Optional[int] = None,
           project_from: Optional[projections.Projection] = None,
           epochs: int = 25,
           patience: int = 4,
@@ -250,10 +250,10 @@ def train(train_dataset: datasets.TaskDataset,
             accuracy after training.
         probe_t (Type[Probe], optional): Probe type to train.
             Defaults to probes.Linear.
-        project_to (int, optional): Project representations to this
-            dimensionality. Defaults to 10.
+        project_to (Optional[int], optional): Project representations to this
+            dimensionality. Defaults to no projection.
         project_from (Optional[projections.Projection], optional): Project
-            representations with this projection before applying the final
+            representations with this projection before applying any final
             projection, which will be the only one with learnable parameters.
             Defaults to None.
         epochs (int, optional): Maximum passes through the training dataset.
@@ -279,8 +279,14 @@ def train(train_dataset: datasets.TaskDataset,
     assert ntags is not None, 'no tag count, maybe dataset is for other task?'
     log.info('part of speech task has %d tags', ntags)
 
-    proj = projections.Projection(ndims, project_to, compose=project_from)
-    probe = probe_t(project_to, ntags, project=proj)
+    if project_to is None or project_to == ndims:
+        logging.info('projection dim = reps dim, not projecting')
+        proj = None
+    else:
+        proj = projections.Projection(ndims, project_to, compose=project_from)
+
+    probe = probe_t(project_to or ndims, ntags, project=proj or project_from)
+
     learning.train(probe,
                    train_dataset,
                    dev_dataset=dev_dataset,

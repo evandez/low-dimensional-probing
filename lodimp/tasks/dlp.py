@@ -250,7 +250,7 @@ def train(train_dataset: datasets.TaskDataset,
           dev_dataset: datasets.TaskDataset,
           test_dataset: datasets.TaskDataset,
           probe_t: Type[Probe] = probes.Linear,
-          project_to: int = 10,
+          project_to: Optional[int] = None,
           share_projection: bool = False,
           epochs: int = 25,
           patience: int = 4,
@@ -267,8 +267,8 @@ def train(train_dataset: datasets.TaskDataset,
             final accuracy after training.
         probe_t (Type[Probe], optional): Probe type to train.
             Defaults to probes.Linear.
-        project_to (int, optional): Project representations to this
-            dimensionality. Defaults to 10.
+        project_to (Optional[int], optional): Project representations to this
+            dimensionality. Defaults to no projection.
         share_projection (bool): If set, project the left and right components
             of pairwise probes with the same projection. E.g. if the probe is
             bilinear of the form xAy, we will always compute (Px)A(Py) as
@@ -299,7 +299,7 @@ def train(train_dataset: datasets.TaskDataset,
     assert ntags is not None, 'no label count, is dataset for different task?'
     log.info('dependency labeling task has %d tags', ntags)
 
-    if ndims == project_to:
+    if project_to is None or ndims == project_to:
         logging.info('projection dim = reps dim, not projecting')
         projection = None
     elif share_projection:
@@ -307,7 +307,7 @@ def train(train_dataset: datasets.TaskDataset,
     else:
         projection = projections.Projection(2 * ndims, 2 * project_to)
 
-    probe = probe_t(2 * project_to, ntags, project=projection)
+    probe = probe_t(2 * (project_to or ndims), ntags, project=projection)
     learning.train(probe,
                    train_dataset,
                    dev_dataset=dev_dataset,

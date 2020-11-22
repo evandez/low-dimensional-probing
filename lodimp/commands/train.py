@@ -48,10 +48,10 @@ def parser() -> argparse.ArgumentParser:
                         const=LINEAR_PROBE,
                         default=MLP_PROBE,
                         help='Use linear probe. Defaults to MLP.')
-    parser.add_argument('--project-to',
-                        type=int,
-                        default=64,
-                        help='Dimensionality of projected space.')
+    parser.add_argument(
+        '--project-to',
+        type=int,
+        help='Project reps to this dimension. Default is no projection.')
     parser.add_argument('--representation-model',
                         choices=('elmo', 'bert-base-uncased'),
                         default='elmo',

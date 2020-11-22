@@ -203,7 +203,7 @@ def train(train_dataset: datasets.TaskDataset,
           dev_dataset: datasets.TaskDataset,
           test_dataset: datasets.TaskDataset,
           probe_t: Type[Probe] = probes.PairwiseBilinear,
-          project_to: int = 10,
+          project_to: Optional[int] = None,
           share_projection: bool = False,
           epochs: int = 25,
           patience: int = 4,
@@ -220,8 +220,8 @@ def train(train_dataset: datasets.TaskDataset,
             compute final accuracy after training.
         probe_t (Type[Probe], optional): Probe type to train.
             Defaults to probes.Linear.
-        project_to (int, optional): Project representations to this
-            dimensionality. Defaults to 10.
+        project_to (Optional[int], optional): Project representations to this
+            dimensionality. Defaults to no projection.
         share_projection (bool): If set, project the left and right components
             of pairwise probes with the same projection. E.g. if the probe is
             bilinear of the form xAy, we will always compute (Px)A(Py) as
@@ -248,7 +248,10 @@ def train(train_dataset: datasets.TaskDataset,
     ndims = train_dataset.sample_representations_shape[-1]
     log.info('representations have dimension %d', ndims)
 
-    if share_projection:
+    if project_to is None or project_to == ndims:
+        logging.info('projection dim = reps dim, not projecting')
+        projection = None
+    elif share_projection:
         projection = projections.PairwiseProjection(
             projections.Projection(ndims, project_to))
     else:
@@ -256,7 +259,7 @@ def train(train_dataset: datasets.TaskDataset,
             projections.Projection(ndims, project_to),
             right=projections.Projection(ndims, project_to))
 
-    probe = probe_t(project_to, project=projection)
+    probe = probe_t(project_to or ndims, project=projection)
     learning.train(probe,
                    train_dataset,
                    dev_dataset=dev_dataset,
