@@ -114,7 +114,7 @@ for subparser in (dlp_parser, dep_parser):
     subparser.add_argument(
         '--share-projection',
         action='store_true',
-        help='When comparing reps, project both with same matrix.')
+        help='when comparing reps, project both with same matrix')
 
 args = parser.parse_args()
 
