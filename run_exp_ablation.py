@@ -391,18 +391,14 @@ for sg_file in args.sg_files:
 
         count += 2
 
-    wandb.run.summary['avg_nouns_before'] = nouns_before / count
-    wandb.run.summary['avg_nouns_after'] = nouns_after / count
+    wandb.summary['avg_nouns_before'] = nouns_before / count
+    wandb.summary['avg_nouns_after'] = nouns_after / count
 
-    wandb.run.summary['avg_verbs_before'] = verbs_before / count
-    wandb.run.summary['avg_verbs_after'] = verbs_after / count
+    wandb.summary['avg_verbs_before'] = verbs_before / count
+    wandb.summary['avg_verbs_after'] = verbs_after / count
 
-    wandb.run.summary['avg_noun_prob_diff_before'] =\
-        noun_prob_diff_before / count
-    wandb.run.summary['avg_noun_prob_diff_after'] =\
-        noun_prob_diff_after / count
+    wandb.summary['avg_noun_prob_diff_before'] = noun_prob_diff_before / count
+    wandb.summary['avg_noun_prob_diff_after'] = noun_prob_diff_after / count
 
-    wandb.run.summary['avg_verb_prob_diff_before'] =\
-        verb_prob_diff_before / count
-    wandb.run.summary['avg_verb_prob_diff_after'] =\
-        verb_prob_diff_after / count
+    wandb.summary['avg_verb_prob_diff_before'] = verb_prob_diff_before / count
+    wandb.summary['avg_verb_prob_diff_after'] = verb_prob_diff_after / count
