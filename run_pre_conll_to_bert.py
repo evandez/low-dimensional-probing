@@ -1,11 +1,10 @@
 """Embed all sentences in the .conllx file with BERT."""
-
 import argparse
 import json
-import logging
 import pathlib
-import sys
 from typing import List
+
+from lodimp.common import logging
 
 import h5py
 import numpy as np
@@ -13,36 +12,31 @@ import torch
 import transformers
 from torch import cuda
 
-parser = argparse.ArgumentParser(description='Pre-embed sentences with BERT.')
-parser.add_argument('data', type=pathlib.Path, help='Path to .conll(x) file.')
-parser.add_argument('out', type=pathlib.Path, help='Path to output file.')
+parser = argparse.ArgumentParser(description='pre-embed sentences with bert')
+parser.add_argument('data_file',
+                    type=pathlib.Path,
+                    help='path to ptb .conll(x) file')
+parser.add_argument('out_file', type=pathlib.Path, help='path to output file')
 parser.add_argument('--word-column',
                     type=int,
                     default=1,
-                    help='Index of .conll column containing words.')
-parser.add_argument('--quiet',
-                    dest='log_level',
-                    action='store_const',
-                    const=logging.WARNING,
-                    default=logging.INFO,
-                    help='Only print warning and errors to stdout.')
-options = parser.parse_args()
+                    help='index of .conll column containing words')
+parser.add_argument('--device', help='use this device (default: guessed)')
+args = parser.parse_args()
 
-if not options.data.exists():
-    raise FileNotFoundError(f'data file {options.data} not found')
+if not args.data_file.exists():
+    raise FileNotFoundError(f'data file {args.data_file} not found')
 
 # Set up.
-logging.basicConfig(stream=sys.stdout,
-                    format='%(asctime)s %(levelname)-8s %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S',
-                    level=options.log_level)
+logging.configure()
+log = logging.getLogger(__name__)
 
-device = torch.device('cuda') if cuda.is_available() else torch.device('cpu')
-logging.info('using %s', device.type)
+device = args.device or 'cuda' if cuda.is_available() else 'cpu'
+logging.info('using %s', device)
 
 sentences = []
 partial: List[str] = []
-with open(options.data, 'r') as conll:
+with args.data_file.open('r') as conll:
     for line in conll:
         line = line.strip()
         if not line and partial:
@@ -51,7 +45,7 @@ with open(options.data, 'r') as conll:
         if not line or line.startswith('#'):
             continue
         components = line.split()
-        partial.append(components[options.word_column])
+        partial.append(components[args.word_column])
     if partial:
         sentences.append(tuple(partial))
 
@@ -63,11 +57,12 @@ bert.eval()
 # We want the hidden states, so we have to hack the config a little bit...
 bert.encoder.output_hidden_states = True
 
-with h5py.File(options.out, 'w') as out:
-    logging.info('will write %d embeddings to %s', len(sentences), options.out)
+with h5py.File(str(args.out_file), 'w') as out_file:
+    logging.info('will write %d embeddings to %s', len(sentences),
+                 args.out_file)
     for index, sentence in enumerate(sentences):
         tokens = tokenizer.encode(sentence, add_special_tokens=False)
-        dataset = out.create_dataset(
+        dataset = out_file.create_dataset(
             str(index),
             shape=(bert.config.num_hidden_layers + 1, len(tokens),
                    bert.config.hidden_size),
@@ -88,5 +83,5 @@ with h5py.File(options.out, 'w') as out:
     joined = [' '.join(sentence) for sentence in sentences]
     sentence_to_index = {sentence: i for i, sentence in enumerate(joined)}
     sentence_to_index_str = json.dumps(sentence_to_index).encode()
-    out.create_dataset('sentence_to_index',
-                       data=np.array([sentence_to_index_str]))
+    out_file.create_dataset('sentence_to_index',
+                            data=np.array([sentence_to_index_str]))
