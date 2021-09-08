@@ -1,7 +1,7 @@
 """Utilities for interacting with precomputed word representations."""
-
-import pathlib
 from typing import Any
+
+from lodimp.common.typing import PathLike
 
 import h5py
 import torch
@@ -11,18 +11,18 @@ from torch.utils import data
 class RepresentationDataset(data.Dataset):
     """Iterates through a dataset of word representations."""
 
-    def __init__(self, path: pathlib.Path, **kwargs: Any):
+    def __init__(self, path: PathLike, **kwargs: Any):
         """Load the h5 file contained pre-computed representations.
 
         Keyword arguments are forwarded to h5py.File constructor.
 
         Args:
-            path (str): Path to h5 file containing pre-computed reps.
+            path (PathLike): Path to h5 file containing pre-computed reps.
 
         """
         super(RepresentationDataset, self).__init__()
         assert 'mode' not in kwargs, 'why are you setting mode?'
-        self.file = h5py.File(path, 'r', **kwargs)
+        self.file = h5py.File(str(path), 'r', **kwargs)
 
         assert '0' in self.file, 'reps file has no 0th element?'
         example = self.file['0']

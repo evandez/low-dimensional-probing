@@ -6,18 +6,17 @@ agreement benchmark.
 
 Subspaces are ablated by applying a low-dimensional (but shape-preserving)
 projection to the representations. One way to create this projection is to
-use the `python lodimp inlp` command.
+use the `run_inlp.py` script in this directory.
 
 Benchmarks are taken from SyntaxGym at https://syntaxgym.org. This script
 only supports the subject-verb agreement suites.
 """
-
 import argparse
 import dataclasses
-import logging
 import pathlib
-from typing import AbstractSet, Any, Iterator, Mapping, Sequence
+from typing import AbstractSet, Any, Iterator, Mapping, Sequence, cast
 
+from lodimp.common import logging
 from lodimp.common.models import projections
 from lodimp.common.parse import syntax_gym
 
@@ -26,31 +25,30 @@ import spacy.lang.en
 import torch
 import transformers
 import wandb
+from torch import cuda
 
-
-def parser() -> argparse.ArgumentParser:
-    """Returns the argument parser for this command."""
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('projection_file',
-                        type=pathlib.Path,
-                        help='projection file')
-    parser.add_argument('sg_files',
-                        type=pathlib.Path,
-                        nargs='+',
-                        help='syntax gym json files.')
-    parser.add_argument('--wandb-group',
-                        default='ablation',
-                        help='experiment group')
-    parser.add_argument('--wandb-name', help='experiment name')
-    parser.add_argument('--wandb-path',
-                        type=pathlib.Path,
-                        default='/tmp/lodimp/wandb',
-                        help='path to write wandb data')
-    parser.add_argument('--bert-config',
-                        default='bert-base-uncased',
-                        help='bert config to evaluate on')
-    parser.add_argument('--cuda', action='store_true', help='use cuda')
-    return parser
+parser = argparse.ArgumentParser()
+parser.add_argument('projection_file',
+                    type=pathlib.Path,
+                    help='projection file')
+parser.add_argument('sg_files',
+                    type=pathlib.Path,
+                    nargs='+',
+                    help='syntax gym json files')
+parser.add_argument('--wandb-group',
+                    default='ablation',
+                    help='experiment group (default: ablation)')
+parser.add_argument('--wandb-name',
+                    help='experiment name (default: generated)')
+parser.add_argument('--wandb-path',
+                    type=pathlib.Path,
+                    help='path to write wandb data (default: wandb default)')
+parser.add_argument(
+    '--bert-config',
+    default='bert-base-uncased',
+    help='bert config to evaluate on (default: bert-base-uncased)')
+parser.add_argument('--device', help='use this device (default: guessed)')
+args = parser.parse_args()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -125,9 +123,10 @@ class SyntaxGymEvaluator:
 
     # Optional configuration, usually does not need to be changed.
     mask: str = '[MASK]'
-    device: torch.device = torch.device('cpu')
+    device: str = 'cpu'
     nlp: spacy.lang.en.English = dataclasses.field(
-        default_factory=lambda: spacy.load('en_core_web_sm'))
+        default_factory=lambda: cast(spacy.lang.en.English,
+                                     spacy.load('en_core_web_sm')))
     verb_upos: AbstractSet[str] = frozenset({'AUX', 'VERB'})
     noun_upos: AbstractSet[str] = frozenset({'NOUN', 'PRON', 'PROPN'})
 
@@ -315,96 +314,95 @@ class SyntaxGymEvaluator:
             yield self.item(item)
 
 
-def run(options: argparse.Namespace) -> None:
-    """Run the ablation experiment with the given options."""
-    options.wandb_path.mkdir(parents=True, exist_ok=True)
-    wandb.init(project='lodimp',
-               name=options.wandb_name,
-               group=options.wandb_group,
-               dir=str(options.wandb_path))
-    assert wandb.run is not None, 'null run?'
+args.wandb_path.mkdir(parents=True, exist_ok=True)
+wandb.init(project='lodimp',
+           name=args.wandb_name,
+           group=args.wandb_group,
+           dir=str(args.wandb_path))
+assert wandb.run is not None, 'null run?'
 
-    log = logging.getLogger(__name__)
+logging.configure()
+log = logging.getLogger(__name__)
 
-    device = torch.device('cuda' if options.cuda else 'cpu')
-    log.info('using device: %s', device.type)
+device = args.device or 'cuda' if cuda.is_available() else 'cpu'
+log.info('using device: %s', device)
 
-    projection_file = options.projection_file
-    log.info('loading projection from: %s', projection_file.resolve())
-    projection = torch.load(projection_file, map_location=device).eval()
+projection_file = args.projection_file
+log.info('loading projection from: %s', projection_file.resolve())
+projection = torch.load(projection_file, map_location=device).eval()
 
-    bert_config = options.bert_config
+bert_config = args.bert_config
 
-    log.info('loading bert tokenizer with config "%s"', bert_config)
-    tokenizer = transformers.BertTokenizer.from_pretrained(bert_config)
+log.info('loading bert tokenizer with config "%s"', bert_config)
+tokenizer = transformers.BertTokenizer.from_pretrained(bert_config)
 
-    log.info('loading bert lm with config "%s"', bert_config)
-    bert = transformers.BertForMaskedLM.from_pretrained(bert_config).eval()
+log.info('loading bert lm with config "%s"', bert_config)
+bert = transformers.BertForMaskedLM.from_pretrained(bert_config).eval()
 
-    evaluate = SyntaxGymEvaluator(projection, tokenizer, bert, device=device)
+evaluate = SyntaxGymEvaluator(projection, tokenizer, bert, device=device)
 
-    noun_prob_diff_before, noun_prob_diff_after = 0., 0.
-    verb_prob_diff_before, verb_prob_diff_after = 0., 0.
-    nouns_before, nouns_after = 0, 0
-    verbs_before, verbs_after = 0, 0
-    count = 0
+noun_prob_diff_before, noun_prob_diff_after = 0., 0.
+verb_prob_diff_before, verb_prob_diff_after = 0., 0.
+nouns_before, nouns_after = 0, 0
+verbs_before, verbs_after = 0, 0
+count = 0
 
-    for sg_file in options.sg_files:
-        logging.info('evaluating suite %s', sg_file)
-        suite = syntax_gym.load_suite_json(sg_file)
-        for result in evaluate.suite(suite):
-            # Log each condition as a separate item.
-            for subresult in result.values():
-                wandb.log({'suite': sg_file.name, **subresult.dump()})
+for sg_file in args.sg_files:
+    logging.info('evaluating suite %s', sg_file)
+    suite = syntax_gym.load_suite_json(sg_file)
+    for result in evaluate.suite(suite):
+        # Log each condition as a separate item.
+        for subresult in result.values():
+            wandb.log({'suite': sg_file.name, **subresult.dump()})
 
-            # Record verb aggregates.
-            for match_key, mismatch_key in (
-                ('match_sing', 'mismatch_sing'),
-                ('match_plural', 'mismatch_plural'),
-            ):
-                match = result[match_key]
-                mismatch = result[mismatch_key]
+        # Record verb aggregates.
+        for match_key, mismatch_key in (
+            ('match_sing', 'mismatch_sing'),
+            ('match_plural', 'mismatch_plural'),
+        ):
+            match = result[match_key]
+            mismatch = result[mismatch_key]
 
-                verb_prob_diff_before += (match.verb.real.word_prob -
-                                          mismatch.verb.real.word_prob)
-                verb_prob_diff_after += (match.verb.nulled.word_prob -
-                                         mismatch.verb.nulled.word_prob)
+            verb_prob_diff_before += (match.verb.real.word_prob -
+                                      mismatch.verb.real.word_prob)
+            verb_prob_diff_after += (match.verb.nulled.word_prob -
+                                     mismatch.verb.nulled.word_prob)
 
-                verbs_before += match.verb.real.top5_verbs
-                verbs_after += match.verb.nulled.top5_verbs
+            verbs_before += match.verb.real.top5_verbs
+            verbs_after += match.verb.nulled.top5_verbs
 
-            # Record noun aggregates. Notice the change in keys here; the
-            # match vs. mismatch tags in Syntax Gym refer to *verbs* matching,
-            # so we have to flip it around when we work with *nouns* matching.
-            for match_key, mismatch_key in (
-                ('match_plural', 'mismatch_sing'),
-                ('match_sing', 'mismatch_plural'),
-            ):
-                match = result[match_key]
-                mismatch = result[mismatch_key]
+        # Record noun aggregates. Notice the change in keys here; the
+        # match vs. mismatch tags in Syntax Gym refer to *verbs* matching,
+        # so we have to flip it around when we work with *nouns* matching.
+        for match_key, mismatch_key in (
+            ('match_plural', 'mismatch_sing'),
+            ('match_sing', 'mismatch_plural'),
+        ):
+            match = result[match_key]
+            mismatch = result[mismatch_key]
 
-                noun_prob_diff_before += (match.noun.real.word_prob -
-                                          mismatch.noun.real.word_prob)
-                noun_prob_diff_after += (match.noun.nulled.word_prob -
-                                         mismatch.noun.nulled.word_prob)
+            noun_prob_diff_before += (match.noun.real.word_prob -
+                                      mismatch.noun.real.word_prob)
+            noun_prob_diff_after += (match.noun.nulled.word_prob -
+                                     mismatch.noun.nulled.word_prob)
 
-                nouns_before += match.noun.real.top5_nouns
-                nouns_after += match.noun.nulled.top5_nouns
+            nouns_before += match.noun.real.top5_nouns
+            nouns_after += match.noun.nulled.top5_nouns
 
-            count += 2
+        count += 2
 
-        wandb.run.summary['avg_nouns_before'] = nouns_before / count
-        wandb.run.summary['avg_nouns_after'] = nouns_after / count
+    wandb.run.summary['avg_nouns_before'] = nouns_before / count
+    wandb.run.summary['avg_nouns_after'] = nouns_after / count
 
-        wandb.run.summary['avg_verbs_before'] = verbs_before / count
-        wandb.run.summary['avg_verbs_after'] = verbs_after / count
+    wandb.run.summary['avg_verbs_before'] = verbs_before / count
+    wandb.run.summary['avg_verbs_after'] = verbs_after / count
 
-        wandb.run.summary['avg_noun_prob_diff_before'] =\
-            noun_prob_diff_before / count
-        wandb.run.summary['avg_noun_prob_diff_after'] =\
-            noun_prob_diff_after / count
+    wandb.run.summary['avg_noun_prob_diff_before'] =\
+        noun_prob_diff_before / count
+    wandb.run.summary['avg_noun_prob_diff_after'] =\
+        noun_prob_diff_after / count
 
-        wandb.run.summary['avg_verb_prob_diff_before'] =\
-            verb_prob_diff_before / count
-        wandb.run.summary['avg_verb_prob_diff_after'] =\
-            verb_prob_diff_after / count
+    wandb.run.summary['avg_verb_prob_diff_before'] =\
+        verb_prob_diff_before / count
+    wandb.run.summary['avg_verb_prob_diff_after'] =\
+        verb_prob_diff_after / count

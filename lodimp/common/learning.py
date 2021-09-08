@@ -1,9 +1,9 @@
 """Defines functions for training models."""
-
 import logging
 from typing import Optional
 
 from lodimp.common import datasets
+from lodimp.common.typing import Device
 
 import torch
 import wandb
@@ -54,7 +54,7 @@ def train(probe: nn.Module,
           train_dataset: datasets.TaskDataset,
           dev_dataset: Optional[datasets.TaskDataset] = None,
           stopper: Optional[EarlyStopping] = None,
-          device: Optional[torch.device] = None,
+          device: Optional[Device] = None,
           lr: float = 1e-3,
           epochs: int = 25,
           also_log_to_wandb: bool = False) -> None:
@@ -86,7 +86,7 @@ def train(probe: nn.Module,
             value and end training when patience is exceeded. Dev loss is used
             if `dev_data` is set, otherwise uses training loss.
             Defaults to None.
-        device (Optional[torch.device], optional): Send probe, loss function,
+        device (Optional[Device], optional): Send probe, loss function,
             and all tensors in dataset to this device throughout training.
             By default, device is not changed on any module or tensor.
         lr (float, optional): Learning rate for Adam optimization.
@@ -154,7 +154,7 @@ def train(probe: nn.Module,
 
 def test(probe: nn.Module,
          dataset: datasets.TaskDataset,
-         device: Optional[torch.device] = None) -> float:
+         device: Optional[Device] = None) -> float:
     """Compute classification accuracy of a probe on the given data.
 
     This function makes the same assumptions as `train` above. Importantly,
@@ -165,7 +165,7 @@ def test(probe: nn.Module,
         probe (nn.Module): The classifier probe.
         dataset (datasets.TaskDataset): Inputs to classify paired with labels.
             See `train_dataset` parameter in `train`.
-        device (Optional[torch.device], optional): Probe, inputs, and tags
+        device (Optional[Device], optional): Probe, inputs, and tags
             will be sent to this device. By default, device is not changed
             on any module or tensor.
 

@@ -1,5 +1,4 @@
 """Defines core experiments for part of speech tagging task."""
-
 import collections
 import copy
 import logging
@@ -10,8 +9,9 @@ from lodimp.common import datasets, learning, linalg
 from lodimp.common.models import probes, projections
 from lodimp.common.parse import ptb
 from lodimp.common.parse import representations as reps
+from lodimp.common.typing import Device
 
-import numpy as np
+import numpy
 import torch
 import wandb
 
@@ -84,7 +84,7 @@ class ControlPOSIndexer:
 
     def __init__(self,
                  samples: Sequence[ptb.Sample],
-                 dist: Optional[Sequence[float]] = None):
+                 dist: Optional[Union[numpy.ndarray, Sequence[float]]] = None):
         """Initialize the tagger.
 
         The tagger computes the empirical distribution of the samples, if not
@@ -94,9 +94,9 @@ class ControlPOSIndexer:
         Args:
             samples (Sequence[ptb.PTBSample]): All samples for which to
                 generate tags.
-            dist (Optional[Sequence[float]], optional): The empirical
-                distribution to use when sampling tags for word type.
-                By default, is computed from the list of samples.
+            dist (Optional[Union[numpy.ndarray, Sequence[float]]], optional): A
+                distribution to use when sampling tags for word type. By
+                default, is computed from the list of samples.
 
         """
         if dist is None:
@@ -104,8 +104,8 @@ class ControlPOSIndexer:
             for sample in samples:
                 for pos in sample.xpos:
                     counts[pos] += 1
-            dist = np.array([float(count) for count in counts.values()])
-            dist /= np.sum(dist)
+            dist = numpy.array([float(count) for count in counts.values()])
+            dist /= numpy.sum(dist)
         assert dist is not None, 'uninitialized distribution?'
         self.dist = dist
 
@@ -113,7 +113,8 @@ class ControlPOSIndexer:
         for sample in samples:
             for word in sample.sentence:
                 if word not in self.tags:
-                    self.tags[word] = np.random.choice(len(dist), p=dist) + 1
+                    tag = numpy.random.choice(len(dist), p=dist) + 1
+                    self.tags[word] = tag
 
     def __call__(self, sample: ptb.Sample) -> torch.Tensor:
         """Tag the given samples.
@@ -238,7 +239,7 @@ def train(train_dataset: datasets.TaskDataset,
           epochs: int = 25,
           patience: int = 4,
           lr: float = 1e-3,
-          device: Optional[torch.device] = None,
+          device: Optional[Device] = None,
           also_log_to_wandb: bool = False) -> Tuple[Probe, float]:
     """Train a probe on part of speech tagging.
 
@@ -261,7 +262,7 @@ def train(train_dataset: datasets.TaskDataset,
         patience (int, optional): Allow dev loss to not improve for this many
             epochs, then stop training. Defaults to 4.
         lr (float, optional): Learning rate for optimizer. Defaults to 1e-3.
-        device (Optional[torch.device], optional): Torch device on which to
+        device (Optional[Device], optional): Torch device on which to
             train probe. Defaults to CPU.
         also_log_to_wandb (Optional[pathlib.Path], optional): If set, log
             training data to wandb. By default, wandb is not used.
@@ -302,7 +303,7 @@ def train(train_dataset: datasets.TaskDataset,
 def axis_alignment(probe: Probe,
                    dev_dataset: datasets.TaskDataset,
                    test_dataset: datasets.TaskDataset,
-                   device: Optional[torch.device] = None,
+                   device: Optional[Device] = None,
                    also_log_to_wandb: bool = False) -> Sequence[float]:
     """Measure whether the given probe is axis aligned.
 
@@ -312,7 +313,7 @@ def axis_alignment(probe: Probe,
             to cut.
         test_dataset (datasets.TaskDataset): Data used to determine the effect
             of cutting an axis.
-        device (Optional[torch.device], optional): Torch device on which to
+        device (Optional[Device], optional): Torch device on which to
             train probe. Defaults to CPU.
         also_log_to_wandb (bool, optional): If set, log results to wandb.
 
@@ -365,7 +366,7 @@ def inlp(train_dataset: datasets.TaskDataset,
          tolerance: float = 5e-2,
          epochs: int = 25,
          lr: float = 1e-3,
-         device: Optional[torch.device] = None,
+         device: Optional[Device] = None,
          also_log_to_wandb: bool = False) -> projections.Projection:
     """Compute the nullspace for all linear part of speech information.
 
@@ -386,7 +387,7 @@ def inlp(train_dataset: datasets.TaskDataset,
             for training each classifier. Defaults to 25.
         lr (float, optional): Learning rate for training each probe.
             Defaults to 1e-3.
-        device (Optional[torch.device], optional): Torch device on which to
+        device (Optional[Device], optional): Torch device on which to
             train linear models. Defaults to CPU.
         also_log_to_wandb (bool, optional): If set, log results to wandb.
 
@@ -396,7 +397,7 @@ def inlp(train_dataset: datasets.TaskDataset,
     """
     log = logging.getLogger(__name__)
 
-    device = device or torch.device('cpu')
+    device = device or 'cpu'
 
     ndims = train_dataset.sample_representations_shape[-1]
     log.info('representations have dimension %d')

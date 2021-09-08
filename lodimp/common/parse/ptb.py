@@ -1,7 +1,8 @@
 """Utilities for interacting with the Penn Treebank."""
-
 import pathlib
 from typing import NamedTuple, Sequence
+
+from lodimp.common.typing import PathLike
 
 
 class Sample(NamedTuple):
@@ -16,18 +17,18 @@ class Sample(NamedTuple):
     relations: Sequence[str]
 
 
-def load(path: pathlib.Path) -> Sequence[Sample]:
+def load(path: PathLike) -> Sequence[Sample]:
     """Loads the given .conllx file.
 
     Args:
-        path (pathlib.Path): The path to the .conllx file.
+        path (PathLike): The path to the .conllx file.
 
     Returns:
         List[Sample]: Parsed samples from the file, one per sentence.
 
     """
     samples = []
-    with path.open() as file:
+    with pathlib.Path(path).open() as file:
         sentence, xpos, heads, relations = [], [], [], []
         for line in file:
             if line.strip():

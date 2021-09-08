@@ -1,7 +1,8 @@
 """Constants and utilities for interacting with dataset splits."""
-
 import pathlib
-from typing import Dict, Mapping, NamedTuple, Optional, Union
+from typing import Dict, Mapping, NamedTuple, Optional
+
+from lodimp.common.typing import PathLike
 
 # These constants define standard dataset splits for both PTB/OntoNotes.
 TRAIN = 'train'
@@ -35,9 +36,6 @@ class Split(NamedTuple):
     # Annotations are typically some variant of a .conll file containing
     # both the original words and whatever labels we need for probing tasks.
     annotations: pathlib.Path
-
-
-PathLike = Union[str, pathlib.Path]
 
 
 def ensure(representations: PathLike, annotations: PathLike) -> Split:

@@ -7,6 +7,8 @@ import logging
 import pathlib
 from typing import Any, Iterator, Optional, Sequence, Tuple
 
+from lodimp.common.typing import Device, PathLike
+
 import h5py
 import torch
 from torch.utils import data
@@ -98,7 +100,7 @@ class TaskDataset(data.IterableDataset):
 
     def collate(
         self,
-        out: pathlib.Path,
+        out: PathLike,
         breaks_key: str = DEFAULT_H5_BREAKS_KEY,
         representations_key: str = DEFAULT_H5_REPRESENTATIONS_KEY,
         features_key: str = DEFAULT_H5_FEATURES_KEY,
@@ -113,7 +115,7 @@ class TaskDataset(data.IterableDataset):
         dataset should be tagged with the i-th feature in the features dataset.
 
         Args:
-            out (pathlib.Path): Path at which to write output file. Must not
+            out (PathLike): Path at which to write output file. Must not
                 exist, unless force is set to True.
             breaks_key (str, optional): Key to use for the breaks dataset
                 in the output h5 file. Defaults to 'breaks'.
@@ -131,6 +133,7 @@ class TaskDataset(data.IterableDataset):
                 or if any samples therein have different sequence lengths.
 
         """
+        out = pathlib.Path(out)
         if out.exists() and not force:
             raise FileExistsError(f'{out} exists, set force=True to overwrite')
 
@@ -191,26 +194,26 @@ class CollatedTaskDataset(TaskDataset):
     """
 
     def __init__(self,
-                 path: pathlib.Path,
+                 path: PathLike,
                  representations_key: str = DEFAULT_H5_REPRESENTATIONS_KEY,
                  features_key: str = DEFAULT_H5_FEATURES_KEY,
-                 device: Optional[torch.device] = None):
+                 device: Optional[Device] = None):
         """Initialize the task dataset.
 
         Args:
-            path (pathlib.Path): Path to the preprocessed h5 file.
+            path (PathLike): Path to the preprocessed h5 file.
             representations_key (str, optional): Key for the dataset of
                 representations in the h5 file. Defaults to 'representations'.
             features_key (str, optional): Key for the dataset of tags in the h5
                 file. Defaults to 'features'.
-            device (Optional[torch.device], optional): Move data to this
-                device. By default, data configured for CPU.
+            device (Optional[Device], optional): Move data to this device.
+                By default, data configured for CPU.
 
         Raises:
             KeyError: If an expected dataset is missing.
 
         """
-        self.file = h5py.File(path, 'r')
+        self.file = h5py.File(str(path), 'r')
 
         for key in (representations_key, features_key):
             if key not in self.file:
@@ -294,7 +297,7 @@ class SentenceBatchingCollatedTaskDataset(CollatedTaskDataset):
     """
 
     def __init__(self,
-                 path: pathlib.Path,
+                 path: PathLike,
                  breaks_key: str = 'breaks',
                  **kwargs: Any):
         """Initialize the dataset.
@@ -302,7 +305,7 @@ class SentenceBatchingCollatedTaskDataset(CollatedTaskDataset):
         Keyword arguments are forwarded to CollatedTaskDataset.__init__ call.
 
         Args:
-            path (pathlib.Path): Path to the preprocessed h5 file.
+            path (PathLike): Path to the preprocessed h5 file.
             breaks_key (str, optional): Key for the dataset of sentence breaks
                 in the h5 file. Defaults to 'breaks'.
 
@@ -323,8 +326,8 @@ class SentenceBatchingCollatedTaskDataset(CollatedTaskDataset):
 
         Args:
             index (int): Index of the sentence data to retrieve.
-            device (Optional[torch.device], optional): Move data to this
-                device. By default, data configured for CPU.
+            device (Optional[Device], optional): Move data to this device.
+                By default, data configured for CPU.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: Shape (L, *) tensors, where

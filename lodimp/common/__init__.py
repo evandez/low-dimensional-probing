@@ -1,1 +1,1 @@
-"""Defines model architectures and utilities used throughout lodimp."""
+"""Defines probe architectures and utilities."""

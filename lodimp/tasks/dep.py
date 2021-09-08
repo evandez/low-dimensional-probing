@@ -8,6 +8,7 @@ from lodimp.common import datasets, learning
 from lodimp.common.models import probes, projections
 from lodimp.common.parse import ptb
 from lodimp.common.parse import representations as reps
+from lodimp.common.typing import Device
 
 import torch
 
@@ -208,7 +209,7 @@ def train(train_dataset: datasets.TaskDataset,
           epochs: int = 25,
           patience: int = 4,
           lr: float = 1e-3,
-          device: Optional[torch.device] = None,
+          device: Optional[Device] = None,
           also_log_to_wandb: bool = False) -> Tuple[Probe, float]:
     """Train a probe on dependency edge prediction.
 
@@ -232,7 +233,7 @@ def train(train_dataset: datasets.TaskDataset,
         patience (int, optional): Allow dev loss to not improve for this many
             epochs, then stop training. Defaults to 4.
         lr (float, optional): Learning rate for optimizer. Defaults to 1e-3.
-        device (Optional[torch.device], optional): Torch device on which to
+        device (Optional[Device], optional): Torch device on which to
             train probe. Defaults to CPU.
         also_log_to_wandb (Optional[pathlib.Path], optional): If set, log
             training data to wandb. By default, wandb is not used.
@@ -243,7 +244,7 @@ def train(train_dataset: datasets.TaskDataset,
     """
     log = logging.getLogger(__name__)
 
-    device = device or torch.device('cpu')
+    device = device or 'cpu'
 
     ndims = train_dataset.sample_representations_shape[-1]
     log.info('representations have dimension %d', ndims)

@@ -5,6 +5,8 @@ import json
 import pathlib
 from typing import Mapping, Sequence
 
+from lodimp.common.typing import PathLike
+
 
 @dataclasses.dataclass(frozen=True)
 class Region:
@@ -117,7 +119,7 @@ class Suite:
     region_meta: Mapping[str, str]
 
 
-def load_suite_json(json_file: pathlib.Path,
+def load_suite_json(json_file: PathLike,
                     region_meta_key: str = 'region_meta',
                     items_key: str = 'items',
                     item_number_key: str = 'item_number',
@@ -139,6 +141,7 @@ def load_suite_json(json_file: pathlib.Path,
         Suite: The loaded suite.
 
     """
+    json_file = pathlib.Path(json_file)
     if not json_file.is_file():
         raise FileNotFoundError(f'json file not found: {json_file}')
 
