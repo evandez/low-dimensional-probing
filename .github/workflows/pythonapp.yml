@@ -31,7 +31,7 @@ jobs:
     - name: mypy
       run: |
         pip install mypy
-        mypy -p *.py lodimp
+        mypy *.py lodimp
     - name: pytest
       run: |
         pip install pytest pytest-mock
