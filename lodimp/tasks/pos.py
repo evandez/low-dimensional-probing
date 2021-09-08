@@ -5,11 +5,12 @@ import logging
 from typing import (Any, Dict, Iterator, List, Optional, Sequence, Set, Tuple,
                     Type, Union)
 
-from lodimp.common import datasets, learning, linalg
-from lodimp.common.models import probes, projections
-from lodimp.common.parse import ptb
-from lodimp.common.parse import representations as reps
-from lodimp.common.typing import Device
+from lodimp import datasets, learning
+from lodimp.models import probes, projections
+from lodimp.parse import ptb
+from lodimp.parse import representations as reps
+from lodimp.utils import linalg
+from lodimp.utils.typing import Device
 
 import numpy
 import torch

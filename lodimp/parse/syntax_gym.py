@@ -1,11 +1,10 @@
 """Parse Syntax Gym suites."""
-
 import dataclasses
 import json
 import pathlib
 from typing import Mapping, Sequence
 
-from lodimp.common.typing import PathLike
+from lodimp.utils.typing import PathLike
 
 
 @dataclasses.dataclass(frozen=True)

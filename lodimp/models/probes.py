@@ -3,10 +3,9 @@
 Probes map representations to labels, potentially after projecting the
 representations into a subspace.
 """
-
 from typing import Optional
 
-from lodimp.common.models import projections
+from lodimp.models import projections
 
 import torch
 from torch import nn

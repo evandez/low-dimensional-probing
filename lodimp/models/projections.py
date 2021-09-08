@@ -1,5 +1,4 @@
 """Defines linear projections."""
-
 from typing import Optional, Tuple
 
 import torch

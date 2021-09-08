@@ -10,11 +10,11 @@ import argparse
 import pathlib
 from typing import Dict
 
-from lodimp import tasks
-from lodimp.common import datasets, logging
-from lodimp.common.models import probes, projections
-from lodimp.common.parse import splits
+from lodimp import datasets, tasks
+from lodimp.models import probes, projections
+from lodimp.parse import splits
 from lodimp.tasks import dlp, pos
+from lodimp.utils import logging
 
 import torch
 import wandb

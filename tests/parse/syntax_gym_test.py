@@ -1,9 +1,8 @@
 """Unit tests for the syntax_gym module."""
-
 import pathlib
 import tempfile
 
-from lodimp.common.parse import syntax_gym
+from lodimp.parse import syntax_gym
 
 import pytest
 

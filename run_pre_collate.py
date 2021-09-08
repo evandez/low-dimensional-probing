@@ -3,10 +3,10 @@ import argparse
 import itertools
 import pathlib
 
-from lodimp import tasks
-from lodimp.common import datasets, logging
-from lodimp.common.parse import ptb, representations, splits
+from lodimp import datasets, tasks
+from lodimp.parse import ptb, representations, splits
 from lodimp.tasks import dep, dlp, pos
+from lodimp.utils import logging
 
 EPILOG = '''\
 This command reads representations and linguistic annotations from disk,

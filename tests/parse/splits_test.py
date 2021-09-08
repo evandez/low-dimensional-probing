@@ -1,9 +1,8 @@
 """Unit tests for splits module."""
-
 import pathlib
 import tempfile
 
-from lodimp.common.parse import splits
+from lodimp.parse import splits
 
 import pytest
 

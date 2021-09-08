@@ -1,6 +1,5 @@
 """Unit and functional tests for the learning module."""
-
-from lodimp.common import datasets, learning
+from lodimp import datasets, learning
 
 import pytest
 import torch

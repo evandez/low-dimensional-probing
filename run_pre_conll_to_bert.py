@@ -4,7 +4,7 @@ import json
 import pathlib
 from typing import List
 
-from lodimp.common import logging
+from lodimp.utils import logging
 
 import h5py
 import numpy as np

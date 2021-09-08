@@ -1,6 +1,5 @@
 """Unit tests for probes module."""
-
-from lodimp.common.models import probes, projections
+from lodimp.models import probes, projections
 
 import pytest
 import torch

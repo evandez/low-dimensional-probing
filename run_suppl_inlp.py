@@ -8,9 +8,10 @@ import argparse
 import pathlib
 from typing import Dict
 
-from lodimp.common import datasets, logging
-from lodimp.common.parse import splits
+from lodimp import datasets
+from lodimp.parse import splits
 from lodimp.tasks import pos
+from lodimp.utils import logging
 
 import torch
 import wandb

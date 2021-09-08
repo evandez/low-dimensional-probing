@@ -1,9 +1,8 @@
 """Unit tests for the ptb module."""
-
 import pathlib
 import tempfile
 
-from lodimp.common.parse import ptb
+from lodimp.parse import ptb
 
 import pytest
 

@@ -1,9 +1,8 @@
 """Unit tests for the tasks/dep module."""
-
 import pathlib
 import tempfile
 
-from lodimp.common.parse import ptb, representations
+from lodimp.parse import ptb, representations
 from lodimp.tasks import dep
 
 import h5py

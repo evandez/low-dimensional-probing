@@ -2,7 +2,7 @@
 import pathlib
 from typing import NamedTuple, Sequence
 
-from lodimp.common.typing import PathLike
+from lodimp.utils.typing import PathLike
 
 
 class Sample(NamedTuple):
@@ -24,7 +24,7 @@ def load(path: PathLike) -> Sequence[Sample]:
         path (PathLike): The path to the .conllx file.
 
     Returns:
-        List[Sample]: Parsed samples from the file, one per sentence.
+        Sequence[Sample]: Parsed samples from the file, one per sentence.
 
     """
     samples = []

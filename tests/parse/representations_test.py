@@ -1,9 +1,8 @@
 """Unit tests for representations module."""
-
 import pathlib
 import tempfile
 
-from lodimp.common.parse import representations
+from lodimp.parse import representations
 
 import h5py
 import numpy as np
