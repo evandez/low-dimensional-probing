@@ -124,7 +124,6 @@ wandb.config.update({
     },
 })
 
-# TODO(evandez): Factor out and share this code as well.
 representation_model = args.representation_model
 representation_layer = args.representation_layer
 data_root = args.data_dir / representation_model / str(representation_layer)
