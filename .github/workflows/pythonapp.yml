@@ -27,7 +27,7 @@ jobs:
     - name: isort
       run: |
         pip install isort
-        isort -c lodimp
+        isort -c lodimp tests
     - name: mypy
       run: |
         pip install mypy
