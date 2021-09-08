@@ -153,6 +153,7 @@ if args.task == tasks.PART_OF_SPEECH_TAGGING:
                        device=device,
                        also_log_to_wandb=True)
 else:
+    assert args.task == tasks.DEPENDENCY_LABEL_PREDICTION
     dlp.axis_alignment(probe,
                        data[splits.DEV],
                        data[splits.TEST],
