@@ -1,4 +1,4 @@
-name: Verify changes
+name: verify changes
 
 on:
   push:
@@ -12,27 +12,27 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-    - name: Set up Python 3.8
+    - name: Set up Python 3.9
       uses: actions/setup-python@v1
       with:
-        python-version: 3.8
-    - name: Install dependencies
+        python-version: 3.9
+    - name: install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-    - name: Lint with flake8
+    - name: flake8
       run: |
         pip install flake8
         flake8 --count --show-source --statistics
-    - name: Lint with isort
+    - name: isort
       run: |
         pip install isort
         isort -c lodimp
-    - name: Type check
+    - name: mypy
       run: |
         pip install mypy
         mypy -p lodimp
-    - name: Test with pytest
+    - name: pytest
       run: |
         pip install pytest pytest-mock
-        pytest
+        pytest tests
