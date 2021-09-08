@@ -2,7 +2,7 @@
 
 This command trains a probe to predict linguistic features given only
 representations. For performance reasons, it assumes the data has been
-collated. Use the `lodimp collate` command to do that.
+collated. Use the `run_pre_collate.py` script to do that.
 """
 import argparse
 import pathlib
