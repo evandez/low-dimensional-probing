@@ -20,8 +20,8 @@ from torch import cuda
 parser = argparse.ArgumentParser()
 parser.add_argument('data_dir', type=pathlib.Path, help='data directory')
 parser.add_argument('--representation-model',
-                    choices=('elmo', 'bert-base-uncased'),
-                    default='bert-base-uncased',
+                    choices=('elmo', 'bert', 'bert-random'),
+                    default='bert',
                     help='representations to probe (default: bert)')
 parser.add_argument('--representation-layer',
                     type=int,

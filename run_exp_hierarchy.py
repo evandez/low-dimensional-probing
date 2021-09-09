@@ -34,7 +34,7 @@ parser.add_argument(
     help='move to next task if accuracy falls within this tolerance '
     'of previous accuracy (default: .05)')
 parser.add_argument('--representation-model',
-                    choices=('elmo', 'bert-base-uncased'),
+                    choices=('elmo', 'bert', 'bert-random'),
                     default='elmo',
                     help='representations to probe (default: elmo)')
 parser.add_argument('--representation-layer',

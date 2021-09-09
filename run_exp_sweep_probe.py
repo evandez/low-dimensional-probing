@@ -54,7 +54,7 @@ parser.add_argument('--d-step-exp-after',
                     default=32,
                     help='step exponentially after this rank (default: 32)')
 parser.add_argument('--representation-model',
-                    choices=('elmo', 'bert-base-uncased'),
+                    choices=('elmo', 'bert', 'bert-random'),
                     default='elmo',
                     help='representations to probe (default: elmo)')
 parser.add_argument('--representation-layer',

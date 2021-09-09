@@ -22,7 +22,7 @@ from torch import cuda, nn
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--representation-model',
-                    choices=('elmo', 'bert-base-uncased'),
+                    choices=('elmo', 'bert', 'bert-random'),
                     default='elmo',
                     help='representations to probe (default: elmo)')
 parser.add_argument('--representation-layer',

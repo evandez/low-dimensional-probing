@@ -15,7 +15,7 @@ class Config(NamedTuple):
 
 
 ELMO = 'elmo'
-BERT = 'bert-base-uncased'
+BERT = 'bert'
 
 POS = 'pos'
 POSC = 'pos-control'
