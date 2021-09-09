@@ -6,7 +6,7 @@ agreement benchmark.
 
 Subspaces are ablated by applying a low-dimensional (but shape-preserving)
 projection to the representations. One way to create this projection is to
-use the `run_inlp.py` script in this directory.
+use the `run_suppl_inlp.py` script in this directory.
 
 Benchmarks are taken from SyntaxGym at https://syntaxgym.org. This script
 only supports the subject-verb agreement suites.
