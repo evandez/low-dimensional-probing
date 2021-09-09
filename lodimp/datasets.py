@@ -14,14 +14,14 @@ import torch
 from torch.utils import data
 
 DEFAULT_H5_BREAKS_KEY = 'breaks'
-# TODO(evandez): The defaults below are better, but we have to migrate
-# the existing data :(
-# DEFAULT_H5_REPRESENTATIONS_KEY = 'representations'
-# DEFAULT_H5_FEATURES_KEY = 'features'
-# H5_UNIQUE_FEATURES_KEY = 'unique-features'
-DEFAULT_H5_REPRESENTATIONS_KEY = 'reps'
-DEFAULT_H5_FEATURES_KEY = 'tags'
-H5_UNIQUE_FEATURES_KEY = 'ntags'
+DEFAULT_H5_REPRESENTATIONS_KEY = 'representations'
+DEFAULT_H5_FEATURES_KEY = 'features'
+H5_UNIQUE_FEATURES_KEY = 'unique-features'
+
+# Old defaults...keeping them here just in case.
+# DEFAULT_H5_REPRESENTATIONS_KEY = 'reps'
+# DEFAULT_H5_FEATURES_KEY = 'tags'
+# H5_UNIQUE_FEATURES_KEY = 'ntags'
 
 
 class TaskDataset(data.IterableDataset):
@@ -129,8 +129,9 @@ class TaskDataset(data.IterableDataset):
 
         Raises:
             FileExistsError: If output file exists and `force=False`.
-            ValueError: If length of `reps` does not equal length of `tags`,
-                or if any samples therein have different sequence lengths.
+            ValueError: If length of representations does not equal length of
+                features, or if any samples therein have different sequence
+                lengths.
 
         """
         out = pathlib.Path(out)
@@ -140,7 +141,7 @@ class TaskDataset(data.IterableDataset):
         log = logging.getLogger(__name__)
         log.info('counting samples to write, this may take a minute')
         n_samples = self.count_samples()
-        log.info('%d sentences to collate, %d reps/tags total', len(self),
+        log.info('%d sentences to collate, %d reps/features total', len(self),
                  n_samples)
 
         with h5py.File(out, 'w') as handle:
@@ -204,8 +205,8 @@ class CollatedTaskDataset(TaskDataset):
             path (PathLike): Path to the preprocessed h5 file.
             representations_key (str, optional): Key for the dataset of
                 representations in the h5 file. Defaults to 'representations'.
-            features_key (str, optional): Key for the dataset of tags in the h5
-                file. Defaults to 'features'.
+            features_key (str, optional): Key for the dataset of features in
+                the h5 file. Defaults to 'features'.
             device (Optional[Device], optional): Move data to this device.
                 By default, data configured for CPU.
 
@@ -293,12 +294,12 @@ class SentenceBatchingCollatedTaskDataset(CollatedTaskDataset):
     While our chosen file layout inherently destroys sentence boundaries,
     we record the start index of each sentence in a third dataset, which we
     refer to as the "breaks" dataset. This class uses it to allow iteration
-    of representations/tags at the sentence level.
+    of representations/features at the sentence level.
     """
 
     def __init__(self,
                  path: PathLike,
-                 breaks_key: str = 'breaks',
+                 breaks_key: str = DEFAULT_H5_BREAKS_KEY,
                  **kwargs: Any):
         """Initialize the dataset.
 
@@ -387,7 +388,7 @@ class NonBatchingCollatedTaskDataset(CollatedTaskDataset):
         if index != 0:
             raise IndexError(f'index must be 0, got {index}')
         if self.representations_cache is not None:
-            assert self.features_cache is not None, 'tags not cached?'
+            assert self.features_cache is not None, 'features not cached?'
             reps = self.representations_cache
             features = self.features_cache
         else:
