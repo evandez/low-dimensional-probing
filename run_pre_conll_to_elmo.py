@@ -8,6 +8,14 @@ from typing import List
 
 from torch import cuda
 
+EPILOG = '''\
+WARNING: To run this script, you need to install `allennlp==0.9.0` because
+that is the last version that supports the `allennlp elmo` command.
+We do not include this in `requirements.txt` because it shares too many
+dependencies with the rest of this project, among other issues (e.g., it
+cannot be run on Python >= 3.9). I suggest creating a separate venv for this.
+'''
+
 ELMO_URL = 'https://s3-us-west-2.amazonaws.com/allennlp/models/elmo'
 ELMO_MODEL = '2x4096_512_2048cnn_2xhighway_5.5B'
 WEIGHTS_FILE = 'elmo_2x4096_512_2048cnn_2xhighway_5.5B_weights.hdf5'
@@ -15,7 +23,8 @@ WEIGHTS_URL = f'{ELMO_URL}/{ELMO_MODEL}/{WEIGHTS_FILE}'
 OPTIONS_FILE = 'elmo_2x4096_512_2048cnn_2xhighway_5.5B_args.json'
 OPTIONS_URL = f'{ELMO_URL}/{ELMO_MODEL}/{OPTIONS_FILE}'
 
-parser = argparse.ArgumentParser(description='pre-embed sentences with elmo')
+parser = argparse.ArgumentParser(description='pre-embed sentences with elmo',
+                                 epilog=EPILOG)
 parser.add_argument('data_file',
                     type=pathlib.Path,
                     help='path to ptb .conll(x) file')
