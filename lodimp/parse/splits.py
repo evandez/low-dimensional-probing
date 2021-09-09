@@ -13,10 +13,13 @@ STANDARD_SPLITS = (TRAIN, DEV, TEST)
 # These constants define conventional file names for all kinds of
 # representations we will use throughout the dataset.
 ELMO_REPRESENTATIONS = {
-    key: f'raw.{key}.elmo-layers.hdf5' for key in STANDARD_SPLITS
+    key: f'raw.{key}.elmo-layers.h5' for key in STANDARD_SPLITS
 }
 BERT_REPRESENTATIONS = {
-    key: f'raw.{key}.bert-base-uncased-layers.hdf5' for key in STANDARD_SPLITS
+    key: f'raw.{key}.bert-layers.h5' for key in STANDARD_SPLITS
+}
+BERT_RANDOM_REPRESENTATIONS = {
+    key: f'raw.{key}.bert-random-layers.h5' for key in STANDARD_SPLITS
 }
 
 # These constants define conventional file names for all kinds of

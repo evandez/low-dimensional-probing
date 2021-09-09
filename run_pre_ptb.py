@@ -14,14 +14,14 @@ parser.add_argument('model',
 args = parser.parse_args()
 
 # Basically just call this script for every split...
-model = args.model.split('-')[0]
-script = pathlib.Path(__file__).parent / f'run_pre_conll_to_{model}.py'
+model_kind = args.model.split('-')[0]
+script = pathlib.Path(__file__).parent / f'run_pre_conll_to_{model_kind}.py'
 for split in ('train', 'dev', 'test'):
     command = [
         'python3',
         str(script),
         str(args.data / f'ptb3-wsj-{split}.conllx'),
-        str(args.data / f'raw.{split}.{model}-layers.h5'),
+        str(args.data / f'raw.{split}.{args.model}-layers.h5'),
     ]
     if args.model == 'bert-random':
         command += ['--random']
