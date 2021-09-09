@@ -9,12 +9,12 @@ parser.add_argument('data_dir',
                     type=pathlib.Path,
                     help='dir containing ptb conllx files')
 parser.add_argument('model',
-                    choices=('bert', 'elmo'),
+                    choices=('bert', 'bert-random', 'elmo'),
                     help='model to compute reps with')
 args = parser.parse_args()
 
 # Basically just call this script for every split...
-model = args.model
+model = args.model.split('-')[0]
 script = pathlib.Path(__file__).parent / f'run_pre_conll_to_{model}.py'
 for split in ('train', 'dev', 'test'):
     command = [
@@ -23,6 +23,8 @@ for split in ('train', 'dev', 'test'):
         str(args.data / f'ptb3-wsj-{split}.conllx'),
         str(args.data / f'raw.{split}.{model}-layers.h5'),
     ]
+    if args.model == 'bert-random':
+        command += ['--random']
     print(' '.join(command))
     process = subprocess.run(command)
     if process.returncode:
