@@ -32,7 +32,7 @@ logging.configure()
 log = logging.getLogger(__name__)
 
 device = args.device or 'cuda' if cuda.is_available() else 'cpu'
-logging.info('using %s', device)
+log.info('using %s', device)
 
 sentences = []
 partial: List[str] = []
@@ -49,7 +49,7 @@ with args.data_file.open('r') as conll:
     if partial:
         sentences.append(tuple(partial))
 
-logging.info('loading model...')
+log.info('loading model...')
 tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
 
 bert = transformers.BertModel.from_pretrained('bert-base-uncased').to(device)
@@ -58,8 +58,7 @@ bert.eval()
 bert.encoder.output_hidden_states = True
 
 with h5py.File(str(args.out_file), 'w') as out_file:
-    logging.info('will write %d embeddings to %s', len(sentences),
-                 args.out_file)
+    log.info('will write %d embeddings to %s', len(sentences), args.out_file)
     for index, sentence in enumerate(sentences):
         tokens = tokenizer.encode(sentence, add_special_tokens=False)
         dataset = out_file.create_dataset(
@@ -77,7 +76,7 @@ with h5py.File(str(args.out_file), 'w') as out_file:
             assert embeddings.shape == (13, len(tokens), 768)
 
         dataset[:] = embeddings.cpu().numpy()
-        logging.info('encoded sentence %d', index)
+        log.info('encoded sentence %d', index)
 
     # Create a sentence_to_index item so bert hdf5 files look like ELMo ones.
     joined = [' '.join(sentence) for sentence in sentences]
