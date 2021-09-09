@@ -21,6 +21,9 @@ parser.add_argument('--word-column',
                     type=int,
                     default=1,
                     help='index of .conll column containing words')
+parser.add_argument('--random',
+                    action='store_true',
+                    help='randomly initialize bert')
 parser.add_argument('--device', help='use this device (default: guessed)')
 args = parser.parse_args()
 
@@ -51,11 +54,16 @@ with args.data_file.open('r') as conll:
 
 log.info('loading model...')
 tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
-
-bert = transformers.BertModel.from_pretrained('bert-base-uncased').to(device)
-bert.eval()
+if args.random:
+    config = transformers.BertConfig.from_pretrained('bert-base-uncased')
+    bert = transformers.BertModel(config)
+else:
+    bert = transformers.BertModel.from_pretrained('bert-base-uncased')
+    config = bert.config
+assert isinstance(config, transformers.BertConfig)
 # We want the hidden states, so we have to hack the config a little bit...
 bert.encoder.output_hidden_states = True
+bert.to(device).eval()
 
 with h5py.File(str(args.out_file), 'w') as out_file:
     log.info('will write %d embeddings to %s', len(sentences), args.out_file)
@@ -63,8 +71,8 @@ with h5py.File(str(args.out_file), 'w') as out_file:
         tokens = tokenizer.encode(sentence, add_special_tokens=False)
         dataset = out_file.create_dataset(
             str(index),
-            shape=(bert.config.num_hidden_layers + 1, len(tokens),
-                   bert.config.hidden_size),
+            shape=(config.num_hidden_layers + 1, len(tokens),
+                   config.hidden_size),
             dtype='f',
         )
 
