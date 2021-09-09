@@ -86,7 +86,7 @@ with h5py.File(str(args.out_file), 'w') as out_file:
         dataset[:] = embeddings.cpu().numpy()
         log.info('encoded sentence %d', index)
 
-    # Create a sentence_to_index item so bert hdf5 files look like ELMo ones.
+    # Create a sentence_to_index item so bert h5 files look like ELMo ones.
     joined = [' '.join(sentence) for sentence in sentences]
     sentence_to_index = {sentence: i for i, sentence in enumerate(joined)}
     sentence_to_index_str = json.dumps(sentence_to_index).encode()

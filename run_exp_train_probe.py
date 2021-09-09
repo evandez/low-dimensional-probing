@@ -160,7 +160,7 @@ kwargs = dict(device=cache,
               representations_key=args.representations_key,
               features_key=args.features_key)
 for split in splits.STANDARD_SPLITS:
-    split_file = data_dir / f'{split}.hdf5'
+    split_file = data_dir / f'{split}.h5'
     if args.no_batch:
         data[split] = datasets.NonBatchingCollatedTaskDataset(
             split_file, **kwargs)

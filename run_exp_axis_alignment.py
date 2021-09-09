@@ -131,7 +131,7 @@ cache = device if args.cache else None
 
 data: Dict[str, datasets.CollatedTaskDataset] = {}
 for split in splits.STANDARD_SPLITS:
-    split_path = data_root / f'{split}.hdf5'
+    split_path = data_root / f'{split}.h5'
     if args.no_batch:
         data[split] = datasets.NonBatchingCollatedTaskDataset(
             split_path,

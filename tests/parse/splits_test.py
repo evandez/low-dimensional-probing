@@ -13,7 +13,7 @@ def paths():
     with tempfile.TemporaryDirectory() as tempdir:
         root = pathlib.Path(tempdir)
 
-        representations = root / 'train_reps.hdf5'
+        representations = root / 'train_reps.h5'
         representations.touch()
 
         annotations = root / 'train_annotations.conll'
@@ -51,7 +51,7 @@ def test_ensure_bad_paths(paths, delete):
 def representations_by_split(paths):
     """Returns dict mapping split key to fake representations paths."""
     train_reps, _ = paths
-    test_reps = train_reps.parent / 'test_reps.hdf5'
+    test_reps = train_reps.parent / 'test_reps.h5'
     test_reps.touch()
     return {splits.TRAIN: train_reps, splits.TEST: test_reps}
 
@@ -125,8 +125,8 @@ def test_join_bad_root(representations_by_split, annotations_by_split):
 def test_join_bad_root_no_validate():
     """Test join does not die when given bad root and validate=False."""
     root = pathlib.Path('root')
-    reps = pathlib.Path('train.hdf5')
-    annos = pathlib.Path('annotations.hdf5')
+    reps = pathlib.Path('train.h5')
+    annos = pathlib.Path('annotations.h5')
     actual = splits.join({splits.TRAIN: reps}, {splits.TRAIN: annos},
                          root=root,
                          validate=False)

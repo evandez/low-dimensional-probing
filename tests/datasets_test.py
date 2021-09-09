@@ -107,9 +107,9 @@ def task_dataset(representations, features):
 
 def test_task_dataset_collate(task_dataset, collated_breaks,
                               collated_representations, collated_features):
-    """Test TaskDataset.collate constructs correct hdf5 file in basic case."""
+    """Test TaskDataset.collate constructs correct h5 file in basic case."""
     with tempfile.TemporaryDirectory() as tempdir:
-        out = pathlib.Path(tempdir) / 'out.hdf5'
+        out = pathlib.Path(tempdir) / 'out.h5'
         task_dataset.collate(out,
                              breaks_key=BREAKS_KEY,
                              representations_key=REPS_KEY,
@@ -130,7 +130,7 @@ def test_task_dataset_collate(task_dataset, collated_breaks,
 def test_task_dataset_collate_out_exists(task_dataset):
     """Test TaskDatset.collate dies when out path exists and force=False."""
     with tempfile.TemporaryDirectory() as tempdir:
-        out = pathlib.Path(tempdir) / 'out.hdf5'
+        out = pathlib.Path(tempdir) / 'out.h5'
         out.touch()
         with pytest.raises(FileExistsError, match=f'.*{out} exists.*'):
             task_dataset.collate(out, force=False)
@@ -139,7 +139,7 @@ def test_task_dataset_collate_out_exists(task_dataset):
 def test_task_dataset_collate_out_exists_force(task_dataset):
     """Test collate does not die when out path exists and force=True."""
     with tempfile.TemporaryDirectory() as tempdir:
-        out = pathlib.Path(tempdir) / 'out.hdf5'
+        out = pathlib.Path(tempdir) / 'out.h5'
         out.touch()
         task_dataset.collate(out,
                              breaks_key=BREAKS_KEY,
