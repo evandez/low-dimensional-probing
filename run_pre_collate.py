@@ -42,6 +42,9 @@ REPRESENTATION_FILES_BY_MODEL = {
 }
 
 parser = argparse.ArgumentParser(epilog=EPILOG)
+parser.add_argument('--out-dir',
+                    type=pathlib.Path,
+                    help='output dir (default: data_dir)')
 parser.add_argument('--representation-model',
                     choices=REPRESENTATION_MODELS,
                     default=ELMO,
@@ -67,25 +70,29 @@ pos_parser.add_argument('--subtask',
 subparsers.add_parser(tasks.DEPENDENCY_LABEL_PREDICTION)
 subparsers.add_parser(tasks.DEPENDENCY_EDGE_PREDICTION)
 
-parser.add_argument('data_dir', type=pathlib.Path, help='data directory')
-parser.add_argument('out_dir', type=pathlib.Path, help='output directory')
+parser.add_argument('data_dir', type=pathlib.Path, help='data dir')
 args = parser.parse_args()
-
-if args.task == tasks.PART_OF_SPEECH_TAGGING:
-    if args.control and args.subtask:
-        raise ValueError('cannot set both --control and --subtask')
-if not args.data_dir.exists():
-    raise ValueError(f'data dir not found: {args.data_dir}')
 
 logging.configure()
 log = logging.getLogger(__name__)
 
-log.info('will write collated data to directory %s', args.out_dir)
-args.out_dir.mkdir(parents=True, exist_ok=True)
+if args.task == tasks.PART_OF_SPEECH_TAGGING:
+    if args.control and args.subtask:
+        raise ValueError('cannot set both --control and --subtask')
+
+data_dir = args.data_dir
+if not data_dir.exists():
+    raise ValueError(f'data dir not found: {data_dir}')
+
+out_dir = args.out_dir
+if out_dir is None:
+    out_dir = data_dir / 'collated'
+out_dir.mkdir(parents=True, exist_ok=True)
+log.info('will write collated data to directory %s', out_dir)
 
 files = splits.join(REPRESENTATION_FILES_BY_MODEL[args.representation_model],
                     splits.PTB_ANNOTATIONS,
-                    root=args.data_dir)
+                    root=data_dir)
 
 reps, annos = {}, {}
 for split in splits.STANDARD_SPLITS:
@@ -100,7 +107,7 @@ for split in splits.STANDARD_SPLITS:
 dataset: datasets.TaskDataset
 layers = args.representation_layers or range(reps[splits.TRAIN].layers)
 for layer in layers:
-    layer_path = args.out_dir / args.representation_model / str(layer)
+    layer_path = out_dir / args.representation_model / str(layer)
     log.info('collating data for %s layer %d in directory %s',
              args.representation_model, layer, layer_path)
     layer_path.mkdir(parents=True, exist_ok=True)
