@@ -86,7 +86,7 @@ CONFIGS = (
 parser = argparse.ArgumentParser(description='train linear probes')
 parser.add_argument('tasks_dir', type=pathlib.Path, help='tasks directory')
 parser.add_argument('--cuda', action='store_true', help='use cuda')
-options = parser.parse_args()
+args = parser.parse_args()
 
 for config in CONFIGS:
     command = ['python3', 'run_exp_train_probe.py']
@@ -109,9 +109,9 @@ for config in CONFIGS:
         command += ['--epochs', '4']
 
     # Args-dependent runtime settings.
-    if options.cuda:
-        command += ['--cuda']
+    if args.device:
+        command += ['--device', args.device]
 
-    command += [TASKS[config.task], str(options.tasks_dir / config.task)]
+    command += [TASKS[config.task], str(args.tasks_dir / config.task)]
     print(' '.join(command))
     subprocess.call(command)
