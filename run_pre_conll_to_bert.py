@@ -61,8 +61,6 @@ else:
     bert = transformers.BertModel.from_pretrained('bert-base-uncased')
     config = bert.config
 assert isinstance(config, transformers.BertConfig)
-# We want the hidden states, so we have to hack the config a little bit...
-bert.encoder.output_hidden_states = True
 bert.to(device).eval()
 
 with h5py.File(str(args.out_file), 'w') as out_file:
@@ -78,7 +76,8 @@ with h5py.File(str(args.out_file), 'w') as out_file:
 
         inputs = torch.tensor([tokens], device=device)
         with torch.no_grad():
-            _, _, hiddens = bert(inputs)
+            outputs = bert(inputs, output_hidden_states=True)
+            hiddens = outputs.hidden_states
             assert len(hiddens) == 13
             embeddings = torch.cat(hiddens)
             assert embeddings.shape == (13, len(tokens), 768)
