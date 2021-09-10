@@ -53,12 +53,16 @@ tokenizer = transformers.BertTokenizer.from_pretrained(args.bert_config)
 if args.random:
     random_weights_dir = out_dir / 'bert-base-uncased-random'
     if random_weights_dir.exists():
+        log.info('loading random weights from %s', random_weights_dir)
         bert = transformers.BertModel.from_pretrained(str(random_weights_dir))
         config = bert.config
     else:
         config = transformers.BertConfig.from_pretrained(args.bert_config)
         bert = transformers.BertModel(config)
+        log.info('initialized bert with random weights, saving to %s',
+                 random_weights_dir)
 else:
+    log.info('using pretrained bert: %s', args.bert_config)
     bert = transformers.BertModel.from_pretrained(args.bert_config)
     config = bert.config
 assert isinstance(config, transformers.BertConfig)
@@ -68,6 +72,7 @@ bert.to(device).eval()
 for split in ('train', 'dev', 'test'):
     data_file = data_dir / f'ptb3-wsj-{split}.conllx'
     out_file = out_dir / f'bert{"-random" if args.random else ""}-{split}.h5'
+    log.info('processing %s -> %s', data_file.name, out_file.name)
 
     # TODO(evandez): Use parse lib?
     sentences = []
