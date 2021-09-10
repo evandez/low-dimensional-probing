@@ -115,5 +115,5 @@ for split in ('train', 'dev', 'test'):
         joined = [' '.join(sentence) for sentence in sentences]
         sentence_to_index = {sentence: i for i, sentence in enumerate(joined)}
         sentence_to_index_str = json.dumps(sentence_to_index).encode()
-        out_file.create_dataset('sentence_to_index',
-                                data=np.array([sentence_to_index_str]))
+        handle.create_dataset('sentence_to_index',
+                              data=np.array([sentence_to_index_str]))
