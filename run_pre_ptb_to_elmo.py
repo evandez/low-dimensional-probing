@@ -6,6 +6,9 @@ import sys
 import tempfile
 from typing import List
 
+from lodimp.parse import splits
+from lodimp.utils import logging
+
 from torch import cuda
 
 EPILOG = '''\
@@ -35,17 +38,25 @@ parser.add_argument('--word-column',
                     type=int,
                     default=1,
                     help='index of .conll(x) column containing words')
+parser.add_argument('--splits',
+                    nargs='+',
+                    default=splits.STANDARD_SPLITS,
+                    help='splits to process (default: train, dev, test)')
 parser.add_argument('--device', help='use this device (default: guessed)')
 args = parser.parse_args()
+
+logging.configure()
+log = logging.getLogger(__name__)
 
 data_dir = args.data_dir
 if not data_dir.exists():
     raise FileNotFoundError(f'data dir {data_dir} not found')
 out_dir = args.out_dir or data_dir
 
-for split in ('train', 'dev', 'test'):
+for split in args.splits:
     data_file = data_dir / f'ptb3-wsj-{split}.conllx'
     out_file = out_dir / f'elmo-{split}.h5'
+    log.info('processing %s -> %s', data_file.name, out_file.name)
 
     # Parse the conll data.
     # TODO(evandez): Just use the parse lib?
@@ -69,10 +80,10 @@ for split in ('train', 'dev', 'test'):
 
     # Call the (very old) allennlp elmo command.
     with tempfile.TemporaryDirectory() as tempdir:
-        raw = pathlib.Path(tempdir) / f'{args.data_file.name}.raw'
+        raw = pathlib.Path(tempdir) / f'{data_file.name}.raw'
         with raw.open('w') as handle:
             handle.write('\n'.join(sentences))
-        command = ['allennlp', 'elmo', str(raw), str(args.out_file)]
+        command = ['allennlp', 'elmo', str(raw), str(out_file)]
         command += ['--weight-file', WEIGHTS_URL]
         command += ['--options-file', OPTIONS_URL]
         command += ['--all']
