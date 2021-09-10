@@ -11,7 +11,15 @@ parser.add_argument('data_dir',
 parser.add_argument('model',
                     choices=('bert', 'bert-random', 'elmo'),
                     help='model to compute reps with')
+parser.add_argument('--out-dir',
+                    type=pathlib.Path,
+                    help='output directory (default: same as data_dir)')
 args = parser.parse_args()
+
+data_dir = args.data_dir
+out_dir = args.out_dir
+if out_dir is None:
+    out_dir = args.data_dir
 
 # Basically just call this script for every split...
 model_kind = args.model.split('-')[0]
@@ -20,8 +28,8 @@ for split in ('train', 'dev', 'test'):
     command = [
         'python3',
         str(script),
-        str(args.data / f'ptb3-wsj-{split}.conllx'),
-        str(args.data / f'raw.{split}.{args.model}-layers.h5'),
+        str(data_dir / f'ptb3-wsj-{split}.conllx'),
+        str(out_dir / f'raw.{split}.{args.model}-layers.h5'),
     ]
     if args.model == 'bert-random':
         command += ['--random']
