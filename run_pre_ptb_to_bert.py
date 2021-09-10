@@ -59,6 +59,7 @@ if args.random:
     else:
         config = transformers.BertConfig.from_pretrained(args.bert_config)
         bert = transformers.BertModel(config)
+        bert.save_pretrained(random_weights_dir)
         log.info('initialized bert with random weights, saving to %s',
                  random_weights_dir)
 else:
