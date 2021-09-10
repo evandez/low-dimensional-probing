@@ -71,8 +71,18 @@ bert.to(device).eval()
 
 # Process each split.
 for split in args.splits:
-    data_file = data_dir / f'ptb3-wsj-{split}.conllx'
-    out_file = out_dir / f'bert{"-random" if args.random else ""}-{split}.h5'
+    ptb_file_name = splits.PTB_ANNOTATIONS.get(split)
+    if ptb_file_name is None:
+        raise KeyError(f'unknown split: {split}')
+    data_file = data_dir / ptb_file_name
+
+    bert_file_names = (splits.BERT_RANDOM_REPRESENTATIONS
+                       if args.random else splits.BERT_REPRESENTATIONS)
+    bert_file_name = bert_file_names.get(split)
+    if bert_file_name is None:
+        raise KeyError(f'unknown split: {split}')
+    out_file = out_dir / bert_file_name
+
     log.info('processing %s -> %s', data_file.name, out_file.name)
 
     # TODO(evandez): Use parse lib?
