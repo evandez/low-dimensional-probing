@@ -70,7 +70,7 @@ assert isinstance(config, transformers.BertConfig)
 bert.to(device).eval()
 
 # Process each split.
-for split in ('train', 'dev', 'test'):
+for split in args.splits:
     data_file = data_dir / f'ptb3-wsj-{split}.conllx'
     out_file = out_dir / f'bert{"-random" if args.random else ""}-{split}.h5'
     log.info('processing %s -> %s', data_file.name, out_file.name)
