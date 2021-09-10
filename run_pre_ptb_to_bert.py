@@ -2,6 +2,7 @@
 import argparse
 import json
 import pathlib
+import shutil
 from typing import List
 
 from lodimp.parse import splits
@@ -82,6 +83,9 @@ for split in args.splits:
     if bert_file_name is None:
         raise KeyError(f'unknown split: {split}')
     out_file = out_dir / bert_file_name
+
+    # Copy annotations to output directory for convenience.
+    shutil.copy(str(data_file), out_file.parent)
 
     log.info('processing %s -> %s', data_file.name, out_file.name)
 
