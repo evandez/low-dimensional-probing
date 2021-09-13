@@ -2,6 +2,7 @@
 from lodimp.utils import linalg
 
 import torch
+import torch.linalg
 
 
 def test_effective_rank():
@@ -15,7 +16,7 @@ def test_truncate():
     """Test truncate matches intuition."""
     matrix = torch.eye(3)
     actual = linalg.truncate(matrix, 2)
-    assert torch.matrix_rank(actual) == 2
+    assert torch.linalg.matrix_rank(actual) == 2
 
 
 def test_rowspace():

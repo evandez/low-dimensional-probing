@@ -159,7 +159,7 @@ def test_train_with_early_stopping(task_dataset, mocker):
 
     assert not before.equal(after)
     assert wandb_log.call_args_list == [
-        mocker.call({'train accuracy': mocker.ANY}),
+        mocker.call({'train loss': mocker.ANY}),
     ] * (PATIENCE + 1)
 
 
