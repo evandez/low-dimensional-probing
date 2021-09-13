@@ -135,7 +135,7 @@ def test_train(task_dataset, mocker):
 
     assert not before.equal(after)
     assert wandb_log.call_args_list == [
-        mocker.call({'train accuracy': mocker.ANY}),
+        mocker.call({'train loss': mocker.ANY}),
     ] * len(task_dataset) * EPOCHS
 
 
@@ -181,9 +181,9 @@ def test_train_with_dev_dataset(task_dataset, mocker):
 
     expected = []
     for _ in range(EPOCHS):
-        expected.extend([mocker.call({'train accuracy': mocker.ANY})] *
+        expected.extend([mocker.call({'train loss': mocker.ANY})] *
                         len(task_dataset))
-        expected.extend([mocker.call({'dev accuracy': mocker.ANY})])
+        expected.extend([mocker.call({'dev loss': mocker.ANY})])
     assert wandb_log.call_args_list == expected
 
 
@@ -209,9 +209,9 @@ def test_train_with_early_stopping_and_dev_dataset(task_dataset, mocker):
     assert not before.equal(after)
 
     expected = [
-        mocker.call({'train accuracy': mocker.ANY}),
+        mocker.call({'train loss': mocker.ANY}),
     ] * len(task_dataset)
-    expected.append(mocker.call({'dev accuracy': mocker.ANY}))
+    expected.append(mocker.call({'dev loss': mocker.ANY}))
     assert wandb_log.call_args_list == expected
 
 
