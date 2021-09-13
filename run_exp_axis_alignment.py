@@ -42,9 +42,6 @@ parser.add_argument('--wandb-group',
                     help='experiment group (default: axis-alignment)')
 parser.add_argument('--wandb-name',
                     help='experiment name (default: generated)')
-parser.add_argument('--wandb-path',
-                    type=pathlib.Path,
-                    help='path to write wandb data (default: wandb default)')
 parser.add_argument('--download-probe-to',
                     type=pathlib.Path,
                     help='if set, treat probe argument as wandb run path '
@@ -73,13 +70,10 @@ if args.task not in (tasks.PART_OF_SPEECH_TAGGING,
     raise ValueError(f'unsupported task: {args.task}')
 
 # Set up environment. Do not set config yet, as we have to read the probe.
-args.wandb_path.mkdir(parents=True, exist_ok=True)
 wandb.init(project='lodimp',
            id=args.wandb_id,
            name=args.wandb_name,
-           group=args.wandb_group,
-           dir=str(args.wandb_path))
-assert wandb.run is not None, 'null run?'
+           group=args.wandb_group)
 
 logging.configure()
 log = logging.getLogger(__name__)
@@ -92,7 +86,7 @@ probe_file: pathlib.Path
 if args.download_probe_to:
     probe_file = args.download_probe_to
     log.info('downloading probe from %s to %s', args.probe, probe_file)
-    wandb.restore(probe_file, run_path=args.probe_file)
+    wandb.restore(str(probe_file), run_path=str(args.probe_file))
     assert probe_file.exists()
 else:
     probe_file = args.probe_file

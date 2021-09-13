@@ -68,9 +68,6 @@ parser.add_argument('--features-key',
                     '(default: tags)')
 parser.add_argument('--wandb-group',
                     help='experiment group (default: generated)')
-parser.add_argument('--wandb-dir',
-                    type=pathlib.Path,
-                    help='path to write wandb data (default: wandb default)')
 parser.add_argument('--no-batch',
                     action='store_true',
                     help='store entire dataset in RAM/GPU and do not batch it')
@@ -157,7 +154,6 @@ for layer in layers:
             ('--patience', args.patience),
             ('--representations-key', args.representations_key),
             ('--features-key', args.features_key),
-            ('--wandb-dir', args.wandb_dir),
             ('--device', args.device),
         ):
             if value is not None:

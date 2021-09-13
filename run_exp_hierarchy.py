@@ -72,10 +72,6 @@ parser.add_argument('--wandb-group',
                     default='hierarchy',
                     help='experiment group (default: hierarchy)')
 parser.add_argument('--wandb-name', help='Experiment name.')
-parser.add_argument(
-    '--wandb-dir',
-    type=pathlib.Path,
-    help='directory to write wandb data (default: wandb default)')
 parser.add_argument('--no-batch',
                     action='store_true',
                     help='store entire dataset in RAM/GPU and do not batch it')
@@ -88,7 +84,6 @@ parser.add_argument('tasks', nargs='+', help='sequence of tasks in order')
 args = parser.parse_args()
 
 args.model_dir.mkdir(parents=True, exist_ok=True)
-args.wandb_dir.mkdir(parents=True, exist_ok=True)
 wandb.init(project='lodimp',
            id=args.wandb_id,
            name=args.wandb_name,
@@ -115,9 +110,7 @@ wandb.init(project='lodimp',
                    'lr': args.lr,
                    'patience': args.patience,
                },
-           },
-           dir=str(args.wandb_dir))
-assert wandb.run is not None, 'null run?'
+           })
 
 logging.configure()
 log = logging.getLogger(__name__)

@@ -62,9 +62,6 @@ parser.add_argument('--wandb-group',
                     help='experiment group (default: inlp)')
 parser.add_argument('--wandb-name',
                     help='experiment name (default: generated)')
-parser.add_argument('--wandb-path',
-                    type=pathlib.Path,
-                    help='path to write wandb data (default: wandb default)')
 parser.add_argument('--model-path',
                     type=pathlib.Path,
                     default='results/probes/inlp',
@@ -78,8 +75,6 @@ parser.add_argument('--features-key',
                     help='key for features dataset in h5 file (default: tags)')
 args = parser.parse_args()
 
-args.model_path.parent.mkdir(parents=True, exist_ok=True)
-args.wandb_path.mkdir(parents=True, exist_ok=True)
 wandb.init(project='lodimp',
            id=args.wandb_id,
            name=args.wandb_name,
@@ -103,14 +98,15 @@ wandb.init(project='lodimp',
                    'cached': args.cache,
                    'lr': args.lr,
                },
-           },
-           dir=str(args.wandb_path))
+           })
 
 logging.configure()
 log = logging.getLogger(__name__)
 
 device = args.device or 'cuda' if cuda.is_available() else 'cpu'
 log.info('using %s', device)
+
+args.model_path.parent.mkdir(parents=True, exist_ok=True)
 
 representation_model = args.representation_model
 representation_layer = args.representation_layer

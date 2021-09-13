@@ -40,9 +40,6 @@ parser.add_argument('--wandb-group',
                     help='experiment group (default: ablation)')
 parser.add_argument('--wandb-name',
                     help='experiment name (default: generated)')
-parser.add_argument('--wandb-path',
-                    type=pathlib.Path,
-                    help='path to write wandb data (default: wandb default)')
 parser.add_argument(
     '--bert-config',
     default='bert-base-uncased',
@@ -314,12 +311,7 @@ class SyntaxGymEvaluator:
             yield self.item(item)
 
 
-args.wandb_path.mkdir(parents=True, exist_ok=True)
-wandb.init(project='lodimp',
-           name=args.wandb_name,
-           group=args.wandb_group,
-           dir=str(args.wandb_path))
-assert wandb.run is not None, 'null run?'
+wandb.init(project='lodimp', name=args.wandb_name, group=args.wandb_group)
 
 logging.configure()
 log = logging.getLogger(__name__)

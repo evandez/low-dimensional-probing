@@ -96,9 +96,6 @@ parser.add_argument('--wandb-name',
                     help='experiment name (default: wandb default)')
 parser.add_argument('--wandb-group',
                     help='experiment group (default: wandb default)')
-parser.add_argument('--wandb-dir',
-                    type=pathlib.Path,
-                    help='path to write wandb data (default: wandb default)')
 parser.add_argument('--no-batch',
                     action='store_true',
                     help='store entire dataset in RAM/GPU and do not batch it')
@@ -118,9 +115,6 @@ if args.task == tasks.PART_OF_SPEECH_TAGGING and args.share_projection:
     raise ValueError('cannot set --share-projection when task is "pos"')
 
 # Configure wandb immediately.
-wandb_dir = args.wandb_dir
-if wandb_dir is not None:
-    wandb_dir.mkdir(parents=True, exist_ok=True)
 wandb.init(project='lodimp',
            id=args.wandb_id,
            name=args.wandb_name,
@@ -147,8 +141,7 @@ wandb.init(project='lodimp',
                    'lr': args.lr,
                    'patience': args.patience,
                },
-           },
-           dir=str(args.wandb_dir))
+           })
 
 args.model_dir.mkdir(parents=True, exist_ok=True)
 
