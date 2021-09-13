@@ -1,5 +1,6 @@
 """Forward to `run_exp_train_probe`, sweeping over projection ranks."""
 import argparse
+import os
 import pathlib
 import subprocess
 
@@ -161,4 +162,4 @@ for layer in layers:
 
         # Go!
         print(' '.join(command))
-        subprocess.call(command)
+        subprocess.call(command, env={'WANDB_SILENT': 'true', **os.environ})
