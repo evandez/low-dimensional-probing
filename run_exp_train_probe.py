@@ -165,17 +165,20 @@ data_dir = args.data_dir / model / str(layer)
 cache = device if args.cache else None
 
 data: Dict[str, datasets.CollatedTaskDataset] = {}
-kwargs = dict(device=cache,
-              representations_key=args.representations_key,
-              features_key=args.features_key)
 for split in splits.STANDARD_SPLITS:
     split_file = data_dir / f'{split}.h5'
     if args.no_batch:
         data[split] = datasets.NonBatchingCollatedTaskDataset(
-            split_file, **kwargs)
+            split_file,
+            device=cache,
+            representations_key=args.representations_key,
+            features_key=args.features_key)
     else:
         data[split] = datasets.SentenceBatchingCollatedTaskDataset(
-            split_file, **kwargs)
+            split_file,
+            device=cache,
+            representations_key=args.representations_key,
+            features_key=args.features_key)
 
 # Start training!
 probe: nn.Module
