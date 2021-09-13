@@ -13,10 +13,10 @@ import torch
 
 
 class DEPIndexer:
-    """Maps dependents to heads."""
+    """Map dependents to heads."""
 
     def __init__(self, **kwargs: Any):
-        """Does nothing, only exists for sake of type checking."""
+        """Do nothing, only exists for sake of type checking."""
 
     def __call__(self, sample: ptb.Sample) -> torch.Tensor:
         """Map dependents to heads.
@@ -39,7 +39,7 @@ class DEPIndexer:
 
 
 class ControlDEPIndexer:
-    """Constructs arbitrary parse "trees" for all samples."""
+    """Construct arbitrary parse "trees" for all samples."""
 
     def __init__(self, samples: Sequence[ptb.Sample]):
         """Map each word type to a dependency arc behavior.
@@ -103,7 +103,7 @@ class ControlDEPIndexer:
 
 
 class DEPTaskDataset(datasets.TaskDataset):
-    """Iterates over (word representation, index of head) pairs."""
+    """Iterate over (word representation, index of head) pairs."""
 
     def __init__(
         self,
@@ -164,35 +164,35 @@ class DEPTaskDataset(datasets.TaskDataset):
         return representations, self.indexer(annotations)
 
     def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
-        """Yields all (sentence representations, sentence POS tags) samples."""
+        """Yield all (sentence representations, sentence POS tags) samples."""
         for index in range(len(self)):
             yield self[index]
 
     def __len__(self) -> int:
-        """Returns the number of sentences (batches) in the dataset."""
+        """Return the number of sentences (batches) in the dataset."""
         return len(self.annotations)
 
     @property
     def sample_representations_shape(self) -> Sequence[int]:
-        """Returns the dimensionality of individual representations."""
+        """Return the dimensionality of individual representations."""
         return (self.representations.dataset.dimension,)
 
     @property
     def sample_features_shape(self) -> Sequence[int]:
-        """Returns the shape of each individual POS tag.
+        """Return the shape of each individual POS tag.
 
         Since POS tags are integral scalars, there is no such shape!
         """
         return ()
 
     def count_samples(self) -> int:
-        """Returns the number of words in the dataset."""
+        """Return the number of words in the dataset."""
         return sum(
             self.representations.dataset.length(index)
             for index in range(len(self.representations)))
 
     def count_unique_features(self) -> Optional[int]:
-        """Returns number of unique POS seen in data."""
+        """Return number of unique POS seen in data."""
         return None
 
 

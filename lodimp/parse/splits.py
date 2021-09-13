@@ -24,7 +24,7 @@ PTB_ANNOTATIONS = {key: f'ptb3-wsj-{key}.conllx' for key in STANDARD_SPLITS}
 
 
 class Split(NamedTuple):
-    """Defines a dataset split as it exists on disk.
+    """Define a dataset split as it exists on disk.
 
     Note that this class verifies that the files do indeed exist.
     """

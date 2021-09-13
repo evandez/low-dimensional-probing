@@ -30,7 +30,7 @@ class RepresentationDataset(data.Dataset):
         self.layers = self.file['0'].shape[0]
 
     def __getitem__(self, index: int) -> torch.Tensor:
-        """Returns the represenations for the sentence at the given index.
+        """Return the represenations for the sentence at the given index.
 
         Args:
             index (int): Which sentence to retrieve representations for.
@@ -50,11 +50,11 @@ class RepresentationDataset(data.Dataset):
         return torch.tensor(self.file[str(index)])
 
     def __len__(self) -> int:
-        """Returns the number of samples (sentences) in the dataset."""
+        """Return the number of samples (sentences) in the dataset."""
         return len(self.file.keys()) - 1  # Ignore sentence_to_index.
 
     def length(self, index: int) -> int:
-        """Returns the length of the index'th sequence.
+        """Return the length of the index'th sequence.
 
         This function exists because it is much faster than using __getitem__.
         It only reads file metadata as opposed to reading in every single
@@ -106,7 +106,7 @@ class RepresentationLayerDataset(data.Dataset):
         self.layer = layer
 
     def __getitem__(self, index: int) -> torch.Tensor:
-        """Returns the represenations layer for the sentence at the index.
+        """Return the represenations layer for the sentence at the index.
 
         Args:
             index (int): Which sentence to retrieve representations for.
@@ -120,5 +120,5 @@ class RepresentationLayerDataset(data.Dataset):
         return self.dataset[index][self.layer]
 
     def __len__(self) -> int:
-        """Returns the number of samples (sentences) in the dataset."""
+        """Return the number of samples (sentences) in the dataset."""
         return len(self.dataset)

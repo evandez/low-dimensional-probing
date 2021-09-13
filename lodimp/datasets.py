@@ -28,7 +28,7 @@ class TaskDataset(data.IterableDataset):
     """Abstract dataset of (representation, linguistic features) pairs."""
 
     def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
-        """Yields batches of samples.
+        """Yield batches of samples.
 
         Each batch should be a tuple of tensors: (representations, features).
         The representations tensor should have shape
@@ -58,21 +58,21 @@ class TaskDataset(data.IterableDataset):
         raise NotImplementedError
 
     def __len__(self) -> int:
-        """Returns the number of batches to iterate over."""
+        """Return the number of batches to iterate over."""
         raise NotImplementedError
 
     @property
     def sample_representations_shape(self) -> Sequence[int]:
-        """Returns the shape of the representations tensor for one sample."""
+        """Return the shape of the representations tensor for one sample."""
         raise NotImplementedError
 
     @property
     def sample_features_shape(self) -> Sequence[int]:
-        """Returns the shape of the features tensor for one sample."""
+        """Return the shape of the features tensor for one sample."""
         raise NotImplementedError
 
     def count_samples(self) -> int:
-        """Returns the number of individual samples in the dataset.
+        """Return the number of individual samples in the dataset.
 
         This is usually the total number of words in the dataset. However,
         the representations yielded by __iter__ do not necessarily correspond
@@ -86,7 +86,7 @@ class TaskDataset(data.IterableDataset):
         raise NotImplementedError
 
     def count_unique_features(self) -> Optional[int]:
-        """Returns number of unique features, if that quantity makes sense.
+        """Return number of unique features, if that quantity makes sense.
 
         E.g. in part of speech tagging, there are 45 parts of speech, so this
         should return 45. However, for dependency edge prediction, the number
@@ -235,7 +235,7 @@ class CollatedTaskDataset(TaskDataset):
                                                device=device)
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Returns the (representations, features) pair at the given index.
+        """Return the (representations, features) pair at the given index.
 
         Args:
             index (int): The index of the pair to retrieve.
@@ -260,24 +260,24 @@ class CollatedTaskDataset(TaskDataset):
         return reps, features
 
     def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
-        """Yields every sample in the dataset in sequence."""
+        """Yield every sample in the dataset in sequence."""
         for index in range(len(self)):
             reps, features = self[index]
             # Unsqueeze so the reps appear batch-like.
             yield reps.unsqueeze(0), features.unsqueeze(0)
 
     def __len__(self) -> int:
-        """Returns the number of samples in this dataset."""
+        """Return the number of samples in this dataset."""
         return len(self.representations)
 
     @property
     def sample_representations_shape(self) -> Sequence[int]:
-        """Returns the representation dimensionality."""
+        """Return the representation dimensionality."""
         return self.representations.shape[1:]
 
     @property
     def sample_features_shape(self) -> Sequence[int]:
-        """Returns the representation dimensionality."""
+        """Return the representation dimensionality."""
         return self.features.shape[1:]
 
     def count_samples(self) -> int:
@@ -324,7 +324,7 @@ class SentenceBatchingCollatedTaskDataset(CollatedTaskDataset):
         self.breaks = self.file[breaks_key][:]
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Returns all representations and features for the index'th sentence.
+        """Return all representations and features for the index'th sentence.
 
         Args:
             index (int): Index of the sentence data to retrieve.
@@ -364,7 +364,7 @@ class SentenceBatchingCollatedTaskDataset(CollatedTaskDataset):
             yield self[index]
 
     def __len__(self) -> int:
-        """Returns the number of sentences in the dataset."""
+        """Return the number of sentences in the dataset."""
         return self.breaks.shape[0]
 
 
@@ -398,9 +398,9 @@ class NonBatchingCollatedTaskDataset(CollatedTaskDataset):
         return reps, features
 
     def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
-        """Yields the one and only chunk of data."""
+        """Yield the one and only chunk of data."""
         yield self[0]
 
     def __len__(self) -> int:
-        """Returns 1 because there is only one chunk."""
+        """Return 1 because there is only one chunk."""
         return 1

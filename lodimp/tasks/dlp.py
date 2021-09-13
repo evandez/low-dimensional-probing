@@ -19,7 +19,7 @@ UNK = 'unk'
 
 
 class DLPIndexer:
-    """Maps pairs of words to their syntactic relationship, if any."""
+    """Map pairs of words to their syntactic relationship, if any."""
 
     def __init__(self, samples: Sequence[ptb.Sample], unk: str = UNK):
         """Map each relation label to an integer.
@@ -63,12 +63,12 @@ class DLPIndexer:
         return labels
 
     def __len__(self) -> int:
-        """Returns the number of unique labels for this task."""
+        """Return the number of unique labels for this task."""
         return len(self.indexer)
 
 
 class ControlDLPIndexer:
-    """Maps pairs of words to arbitrary syntactic relationships."""
+    """Map pairs of words to arbitrary syntactic relationships."""
 
     def __init__(self,
                  samples: Sequence[ptb.Sample],
@@ -133,12 +133,12 @@ class ControlDLPIndexer:
         return labels
 
     def __len__(self) -> int:
-        """Returns the number of relationships, including the null one."""
+        """Return the number of relationships, including the null one."""
         return len(self.dist) + 1
 
 
 class DLPTaskDataset(datasets.TaskDataset):
-    """Iterates over (word representation pair, dependency label) pairs."""
+    """Iterate over (word representation pair, dependency label) pairs."""
 
     def __init__(
         self,
@@ -147,7 +147,7 @@ class DLPTaskDataset(datasets.TaskDataset):
         indexer: Type[Union[DLPIndexer, ControlDLPIndexer]] = DLPIndexer,
         **kwargs: Any,
     ):
-        """Initializes dataset by mapping each dependency label to an index.
+        """Initialize dataset by mapping each dependency label to an index.
 
         The kwargs are forwarded to indexer when it is instantiated.
 
@@ -211,35 +211,35 @@ class DLPTaskDataset(datasets.TaskDataset):
         return bigrams, labels
 
     def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
-        """Yields all (sentence representations, sentence POS tags) samples."""
+        """Yield all (sentence representations, sentence POS tags) samples."""
         for index in range(len(self)):
             yield self[index]
 
     def __len__(self) -> int:
-        """Returns the number of sentences (batches) in the dataset."""
+        """Return the number of sentences (batches) in the dataset."""
         return len(self.annotations)
 
     @property
     def sample_representations_shape(self) -> Sequence[int]:
-        """Returns the dimensionality of the representation pairs."""
+        """Return the dimensionality of the representation pairs."""
         return (2, self.representations.dataset.dimension)
 
     @property
     def sample_features_shape(self) -> Sequence[int]:
-        """Returns the shape of each individual POS tag.
+        """Return the shape of each individual POS tag.
 
         Since POS tags are integral scalars, there is no such shape!
         """
         return ()
 
     def count_samples(self) -> int:
-        """Returns the number of words in the dataset."""
+        """Return the number of words in the dataset."""
         return sum(
             self.representations.dataset.length(index)
             for index in range(len(self.representations)))
 
     def count_unique_features(self) -> int:
-        """Returns number of unique POS seen in data."""
+        """Return number of unique POS seen in data."""
         return len(self.indexer)
 
 

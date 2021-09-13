@@ -18,7 +18,7 @@ class Sample(NamedTuple):
 
 
 def load(path: PathLike) -> Sequence[Sample]:
-    """Loads the given .conllx file.
+    """Load the given .conllx file.
 
     Args:
         path (PathLike): The path to the .conllx file.

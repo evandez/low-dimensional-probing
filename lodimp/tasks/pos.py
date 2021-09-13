@@ -37,7 +37,7 @@ class POSIndexer:
                  samples: Sequence[ptb.Sample],
                  distinguish: Optional[Sequence[str]] = None,
                  unk: str = UNK):
-        """Maps each POS tag to an index.
+        """Map each POS tag to an index.
 
         Args:
             samples (Sequence[ptb.PTBSample]): The samples from which to
@@ -76,7 +76,7 @@ class POSIndexer:
         ])
 
     def __len__(self) -> int:
-        """Returns the number of valid POS tags in this task."""
+        """Return the number of valid POS tags in this task."""
         return len(self.indexer)
 
 
@@ -132,7 +132,7 @@ class ControlPOSIndexer:
             [self.tags.get(word, 0) for word in sample.sentence])
 
     def __len__(self) -> int:
-        """Returns the number of fake tags in this task."""
+        """Return the number of fake tags in this task."""
         return len(self.dist) + 1  # add 1 for unk tag
 
 
@@ -146,7 +146,7 @@ class POSTaskDataset(datasets.TaskDataset):
         indexer: Type[Union[POSIndexer, ControlPOSIndexer]] = POSIndexer,
         **kwargs: Any,
     ):
-        """Maps each POS tag to an index.
+        """Map each POS tag to an index.
 
         Keyword arguments are forwarded to indexer when instantiated.
 
@@ -195,35 +195,35 @@ class POSTaskDataset(datasets.TaskDataset):
         return representations, self.indexer(annotations)
 
     def __iter__(self) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
-        """Yields all (sentence representations, sentence POS tags) samples."""
+        """Yield all (sentence representations, sentence POS tags) samples."""
         for index in range(len(self)):
             yield self[index]
 
     def __len__(self) -> int:
-        """Returns the number of sentences (batches) in the dataset."""
+        """Return the number of sentences (batches) in the dataset."""
         return len(self.annotations)
 
     @property
     def sample_representations_shape(self) -> Sequence[int]:
-        """Returns the dimensionality of individual representations."""
+        """Return the dimensionality of individual representations."""
         return (self.representations.dataset.dimension,)
 
     @property
     def sample_features_shape(self) -> Sequence[int]:
-        """Returns the shape of each individual POS tag.
+        """Return the shape of each individual POS tag.
 
         Since POS tags are integral scalars, there is no such shape!
         """
         return ()
 
     def count_samples(self) -> int:
-        """Returns the number of words in the dataset."""
+        """Return the number of words in the dataset."""
         return sum(
             self.representations.dataset.length(index)
             for index in range(len(self.representations)))
 
     def count_unique_features(self) -> int:
-        """Returns number of unique POS seen in data."""
+        """Return number of unique POS seen in data."""
         return len(self.indexer)
 
 
@@ -414,7 +414,7 @@ def inlp(train_dataset: datasets.TaskDataset,
     rowspaces: List[torch.Tensor] = []
 
     def get_nullspace_projection() -> torch.Tensor:
-        """Returns the current nullspace projection."""
+        """Return the current nullspace projection."""
         return eye - linalg.rowspace(sum(rowspaces, zero))
 
     for attempt in range(attempts):

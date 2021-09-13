@@ -11,7 +11,7 @@ from torch import nn, optim
 
 
 class EarlyStopping:
-    """Observes a numerical value and determines when it has not improved."""
+    """Observe a numerical value and determines when it has not improved."""
 
     def __init__(self, patience: int = 3, decreasing: bool = True):
         """Initialize the early stopping tracker.
@@ -30,7 +30,7 @@ class EarlyStopping:
         self.num_bad = 0
 
     def __call__(self, value: float) -> bool:
-        """Considers the new tracked value and decides whether to stop.
+        """Consider the new tracked value and decide whether to stop.
 
         Args:
             value (float): The new tracked value.
