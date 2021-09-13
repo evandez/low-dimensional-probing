@@ -41,6 +41,15 @@ REPRESENTATION_FILES_BY_MODEL = {
     BERT_RANDOM: splits.BERT_RANDOM_REPRESENTATIONS,
 }
 
+ELMO_LAYERS = (0, 1, 2)
+BERT_LAYERS = (0, 1, 4, 8, 12)
+BERT_RANDOM_LAYERS = BERT_LAYERS
+REPRESENTATION_LAYERS_BY_MODEL = {
+    ELMO: ELMO_LAYERS,
+    BERT: BERT_LAYERS,
+    BERT_RANDOM: BERT_RANDOM_LAYERS,
+}
+
 parser = argparse.ArgumentParser(epilog=EPILOG)
 parser.add_argument('task',
                     choices=(tasks.PART_OF_SPEECH_TAGGING,
@@ -50,7 +59,7 @@ parser.add_argument('task',
 parser.add_argument('data_dir', type=pathlib.Path, help='data dir')
 parser.add_argument('--out-dir',
                     type=pathlib.Path,
-                    help='output dir (default: data_dir / "collated")')
+                    help='output dir (default: data_dir / "collated" / task)')
 parser.add_argument('--representation-model',
                     choices=REPRESENTATION_MODELS,
                     default=ELMO,
@@ -59,7 +68,7 @@ parser.add_argument('--representation-layers',
                     metavar='LAYER',
                     nargs='+',
                     type=int,
-                    help='layers to collate (default: all)')
+                    help='layers to collate (default: same as paper)')
 parser.add_argument('--control',
                     action='store_true',
                     help='collate control version of this task')
@@ -79,6 +88,8 @@ log = logging.getLogger(__name__)
 if args.task == tasks.PART_OF_SPEECH_TAGGING:
     if args.control and args.subtask:
         raise ValueError('cannot set both --control and --subtask')
+elif args.subtask:
+    raise ValueError('cannot set --subtask when task != "pos"')
 
 data_dir = args.data_dir
 if not data_dir.exists():
@@ -86,7 +97,8 @@ if not data_dir.exists():
 
 out_dir = args.out_dir
 if out_dir is None:
-    out_dir = data_dir / 'collated'
+    out_name = f'{args.task}{"-control" if args.control else ""}'
+    out_dir = data_dir / 'collated' / out_name
 out_dir.mkdir(parents=True, exist_ok=True)
 log.info('will write collated data to directory %s', out_dir)
 
@@ -105,7 +117,9 @@ for split in splits.STANDARD_SPLITS:
     annos[split] = ptb.load(files[split].annotations)
 
 dataset: datasets.TaskDataset
-layers = args.representation_layers or range(reps[splits.TRAIN].layers)
+layers = args.representation_layers
+if layers is None:
+    layers = REPRESENTATION_LAYERS_BY_MODEL[args.representation_model]
 for layer in layers:
     layer_path = out_dir / args.representation_model / str(layer)
     log.info('collating data for %s layer %d in directory %s',
