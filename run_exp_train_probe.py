@@ -36,7 +36,13 @@ PROBE_TYPES_BY_TASK = {
     },
 }
 
-parser = argparse.ArgumentParser(add_help=False)
+parser = argparse.ArgumentParser()
+parser.add_argument('task',
+                    choices=(tasks.PART_OF_SPEECH_TAGGING,
+                             tasks.DEPENDENCY_LABEL_PREDICTION,
+                             tasks.DEPENDENCY_EDGE_PREDICTION),
+                    help='linguistic task')
+parser.add_argument('data_dir', type=pathlib.Path, help='data directory')
 parser.add_argument('--linear',
                     action='store_const',
                     dest='probe_type',
@@ -47,6 +53,10 @@ parser.add_argument(
     '--project-to',
     type=int,
     help='project reps to this dimension (default: no projection)')
+parser.add_argument('--share-projection',
+                    action='store_true',
+                    help='when combining reps, project both with same matrix; '
+                    'cannot be used if task is "pos"')
 parser.add_argument('--representation-model',
                     choices=('elmo', 'bert', 'bert-random'),
                     default='elmo',
@@ -97,23 +107,21 @@ parser.add_argument('--cache',
                     action='store_true',
                     help='cache entire dataset in memory/GPU')
 parser.add_argument('--device', help='use this device (default: guessed)')
-subparsers = parser.add_subparsers(dest='task')
-subparsers.add_parser(tasks.PART_OF_SPEECH_TAGGING)
-dlp_parser = subparsers.add_parser(tasks.DEPENDENCY_LABEL_PREDICTION)
-dep_parser = subparsers.add_parser(tasks.DEPENDENCY_EDGE_PREDICTION)
-parser.add_argument('data_dir', type=pathlib.Path, help='data directory')
-
-# Okay, we've defined the full command. Now define task-specific args.
-for subparser in (dlp_parser, dep_parser):
-    subparser.add_argument(
-        '--share-projection',
-        action='store_true',
-        help='When comparing reps, project both with same matrix.')
-
+parser.add_argument('--quiet',
+                    action='store_const',
+                    dest='log_level',
+                    const=logging.WARNING,
+                    default=logging.INFO,
+                    help='only log warnings and above')
 args = parser.parse_args()
 
-args.model_dir.mkdir(parents=True, exist_ok=True)
-args.wandb_dir.mkdir(parents=True, exist_ok=True)
+if args.task == tasks.PART_OF_SPEECH_TAGGING and args.share_projection:
+    raise ValueError('cannot set --share-projection when task is "pos"')
+
+# Configure wandb immediately.
+wandb_dir = args.wandb_dir
+if wandb_dir is not None:
+    wandb_dir.mkdir(parents=True, exist_ok=True)
 wandb.init(project='lodimp',
            id=args.wandb_id,
            name=args.wandb_name,
@@ -142,9 +150,10 @@ wandb.init(project='lodimp',
                },
            },
            dir=str(args.wandb_dir))
-assert wandb.run is not None, 'null run?'
 
-logging.configure()
+args.model_dir.mkdir(parents=True, exist_ok=True)
+
+logging.configure(level=args.log_level)
 log = logging.getLogger(__name__)
 
 device = args.device or 'cuda' if cuda.is_available() else 'cpu'
