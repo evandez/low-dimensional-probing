@@ -89,8 +89,8 @@ if not model_dir.exists():
 
 layers = args.representation_layers
 if layers is None:
-    layer_dirs = [child for child in model_dir.iterdir() if child.is_dir()]
-    if not layer_dirs:
+    layers = [child.name for child in model_dir.iterdir() if child.is_dir()]
+    if not layers:
         raise ValueError(f'no layer data for model: {model}')
 
 # Load a small subset of the data to determine representation size.
