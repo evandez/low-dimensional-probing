@@ -122,7 +122,7 @@ def train(probe: nn.Module,
                      iteration + 1, loss.item())
 
             if also_log_to_wandb:
-                wandb.log({'train accuracy': loss})
+                wandb.log({'train loss': loss})
 
             if not dev_dataset and stopper and stopper(loss.item()):
                 log.info('patience on train loss exceed, training is now over')
@@ -145,7 +145,7 @@ def train(probe: nn.Module,
                 # Technically this creates a new step, when it should use the
                 # same step as the last train loss log event. It irks me, but
                 # oh well.
-                wandb.log({'dev accuracy': dev_loss})
+                wandb.log({'dev loss': dev_loss})
 
             if stopper and stopper(dev_loss):
                 log.info('patience on dev loss exceed, training is now over')
