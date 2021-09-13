@@ -170,10 +170,11 @@ class TaskDataset(data.IterableDataset):
 
             log.info('counting unique features, this may take a minute')
             unique_features = self.count_unique_features()
-            log.info('found %d unique features, will write to metadata',
-                     unique_features)
-            features_out.attrs[H5_UNIQUE_FEATURES_KEY] = unique_features
-            log.info('collation complete')
+            if unique_features is not None:
+                log.info('found %d unique features, will write to metadata',
+                         unique_features)
+                features_out.attrs[H5_UNIQUE_FEATURES_KEY] = unique_features
+                log.info('collation complete')
 
 
 class CollatedTaskDataset(TaskDataset):
