@@ -143,7 +143,7 @@ for layer in layers:
                     split_reps,
                     split_annos,
                     indexer=pos.ControlPOSIndexer,
-                    samples=itertools.chain(*annos.values()))
+                    samples=tuple(itertools.chain(*annos.values())))
             else:
                 log.info('will use ordinary POS task')
                 dataset = pos.POSTaskDataset(split_reps, split_annos)
@@ -155,7 +155,7 @@ for layer in layers:
                     split_reps,
                     split_annos,
                     indexer=dlp.ControlDLPIndexer,
-                    samples=itertools.chain(*annos.values()))
+                    samples=tuple(itertools.chain(*annos.values())))
             else:
                 log.info('will use ordinary DLP task')
                 dataset = dlp.DLPTaskDataset(split_reps, split_annos)
@@ -167,7 +167,7 @@ for layer in layers:
                     split_reps,
                     split_annos,
                     indexer=dep.ControlDEPIndexer,
-                    samples=itertools.chain(*annos.values()))
+                    samples=tuple(itertools.chain(*annos.values())))
             else:
                 log.info('will use ordinary DEP task')
                 dataset = dep.DEPTaskDataset(split_reps, split_annos)
