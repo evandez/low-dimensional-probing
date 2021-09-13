@@ -124,7 +124,7 @@ for layer in layers:
             'python3',
             'run_exp_train_probe.py',
             args.task,
-            args.data_dir,
+            str(args.data_dir),
             '--representation-model',
             model,
             '--representation-layer',
