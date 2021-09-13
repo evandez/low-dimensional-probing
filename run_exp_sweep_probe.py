@@ -116,7 +116,7 @@ if wandb_group is None:
     wandb_group = args.data_dir.name
 
 # Start training!
-for layer in layers:
+for layer in sorted(layers, key=int):
     for rank in ranks:
         command = [
             'python3',
