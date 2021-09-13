@@ -92,11 +92,10 @@ parser.add_argument('--features-key',
                     default=datasets.DEFAULT_H5_FEATURES_KEY,
                     help='key for features dataset in h5 file (default: tags)')
 parser.add_argument('--wandb-id', help='experiment ID, use carefully')
-parser.add_argument('--wandb-group',
-                    default='probes',
-                    help='experiment group (default: probes)')
 parser.add_argument('--wandb-name',
-                    help='experiment name (default: generated)')
+                    help='experiment name (default: wandb default)')
+parser.add_argument('--wandb-group',
+                    help='experiment group (default: wandb default)')
 parser.add_argument('--wandb-dir',
                     type=pathlib.Path,
                     help='path to write wandb data (default: wandb default)')

@@ -66,6 +66,8 @@ parser.add_argument('--representations-key',
 parser.add_argument('--features-key',
                     help='key for features dataset in h5 file '
                     '(default: tags)')
+parser.add_argument('--wandb-group',
+                    help='experiment group (default: generated)')
 parser.add_argument('--wandb-dir',
                     type=pathlib.Path,
                     help='path to write wandb data (default: wandb default)')
@@ -79,6 +81,7 @@ parser.add_argument(
     '--device', help='use this device (default: see run_exp_train_probe.py)')
 args = parser.parse_args()
 
+# Resolve layers for model.
 model = args.representation_model
 model_dir = args.data_dir / model
 if not model_dir.exists():
@@ -109,6 +112,11 @@ if d_max > d_step_exp_after:
         current *= 2
     ranks.append(min(current, d_max))
 
+# Generate a wandb group if necessary.
+wandb_group = args.wandb_group
+if wandb_group is None:
+    wandb_group = args.data_dir.name
+
 # Start training!
 for layer in layers:
     for rank in ranks:
@@ -125,6 +133,10 @@ for layer in layers:
             str(rank),
             '--model-dir',
             str(args.model_dir / model / f'layer-{layer}/rank-{rank}'),
+            '--wandb-group',
+            wandb_group,
+            '--wandb-name',
+            f'{model}-l{layer}-d{rank}',
             '--quiet',
         ]
 
