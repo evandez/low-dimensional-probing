@@ -136,7 +136,7 @@ for layer in layers:
             '--wandb-group',
             wandb_group,
             '--wandb-name',
-            f'{model}-l{layer}-d{rank}',
+            f'{model}-l{layer}-r{rank}',
             '--quiet',
         ]
 
