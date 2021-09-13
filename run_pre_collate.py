@@ -42,9 +42,15 @@ REPRESENTATION_FILES_BY_MODEL = {
 }
 
 parser = argparse.ArgumentParser(epilog=EPILOG)
+parser.add_argument('task',
+                    choices=(tasks.PART_OF_SPEECH_TAGGING,
+                             tasks.DEPENDENCY_LABEL_PREDICTION,
+                             tasks.DEPENDENCY_EDGE_PREDICTION),
+                    help='task to collate reps for')
+parser.add_argument('data_dir', type=pathlib.Path, help='data dir')
 parser.add_argument('--out-dir',
                     type=pathlib.Path,
-                    help='output dir (default: data_dir)')
+                    help='output dir (default: data_dir / "collated")')
 parser.add_argument('--representation-model',
                     choices=REPRESENTATION_MODELS,
                     default=ELMO,
@@ -57,20 +63,14 @@ parser.add_argument('--representation-layers',
 parser.add_argument('--control',
                     action='store_true',
                     help='collate control version of this task')
+parser.add_argument('--subtask',
+                    choices=PART_OF_SPEECH_SUBTASKS.keys(),
+                    help='when collating pos, only use a subset of tags, '
+                    'collapsing the rest; cannot use if --control set '
+                    'or if task is not pos')
 parser.add_argument('--force',
                     action='store_true',
                     help='overwrite any existing files')
-
-subparsers = parser.add_subparsers(dest='task')
-pos_parser = subparsers.add_parser(tasks.PART_OF_SPEECH_TAGGING)
-pos_parser.add_argument('--subtask',
-                        choices=PART_OF_SPEECH_SUBTASKS.keys(),
-                        help='only use a subset of part of speech tags, '
-                        'collapse the rest; cannot use with --control')
-subparsers.add_parser(tasks.DEPENDENCY_LABEL_PREDICTION)
-subparsers.add_parser(tasks.DEPENDENCY_EDGE_PREDICTION)
-
-parser.add_argument('data_dir', type=pathlib.Path, help='data dir')
 args = parser.parse_args()
 
 logging.configure()
