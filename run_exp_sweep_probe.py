@@ -130,7 +130,7 @@ for layer in sorted(layers, key=int):
             '--project-to',
             str(rank),
             '--model-dir',
-            str(args.model_dir / model / f'layer-{layer}/rank-{rank}'),
+            str(args.model_dir / model / f'l{layer}/r{rank}'),
             '--wandb-group',
             wandb_group,
             '--wandb-name',
