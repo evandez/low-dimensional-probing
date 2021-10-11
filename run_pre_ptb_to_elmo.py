@@ -16,7 +16,7 @@ WARNING: To run this script, you need to install `allennlp==0.9.0` because
 that is the last version that supports the `allennlp elmo` command.
 We do not include this in `requirements.txt` because it shares too many
 dependencies with the rest of this project, among other issues (e.g., it
-cannot be run on Python >= 3.9). I suggest creating a separate venv for this.
+cannot be run on Python >= 3.9). We suggest creating a separate venv for this.
 '''
 
 ELMO_URL = 'https://s3-us-west-2.amazonaws.com/allennlp/models/elmo'
