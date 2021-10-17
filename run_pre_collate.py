@@ -95,7 +95,7 @@ if args.task == tasks.PART_OF_SPEECH_TAGGING:
 elif args.subtask:
     raise ValueError('cannot set --subtask when task != "pos"')
 
-data_dir = args.data_dir or (env.data_dir() / 'ptb3/collated' / args.task)
+data_dir = args.data_dir or env.data_dir() / 'ptb3'
 if not data_dir.exists():
     raise ValueError(f'data dir not found: {data_dir}')
 
