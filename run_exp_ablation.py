@@ -18,7 +18,7 @@ from typing import AbstractSet, Any, Iterator, Mapping, Sequence, cast
 
 from ldp.models import projections
 from ldp.parse import syntax_gym
-from ldp.utils import logging
+from ldp.utils import env, logging
 
 import spacy
 import spacy.lang.en
@@ -31,10 +31,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument('projection_file',
                     type=pathlib.Path,
                     help='projection file')
-parser.add_argument('sg_files',
+parser.add_argument('sg_suites',
                     type=pathlib.Path,
                     nargs='+',
-                    help='syntax gym json files')
+                    help='syntax gym suites')
+parser.add_argument(
+    '--data-dir',
+    type=pathlib.Path,
+    help='root dir containing data (default: project data dir)')
 parser.add_argument('--wandb-group',
                     default='ablation',
                     help='experiment group (default: ablation)')
@@ -339,13 +343,16 @@ nouns_before, nouns_after = 0, 0
 verbs_before, verbs_after = 0, 0
 count = 0
 
-for sg_file in args.sg_files:
+data_root = args.data_dir or env.data_dir()
+data_dir = data_root / 'syntax-gym'
+for sg_suite in args.sg_suites:
+    sg_file = data_dir / f'{sg_suite}.json'
     logging.info('evaluating suite %s', sg_file)
     suite = syntax_gym.load_suite_json(sg_file)
     for result in evaluate.suite(suite):
         # Log each condition as a separate item.
         for subresult in result.values():
-            wandb.log({'suite': sg_file.name, **subresult.dump()})
+            wandb.log({'suite': sg_suite, **subresult.dump()})
 
         # Record verb aggregates.
         for match_key, mismatch_key in (

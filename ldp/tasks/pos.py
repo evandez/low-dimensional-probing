@@ -301,11 +301,12 @@ def train(train_dataset: datasets.TaskDataset,
     return probe, accuracy
 
 
-def axis_alignment(probe: Probe,
-                   dev_dataset: datasets.TaskDataset,
-                   test_dataset: datasets.TaskDataset,
-                   device: Optional[Device] = None,
-                   also_log_to_wandb: bool = False) -> Sequence[float]:
+def axis_alignment(
+        probe: Probe,
+        dev_dataset: datasets.TaskDataset,
+        test_dataset: datasets.TaskDataset,
+        device: Optional[Device] = None,
+        also_log_to_wandb: bool = False) -> Sequence[Tuple[int, float]]:
     """Measure whether the given probe is axis aligned.
 
     Args:
@@ -319,8 +320,8 @@ def axis_alignment(probe: Probe,
         also_log_to_wandb (bool, optional): If set, log results to wandb.
 
     Returns:
-        The sequence of accuracies obtained by ablating the least harmful
-        axes, in order.
+        Sequence[Tuple[int, float]]: The ablated axes paired with optimal probe
+            accuracy after that axis is zeroed.
 
     """
     log = logging.getLogger(__name__)
@@ -354,9 +355,9 @@ def axis_alignment(probe: Probe,
 
         axes.remove(best_axis)
         ablated.add(best_axis)
-        accuracies.append(accuracy)
+        accuracies.append((best_axis, accuracy))
 
-    return accuracies
+    return tuple(accuracies)
 
 
 def inlp(train_dataset: datasets.TaskDataset,
