@@ -7,13 +7,22 @@ from ldp import datasets, tasks
 from ldp.models import probes, projections
 from ldp.parse import splits
 from ldp.tasks import pos
-from ldp.utils import logging
+from ldp.utils import env, logging
 
 import torch
 import wandb
 from torch import cuda
 
 parser = argparse.ArgumentParser()
+parser.add_argument('tasks', nargs='+', help='sequence of tasks in order')
+parser.add_argument(
+    '--data-dir',
+    type=pathlib.Path,
+    help='root dir containing data (default: project data dir)')
+parser.add_argument(
+    '--results-dir',
+    type=pathlib.Path,
+    help='dir to write trained probes (default: results/probes)')
 parser.add_argument('--linear',
                     action='store_true',
                     help='use linear probe (default: mlp)')
@@ -33,11 +42,11 @@ parser.add_argument(
     default=.05,
     help='move to next task if accuracy falls within this tolerance '
     'of previous accuracy (default: .05)')
-parser.add_argument('--representation-model',
+parser.add_argument('--model',
                     choices=('elmo', 'bert', 'bert-random'),
                     default='elmo',
                     help='representations to probe (default: elmo)')
-parser.add_argument('--representation-layer',
+parser.add_argument('--layer',
                     type=int,
                     default=0,
                     help='representation layer (default: 0)')
@@ -56,11 +65,6 @@ parser.add_argument(
     help='stop training if dev loss does not improve for this many epochs '
     '(default: 4)')
 parser.add_argument(
-    '--model-dir',
-    type=pathlib.Path,
-    default='results/probes',
-    help='directory to write finished probes (default: results/probes)')
-parser.add_argument(
     '--representations-key',
     default=datasets.DEFAULT_H5_REPRESENTATIONS_KEY,
     help='key for representations dataset in h5 file (default: reps)')
@@ -70,7 +74,8 @@ parser.add_argument('--features-key',
 parser.add_argument('--wandb-group',
                     default='hierarchy',
                     help='experiment group (default: hierarchy)')
-parser.add_argument('--wandb-name', help='Experiment name.')
+parser.add_argument('--wandb-name',
+                    help='experiment name (default: concat\'d task names)')
 parser.add_argument('--no-batch',
                     action='store_true',
                     help='store entire dataset in RAM/GPU and do not batch it')
@@ -78,24 +83,26 @@ parser.add_argument('--cache',
                     action='store_true',
                     help='cache entire dataset in memory/GPU')
 parser.add_argument('--device', help='use this device (default: guessed)')
-parser.add_argument('data_dir', type=pathlib.Path, help='data directory')
-parser.add_argument('tasks', nargs='+', help='sequence of tasks in order')
 args = parser.parse_args()
 
-args.model_dir.mkdir(parents=True, exist_ok=True)
+task = '_'.join(args.tasks)
+model = args.model
+layer = args.layer
+project_to = args.project_to
+
 wandb.init(project='lodimp',
-           name=args.wandb_name,
+           name=args.wandb_name or task,
            group=args.wandb_group,
            config={
-               'task': args.task,
+               'task': task,
                'representations': {
-                   'model': args.representation_model,
-                   'layer': args.representation_layer,
+                   'model': model,
+                   'layer': layer,
                },
                'projection': {
                    'dimension':
-                       args.project_to,
-                   'shared': (args.task != tasks.PART_OF_SPEECH_TAGGING and
+                       project_to,
+                   'shared': (task != tasks.PART_OF_SPEECH_TAGGING and
                               args.share_projection),
                },
                'probe': {
@@ -116,31 +123,38 @@ log = logging.getLogger(__name__)
 device = args.device or 'cuda' if cuda.is_available() else 'cpu'
 log.info('using %s', device)
 
-# Load the datasets.
-model, layer = args.representation_model, args.representation_layer
-data_root = args.data_dir / model / str(layer)
-cache = device if args.cache else None
+# Prepare data and results directories.
+data_root = args.data_dir or env.data_dir()
 
-data: Dict[str, datasets.CollatedTaskDataset] = {}
-for split in splits.STANDARD_SPLITS:
-    split_path = data_root / f'{split}.h5'
-    if args.no_batch:
-        data[split] = datasets.NonBatchingCollatedTaskDataset(
-            split_path,
-            device=cache,
-            representations_key=args.representations_key,
-            features_key=args.features_key)
-    else:
-        data[split] = datasets.SentenceBatchingCollatedTaskDataset(
-            split_path,
-            device=cache,
-            representations_key=args.representations_key,
-            features_key=args.features_key)
+results_root = args.results_dir or env.results_dir()
+results_dir = results_root / 'hierarchy' / task
+results_dir.mkdir(exist_ok=True, parents=True)
 
 current_rank = args.max_dimension
 current_projection = None
 current_accuracy = .95
 for task in args.tasks:
+    # Load the datasets.
+    data_dir = data_root / 'ptb3/collated' / task / model / str(layer)
+    log.info('load data for from %s', data_dir)
+
+    cache = device if args.cache else None
+    data: Dict[str, datasets.CollatedTaskDataset] = {}
+    for split in splits.STANDARD_SPLITS:
+        split_path = data_dir / f'{split}.h5'
+        if args.no_batch:
+            data[split] = datasets.NonBatchingCollatedTaskDataset(
+                split_path,
+                device=cache,
+                representations_key=args.representations_key,
+                features_key=args.features_key)
+        else:
+            data[split] = datasets.SentenceBatchingCollatedTaskDataset(
+                split_path,
+                device=cache,
+                representations_key=args.representations_key,
+                features_key=args.features_key)
+
     log.info('begin search for subspace encoding %s', task)
     for project_to in range(1, current_rank + 1):
         log.info('try task %s rank %d (<= %d) probe', task, project_to,
@@ -156,26 +170,28 @@ for task in args.tasks:
             patience=args.patience,
             lr=args.lr,
             device=device)
+        wandb.log({'task': task, 'rank': project_to, 'accuracy': accuracy})
 
         done = accuracy > current_accuracy - args.accuracy_tolerance
         done |= accuracy > args.max_accuracy
         done |= project_to == current_rank
         if done:
+            # Log results.
             log.info('best rank for %s is %d (<= %d)', task, project_to,
                      current_rank)
+            wandb.summary[task] = {'rank': project_to, 'accuracy': accuracy}
+
+            # Save models.
+            model_file = results_dir / f'{task}-r{project_to}.pth'
+            log.info('writing probe to %s', model_file)
+            torch.save(probe, model_file)
+            wandb.save(model_file)
+            # TODO(evandez): Also save nullspace.
+
+            # Update state.
             current_projection = projections.Projection(
                 current_rank, project_to, compose=current_projection)
             current_rank = project_to
             current_accuracy = min(accuracy, args.max_accuracy)
 
-            model_file = args.model_dir / f'{task}.pth'
-            log.info('writing probe to %s', model_file)
-            torch.save(probe, model_file)
-            wandb.save(model_file)
-
             break
-
-    wandb.summary[task] = {
-        'rank': current_rank,
-        'accuracy': current_accuracy,
-    }
