@@ -64,11 +64,11 @@ parser.add_argument(
     '--out-dir',
     type=pathlib.Path,
     help='dir to write collated data (default: data_dir / "collated" / task)')
-parser.add_argument('--representation-model',
+parser.add_argument('--model',
                     choices=REPRESENTATION_MODELS,
                     default=ELMO,
                     help='representation model to use (default: elmo)')
-parser.add_argument('--representation-layers',
+parser.add_argument('--layers',
                     metavar='LAYER',
                     nargs='+',
                     type=int,
@@ -106,7 +106,7 @@ if out_dir is None:
 out_dir.mkdir(parents=True, exist_ok=True)
 log.info('will write collated data to directory %s', out_dir)
 
-files = splits.join(REPRESENTATION_FILES_BY_MODEL[args.representation_model],
+files = splits.join(REPRESENTATION_FILES_BY_MODEL[args.model],
                     splits.PTB_ANNOTATIONS,
                     root=data_dir)
 
@@ -121,13 +121,13 @@ for split in splits.STANDARD_SPLITS:
     annos[split] = ptb.load(files[split].annotations)
 
 dataset: datasets.TaskDataset
-layers = args.representation_layers
+layers = args.layers
 if layers is None:
-    layers = REPRESENTATION_LAYERS_BY_MODEL[args.representation_model]
+    layers = REPRESENTATION_LAYERS_BY_MODEL[args.model]
 for layer in layers:
-    layer_path = out_dir / args.representation_model / str(layer)
-    log.info('collating data for %s layer %d in directory %s',
-             args.representation_model, layer, layer_path)
+    layer_path = out_dir / args.model / str(layer)
+    log.info('collating data for %s layer %d in directory %s', args.model,
+             layer, layer_path)
     layer_path.mkdir(parents=True, exist_ok=True)
 
     for split in splits.STANDARD_SPLITS:
