@@ -2,7 +2,7 @@
 import pathlib
 from typing import Dict, Mapping, NamedTuple, Optional
 
-from lodimp.utils.typing import PathLike
+from ldp.utils.typing import PathLike
 
 # These constants define standard dataset splits for both PTB/OntoNotes.
 TRAIN = 'train'

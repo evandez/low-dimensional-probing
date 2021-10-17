@@ -2,8 +2,8 @@
 import logging
 from typing import Optional
 
-from lodimp import datasets
-from lodimp.utils.typing import Device
+from ldp import datasets
+from ldp.utils.typing import Device
 
 import torch
 import wandb

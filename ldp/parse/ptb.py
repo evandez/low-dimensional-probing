@@ -2,7 +2,7 @@
 import pathlib
 from typing import NamedTuple, Sequence
 
-from lodimp.utils.typing import PathLike
+from ldp.utils.typing import PathLike
 
 
 class Sample(NamedTuple):

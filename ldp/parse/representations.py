@@ -1,7 +1,7 @@
 """Utilities for interacting with precomputed word representations."""
 from typing import Any
 
-from lodimp.utils.typing import PathLike
+from ldp.utils.typing import PathLike
 
 import h5py
 import torch

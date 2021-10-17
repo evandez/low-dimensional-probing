@@ -1,1 +1,1 @@
-"""All unit and functional tests for LoDimP modules."""
+"""All unit and functional tests for ldp modules."""

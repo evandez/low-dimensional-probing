@@ -3,11 +3,11 @@ import argparse
 import pathlib
 from typing import Dict
 
-from lodimp import datasets, tasks
-from lodimp.models import probes, projections
-from lodimp.parse import splits
-from lodimp.tasks import pos
-from lodimp.utils import logging
+from ldp import datasets, tasks
+from ldp.models import probes, projections
+from ldp.parse import splits
+from ldp.tasks import pos
+from ldp.utils import logging
 
 import torch
 import wandb

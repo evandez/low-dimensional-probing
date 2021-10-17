@@ -2,7 +2,7 @@
 import pathlib
 import tempfile
 
-from lodimp import datasets
+from ldp import datasets
 
 import h5py
 import pytest

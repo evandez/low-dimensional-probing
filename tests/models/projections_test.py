@@ -1,5 +1,5 @@
 """Unit tests for projection module."""
-from lodimp.models import projections
+from ldp.models import projections
 
 import pytest
 import torch

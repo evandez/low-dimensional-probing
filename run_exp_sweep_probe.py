@@ -4,8 +4,8 @@ import os
 import pathlib
 import subprocess
 
-from lodimp import datasets, tasks
-from lodimp.parse import splits
+from ldp import datasets, tasks
+from ldp.parse import splits
 
 parser = argparse.ArgumentParser(description='sweep over projection rank')
 parser.add_argument('task',

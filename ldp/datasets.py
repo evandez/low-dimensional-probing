@@ -7,7 +7,7 @@ import logging
 import pathlib
 from typing import Any, Iterator, Optional, Sequence, Tuple
 
-from lodimp.utils.typing import Device, PathLike
+from ldp.utils.typing import Device, PathLike
 
 import h5py
 import torch

@@ -3,11 +3,11 @@ import logging
 import random
 from typing import Any, Iterator, Optional, Sequence, Set, Tuple, Type, Union
 
-from lodimp import datasets, learning
-from lodimp.models import probes, projections
-from lodimp.parse import ptb
-from lodimp.parse import representations as reps
-from lodimp.utils.typing import Device
+from ldp import datasets, learning
+from ldp.models import probes, projections
+from ldp.parse import ptb
+from ldp.parse import representations as reps
+from ldp.utils.typing import Device
 
 import torch
 

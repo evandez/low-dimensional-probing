@@ -2,7 +2,7 @@
 import pathlib
 import tempfile
 
-from lodimp.parse import representations
+from ldp.parse import representations
 
 import h5py
 import numpy as np

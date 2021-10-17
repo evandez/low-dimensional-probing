@@ -2,7 +2,7 @@
 import pathlib
 import tempfile
 
-from lodimp.parse import ptb
+from ldp.parse import ptb
 
 import pytest
 

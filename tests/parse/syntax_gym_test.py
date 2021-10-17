@@ -2,7 +2,7 @@
 import pathlib
 import tempfile
 
-from lodimp.parse import syntax_gym
+from ldp.parse import syntax_gym
 
 import pytest
 

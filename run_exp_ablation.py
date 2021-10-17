@@ -16,9 +16,9 @@ import dataclasses
 import pathlib
 from typing import AbstractSet, Any, Iterator, Mapping, Sequence, cast
 
-from lodimp.models import projections
-from lodimp.parse import syntax_gym
-from lodimp.utils import logging
+from ldp.models import projections
+from ldp.parse import syntax_gym
+from ldp.utils import logging
 
 import spacy
 import spacy.lang.en

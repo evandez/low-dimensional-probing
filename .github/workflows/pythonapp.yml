@@ -27,11 +27,11 @@ jobs:
     - name: isort
       run: |
         pip install isort
-        isort -c *.py lodimp tests
+        isort -c *.py ldp tests
     - name: mypy
       run: |
         pip install mypy
-        mypy *.py lodimp
+        mypy *.py ldp
     - name: pytest
       run: |
         pip install pytest pytest-mock

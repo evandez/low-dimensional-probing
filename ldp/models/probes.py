@@ -5,7 +5,7 @@ representations into a subspace.
 """
 from typing import Optional
 
-from lodimp.models import projections
+from ldp.models import projections
 
 import torch
 from torch import nn

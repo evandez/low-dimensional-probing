@@ -6,8 +6,8 @@ import sys
 import tempfile
 from typing import List
 
-from lodimp.parse import splits
-from lodimp.utils import logging
+from ldp.parse import splits
+from ldp.utils import logging
 
 from torch import cuda
 

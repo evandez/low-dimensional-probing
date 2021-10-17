@@ -2,7 +2,7 @@
 import pathlib
 import tempfile
 
-from lodimp.parse import splits
+from ldp.parse import splits
 
 import pytest
 

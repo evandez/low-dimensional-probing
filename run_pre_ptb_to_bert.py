@@ -5,8 +5,8 @@ import pathlib
 import shutil
 from typing import List
 
-from lodimp.parse import splits
-from lodimp.utils import logging
+from ldp.parse import splits
+from ldp.utils import logging
 
 import h5py
 import numpy as np

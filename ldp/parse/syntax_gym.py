@@ -4,7 +4,7 @@ import json
 import pathlib
 from typing import Mapping, Sequence
 
-from lodimp.utils.typing import PathLike
+from ldp.utils.typing import PathLike
 
 
 @dataclasses.dataclass(frozen=True)
