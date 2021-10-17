@@ -36,7 +36,6 @@ parser.add_argument('--cache',
                     action='store_true',
                     help='cache entire dataset in memory/GPU')
 parser.add_argument('--device', help='use this device (default: guessed)')
-parser.add_argument('--wandb-id', help='experiment ID, use carefully!')
 parser.add_argument('--wandb-group',
                     default='axis-alignment',
                     help='experiment group (default: axis-alignment)')
@@ -70,10 +69,7 @@ if args.task not in (tasks.PART_OF_SPEECH_TAGGING,
     raise ValueError(f'unsupported task: {args.task}')
 
 # Set up environment. Do not set config yet, as we have to read the probe.
-wandb.init(project='lodimp',
-           id=args.wandb_id,
-           name=args.wandb_name,
-           group=args.wandb_group)
+wandb.init(project='lodimp', name=args.wandb_name, group=args.wandb_group)
 
 logging.configure()
 log = logging.getLogger(__name__)

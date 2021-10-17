@@ -67,7 +67,6 @@ parser.add_argument(
 parser.add_argument('--features-key',
                     default=datasets.DEFAULT_H5_FEATURES_KEY,
                     help='key for features dataset in h5 file (default: tags)')
-parser.add_argument('--wandb-id', help='experiment ID, use carefully')
 parser.add_argument('--wandb-group',
                     default='hierarchy',
                     help='experiment group (default: hierarchy)')
@@ -85,7 +84,6 @@ args = parser.parse_args()
 
 args.model_dir.mkdir(parents=True, exist_ok=True)
 wandb.init(project='lodimp',
-           id=args.wandb_id,
            name=args.wandb_name,
            group=args.wandb_group,
            config={

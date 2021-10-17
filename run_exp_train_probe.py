@@ -91,7 +91,6 @@ parser.add_argument(
 parser.add_argument('--features-key',
                     default=datasets.DEFAULT_H5_FEATURES_KEY,
                     help='key for features dataset in h5 file (default: tags)')
-parser.add_argument('--wandb-id', help='experiment ID, use carefully')
 parser.add_argument('--wandb-name',
                     help='experiment name (default: wandb default)')
 parser.add_argument('--wandb-group',
@@ -116,7 +115,6 @@ if args.task == tasks.PART_OF_SPEECH_TAGGING and args.share_projection:
 
 # Configure wandb immediately.
 wandb.init(project='lodimp',
-           id=args.wandb_id,
            name=args.wandb_name,
            group=args.wandb_group,
            config={

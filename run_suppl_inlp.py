@@ -56,7 +56,6 @@ parser.add_argument('--no-batch',
 parser.add_argument('--cache',
                     action='store_true',
                     help='cache entire dataset in memory/GPU')
-parser.add_argument('--wandb-id', help='experiment ID, use carefully')
 parser.add_argument('--wandb-group',
                     default='inlp',
                     help='experiment group (default: inlp)')
@@ -76,7 +75,6 @@ parser.add_argument('--features-key',
 args = parser.parse_args()
 
 wandb.init(project='lodimp',
-           id=args.wandb_id,
            name=args.wandb_name,
            group=args.wandb_group,
            reinit=True,
