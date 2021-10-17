@@ -24,9 +24,6 @@ parser = argparse.ArgumentParser(description='run axis alignment experiments')
 parser.add_argument('probe_file',
                     type=pathlib.Path,
                     help='probe to compute axis alignment scores for')
-parser.add_argument('--linear',
-                    action='store_const',
-                    help='use linear probe (default: mlp)')
 parser.add_argument('--task',
                     default=tasks.PART_OF_SPEECH_TAGGING,
                     choices=(tasks.PART_OF_SPEECH_TAGGING,
