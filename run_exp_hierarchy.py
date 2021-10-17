@@ -22,7 +22,7 @@ parser.add_argument(
 parser.add_argument(
     '--results-dir',
     type=pathlib.Path,
-    help='dir to write trained probes (default: results/probes)')
+    help='dir to write trained probes (default: project results dir)')
 parser.add_argument('--linear',
                     action='store_true',
                     help='use linear probe (default: mlp)')
@@ -75,7 +75,7 @@ parser.add_argument('--wandb-group',
                     default='hierarchy',
                     help='experiment group (default: hierarchy)')
 parser.add_argument('--wandb-name',
-                    help='experiment name (default: concat\'d task names)')
+                    help='experiment name (default: generated)')
 parser.add_argument('--no-batch',
                     action='store_true',
                     help='store entire dataset in RAM/GPU and do not batch it')

@@ -93,9 +93,9 @@ parser.add_argument('--features-key',
                     default=datasets.DEFAULT_H5_FEATURES_KEY,
                     help='key for features dataset in h5 file (default: tags)')
 parser.add_argument('--wandb-name',
-                    help='experiment name (default: wandb default)')
+                    help='experiment name (default: generated)')
 parser.add_argument('--wandb-group',
-                    help='experiment group (default: wandb default)')
+                    help='experiment group (default: generated)')
 parser.add_argument('--no-batch',
                     action='store_true',
                     help='store entire dataset in RAM/GPU and do not batch it')
@@ -117,32 +117,34 @@ layer = args.layer
 project_to = args.project_to
 
 # Configure wandb immediately.
-wandb.init(project='lodimp',
-           name=args.wandb_name,
-           group=args.wandb_group,
-           config={
-               'task': task,
-               'representations': {
-                   'model': model,
-                   'layer': layer,
-               },
-               'projection': {
-                   'dimension':
-                       project_to,
-                   'shared': (task != tasks.PART_OF_SPEECH_TAGGING and
-                              args.share_projection),
-               },
-               'probe': {
-                   'model': args.probe_type,
-               },
-               'hyperparameters': {
-                   'epochs': args.epochs,
-                   'batched': not args.no_batch,
-                   'cached': args.cache,
-                   'lr': args.lr,
-                   'patience': args.patience,
-               },
-           })
+wandb.init(
+    project='lodimp',
+    name=args.wandb_name or
+    f'{model}-l{layer}-{"full" if project_to is None else f"r{project_to}"}',
+    group=args.wandb_group or task,
+    config={
+        'task': task,
+        'representations': {
+            'model': model,
+            'layer': layer,
+        },
+        'projection': {
+            'dimension':
+                project_to,
+            'shared': (task != tasks.PART_OF_SPEECH_TAGGING and
+                       args.share_projection),
+        },
+        'probe': {
+            'model': args.probe_type,
+        },
+        'hyperparameters': {
+            'epochs': args.epochs,
+            'batched': not args.no_batch,
+            'cached': args.cache,
+            'lr': args.lr,
+            'patience': args.patience,
+        },
+    })
 
 if args.task == tasks.PART_OF_SPEECH_TAGGING and args.share_projection:
     raise ValueError('cannot set --share-projection when task is "pos"')
