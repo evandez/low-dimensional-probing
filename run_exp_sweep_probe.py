@@ -6,6 +6,7 @@ import subprocess
 
 from ldp import datasets, tasks
 from ldp.parse import splits
+from ldp.utils import env
 
 parser = argparse.ArgumentParser(description='sweep over projection rank')
 parser.add_argument('task',
@@ -13,7 +14,14 @@ parser.add_argument('task',
                              tasks.DEPENDENCY_LABEL_PREDICTION,
                              tasks.DEPENDENCY_EDGE_PREDICTION),
                     help='linguistic task')
-parser.add_argument('data_dir', type=pathlib.Path, help='data directory')
+parser.add_argument(
+    '--data-dir',
+    type=pathlib.Path,
+    help='root dir containing data (default: project data dir)')
+parser.add_argument(
+    '--results-dir',
+    type=pathlib.Path,
+    help='root dir to write finished probes (default: project results dir)')
 parser.add_argument('--linear',
                     action='store_true',
                     help='use linear probe (default: mlp)')
@@ -36,11 +44,11 @@ parser.add_argument('--share-projection',
                     action='store_true',
                     help='when combining reps, project both with same matrix; '
                     'cannot be used if task is "pos"')
-parser.add_argument('--representation-model',
+parser.add_argument('--model',
                     choices=('elmo', 'bert', 'bert-random'),
                     default='elmo',
                     help='representations to probe (default: elmo)')
-parser.add_argument('--representation-layers',
+parser.add_argument('--layers',
                     nargs='+',
                     type=int,
                     help='representation layers (default: all)')
@@ -56,11 +64,6 @@ parser.add_argument(
     type=int,
     help='stop training if dev loss does not improve for this many epochs '
     '(default: see run_exp_train_probe.py)')
-parser.add_argument(
-    '--model-dir',
-    type=pathlib.Path,
-    default='results/sweep/probes',
-    help='dir to write finished probes (default: results/sweep/probes)')
 parser.add_argument('--representations-key',
                     help='key for representations dataset in h5 file '
                     '(default: see run_exp_train_probe.py)')
@@ -80,20 +83,23 @@ parser.add_argument(
 args = parser.parse_args()
 
 # Resolve layers for model.
-model = args.representation_model
-model_dir = args.data_dir / model
+task = args.task
+model = args.model
+data_dir = args.data_dir or env.data_dir()
+model_dir = data_dir / 'ptb3/collated' / task / model
 if not model_dir.exists():
-    raise FileNotFoundError(f'no collated data for model: {model}')
+    raise FileNotFoundError(f'expected model data at {model_dir}; '
+                            'did you forget to run ')
 
-layers = args.representation_layers
+layers = args.layers
 if layers is None:
     layers = [child.name for child in model_dir.iterdir() if child.is_dir()]
     if not layers:
         raise ValueError(f'no layer data for model: {model}')
 
 # Load a small subset of the data to determine representation size.
-data_dir = args.data_dir / model / str(layers[0])
-dataset = datasets.CollatedTaskDataset(data_dir / f'{splits.DEV}.h5')
+layer_dir = model_dir / str(layers[0])
+dataset = datasets.CollatedTaskDataset(layer_dir / f'{splits.DEV}.h5')
 
 # Determine the ranks we will sweep over.
 d_min = args.d_min
@@ -113,7 +119,7 @@ if d_max > d_step_exp_after:
 # Generate a wandb group if necessary.
 wandb_group = args.wandb_group
 if wandb_group is None:
-    wandb_group = args.data_dir.name
+    wandb_group = f'sweep-{task}'
 
 # Start training!
 for layer in sorted(layers, key=int):
@@ -121,16 +127,13 @@ for layer in sorted(layers, key=int):
         command = [
             'python3',
             'run_exp_train_probe.py',
-            args.task,
-            str(args.data_dir),
-            '--representation-model',
+            task,
+            '--model',
             model,
-            '--representation-layer',
+            '--layer',
             str(layer),
             '--project-to',
             str(rank),
-            '--model-dir',
-            str(args.model_dir / model / f'layer-{layer}/rank-{rank}'),
             '--wandb-group',
             wandb_group,
             '--wandb-name',
@@ -150,6 +153,8 @@ for layer in sorted(layers, key=int):
 
         # Non-boolean flags.
         for flag, value in (
+            ('--data-dir', args.data_dir),
+            ('--results-dir', args.results_dir),
             ('--lr', args.lr),
             ('--epochs', args.epochs),
             ('--patience', args.patience),

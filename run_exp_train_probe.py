@@ -12,7 +12,7 @@ from ldp import datasets, tasks
 from ldp.models import probes, projections
 from ldp.parse import splits
 from ldp.tasks import dep, dlp, pos
-from ldp.utils import linalg, logging
+from ldp.utils import env, linalg, logging
 
 import torch
 import wandb
@@ -42,7 +42,6 @@ parser.add_argument('task',
                              tasks.DEPENDENCY_LABEL_PREDICTION,
                              tasks.DEPENDENCY_EDGE_PREDICTION),
                     help='linguistic task')
-parser.add_argument('data_dir', type=pathlib.Path, help='data directory')
 parser.add_argument('--linear',
                     action='store_const',
                     dest='probe_type',
@@ -57,11 +56,11 @@ parser.add_argument('--share-projection',
                     action='store_true',
                     help='when combining reps, project both with same matrix; '
                     'cannot be used if task is "pos"')
-parser.add_argument('--representation-model',
+parser.add_argument('--model',
                     choices=('elmo', 'bert', 'bert-random'),
                     default='elmo',
                     help='representations to probe (default: elmo)')
-parser.add_argument('--representation-layer',
+parser.add_argument('--layer',
                     type=int,
                     default=0,
                     help='representation layer (default: 0)')
@@ -79,11 +78,13 @@ parser.add_argument(
     default=4,
     help='stop training if dev loss does not improve for this many epochs '
     '(default: 4)')
+parser.add_argument('--data-dir',
+                    type=pathlib.Path,
+                    help='data directory (default: project data dir)')
 parser.add_argument(
-    '--model-dir',
+    '--results-dir',
     type=pathlib.Path,
-    default='results/probes',
-    help='directory to write finished probe (default: results/probe)')
+    help='directory to write finished probe (default: project results dir)')
 parser.add_argument(
     '--representations-key',
     default=datasets.DEFAULT_H5_REPRESENTATIONS_KEY,
@@ -110,23 +111,25 @@ parser.add_argument('--quiet',
                     help='only log warnings and above')
 args = parser.parse_args()
 
-if args.task == tasks.PART_OF_SPEECH_TAGGING and args.share_projection:
-    raise ValueError('cannot set --share-projection when task is "pos"')
+task = args.task
+model = args.model
+layer = args.layer
+project_to = args.project_to
 
 # Configure wandb immediately.
 wandb.init(project='lodimp',
            name=args.wandb_name,
            group=args.wandb_group,
            config={
-               'task': args.task,
+               'task': task,
                'representations': {
-                   'model': args.representation_model,
-                   'layer': args.representation_layer,
+                   'model': model,
+                   'layer': layer,
                },
                'projection': {
                    'dimension':
-                       args.project_to,
-                   'shared': (args.task != tasks.PART_OF_SPEECH_TAGGING and
+                       project_to,
+                   'shared': (task != tasks.PART_OF_SPEECH_TAGGING and
                               args.share_projection),
                },
                'probe': {
@@ -141,7 +144,8 @@ wandb.init(project='lodimp',
                },
            })
 
-args.model_dir.mkdir(parents=True, exist_ok=True)
+if args.task == tasks.PART_OF_SPEECH_TAGGING and args.share_projection:
+    raise ValueError('cannot set --share-projection when task is "pos"')
 
 logging.configure(level=args.log_level)
 log = logging.getLogger(__name__)
@@ -149,11 +153,19 @@ log = logging.getLogger(__name__)
 device = args.device or 'cuda' if cuda.is_available() else 'cpu'
 log.info('using %s', device)
 
-# Load the datasets.
-model, layer = args.representation_model, args.representation_layer
-data_dir = args.data_dir / model / str(layer)
-cache = device if args.cache else None
+# Prepare results/data directories.
+data_root = args.data_dir or env.data_dir()
+data_dir = data_root / 'ptb3/collated' / model / str(layer) / task
 
+results_root = args.results_dir or env.results_dir()
+results_dir = results_root / 'train-probe'
+results_dir /= 'linear' if args.linear else 'mlp'
+results_dir /= f'{task}/{model}/l{layer}'
+results_dir /= f'r{project_to}' if project_to is not None else 'full'
+results_dir.mkdir(parents=True, exist_ok=True)
+
+# Load the datasets.
+cache = device if args.cache else None
 data: Dict[str, datasets.CollatedTaskDataset] = {}
 for split in splits.STANDARD_SPLITS:
     split_file = data_dir / f'{split}.h5'
@@ -214,7 +226,7 @@ elif task == tasks.DEPENDENCY_EDGE_PREDICTION:
 else:
     raise ValueError(f'unknown task: {task}')
 
-probe_file = args.model_dir / 'probe.pth'
+probe_file = args.results_dir / 'probe.pth'
 log.info('saving probe to %s', probe_file)
 torch.save(probe, probe_file)
 wandb.save(str(probe_file))
@@ -229,7 +241,7 @@ if task == tasks.PART_OF_SPEECH_TAGGING and probe.project is not None:
     eye = torch.eye(len(rowspace), device=device)
     nullspace.project.weight.data[:] = eye - rowspace
 
-    nullspace_file = args.model_dir / 'nullspace.pth'
+    nullspace_file = results_dir / 'nullspace.pth'
     log.info('saving nullspace to %s', nullspace_file)
     torch.save(nullspace, nullspace_file)
     wandb.save(str(nullspace_file))
