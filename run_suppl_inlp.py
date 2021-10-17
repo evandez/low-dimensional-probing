@@ -71,13 +71,6 @@ parser.add_argument('--wandb-group',
                     help='experiment group (default: inlp)')
 parser.add_argument('--wandb-name',
                     help='experiment name (default: generated)')
-parser.add_argument(
-    '--representations-key',
-    default=datasets.DEFAULT_H5_REPRESENTATIONS_KEY,
-    help='key for representations dataset in h5 file (default: reps)')
-parser.add_argument('--features-key',
-                    default=datasets.DEFAULT_H5_FEATURES_KEY,
-                    help='key for features dataset in h5 file (default: tags)')
 args = parser.parse_args()
 
 task = args.task
@@ -126,17 +119,11 @@ data: Dict[str, datasets.CollatedTaskDataset] = {}
 for split in splits.STANDARD_SPLITS:
     split_path = data_root / f'{split}.h5'
     if args.no_batch:
-        data[split] = datasets.NonBatchingCollatedTaskDataset(
-            split_path,
-            device=cache,
-            representations_key=args.representations_key,
-            features_key=args.features_key)
+        data[split] = datasets.NonBatchingCollatedTaskDataset(split_path,
+                                                              device=cache)
     else:
         data[split] = datasets.SentenceBatchingCollatedTaskDataset(
-            split_path,
-            device=cache,
-            representations_key=args.representations_key,
-            features_key=args.features_key)
+            split_path, device=cache)
 
 nullspace = pos.inlp(
     data[splits.TRAIN],

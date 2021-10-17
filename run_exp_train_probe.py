@@ -85,13 +85,6 @@ parser.add_argument(
     '--results-dir',
     type=pathlib.Path,
     help='directory to write finished probe (default: project results dir)')
-parser.add_argument(
-    '--representations-key',
-    default=datasets.DEFAULT_H5_REPRESENTATIONS_KEY,
-    help='key for representations dataset in h5 file (default: reps)')
-parser.add_argument('--features-key',
-                    default=datasets.DEFAULT_H5_FEATURES_KEY,
-                    help='key for features dataset in h5 file (default: tags)')
 parser.add_argument('--wandb-name',
                     help='experiment name (default: generated)')
 parser.add_argument('--wandb-group',
@@ -172,17 +165,11 @@ data: Dict[str, datasets.CollatedTaskDataset] = {}
 for split in splits.STANDARD_SPLITS:
     split_file = data_dir / f'{split}.h5'
     if args.no_batch:
-        data[split] = datasets.NonBatchingCollatedTaskDataset(
-            split_file,
-            device=cache,
-            representations_key=args.representations_key,
-            features_key=args.features_key)
+        data[split] = datasets.NonBatchingCollatedTaskDataset(split_file,
+                                                              device=cache)
     else:
         data[split] = datasets.SentenceBatchingCollatedTaskDataset(
-            split_file,
-            device=cache,
-            representations_key=args.representations_key,
-            features_key=args.features_key)
+            split_file, device=cache)
 
 # Start training!
 probe: nn.Module

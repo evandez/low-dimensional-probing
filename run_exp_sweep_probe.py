@@ -1,4 +1,4 @@
-"""Forward to `run_exp_train_probe`, sweeping over projection ranks."""
+"""Forward to `run_exp_train_probe.py`, sweeping over projection ranks."""
 import argparse
 import os
 import pathlib
@@ -64,12 +64,6 @@ parser.add_argument(
     type=int,
     help='stop training if dev loss does not improve for this many epochs '
     '(default: see run_exp_train_probe.py)')
-parser.add_argument('--representations-key',
-                    help='key for representations dataset in h5 file '
-                    '(default: see run_exp_train_probe.py)')
-parser.add_argument('--features-key',
-                    help='key for features dataset in h5 file '
-                    '(default: tags)')
 parser.add_argument('--wandb-group',
                     help='experiment group (default: generated)')
 parser.add_argument('--no-batch',
@@ -119,7 +113,7 @@ if d_max > d_step_exp_after:
 # Generate a wandb group if necessary.
 wandb_group = args.wandb_group
 if wandb_group is None:
-    wandb_group = f'sweep-{task}'
+    wandb_group = f'{task}'
 
 # Start training!
 for layer in sorted(layers, key=int):
@@ -158,8 +152,6 @@ for layer in sorted(layers, key=int):
             ('--lr', args.lr),
             ('--epochs', args.epochs),
             ('--patience', args.patience),
-            ('--representations-key', args.representations_key),
-            ('--features-key', args.features_key),
             ('--device', args.device),
         ):
             if value is not None:

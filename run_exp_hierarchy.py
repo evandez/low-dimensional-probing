@@ -64,13 +64,6 @@ parser.add_argument(
     default=4,
     help='stop training if dev loss does not improve for this many epochs '
     '(default: 4)')
-parser.add_argument(
-    '--representations-key',
-    default=datasets.DEFAULT_H5_REPRESENTATIONS_KEY,
-    help='key for representations dataset in h5 file (default: reps)')
-parser.add_argument('--features-key',
-                    default=datasets.DEFAULT_H5_FEATURES_KEY,
-                    help='key for features dataset in h5 file (default: tags)')
 parser.add_argument('--wandb-group',
                     default='hierarchy',
                     help='experiment group (default: hierarchy)')
@@ -143,17 +136,11 @@ for task in args.tasks:
     for split in splits.STANDARD_SPLITS:
         split_path = data_dir / f'{split}.h5'
         if args.no_batch:
-            data[split] = datasets.NonBatchingCollatedTaskDataset(
-                split_path,
-                device=cache,
-                representations_key=args.representations_key,
-                features_key=args.features_key)
+            data[split] = datasets.NonBatchingCollatedTaskDataset(split_path,
+                                                                  device=cache)
         else:
             data[split] = datasets.SentenceBatchingCollatedTaskDataset(
-                split_path,
-                device=cache,
-                representations_key=args.representations_key,
-                features_key=args.features_key)
+                split_path, device=cache)
 
     log.info('begin search for subspace encoding %s', task)
     for project_to in range(1, current_rank + 1):
