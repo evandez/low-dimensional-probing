@@ -16,8 +16,8 @@ Indeed, for sufficiently small datasets like PTB, we can load the entire
 collated dataset into GPU memory and skip batching for an absurd performance
 increase.
 
-All downstream commands, like `lodimp train`, assume the data is provided
-in the collated format output by this command.
+All downstream experiments assume the data is provided in the collated format
+output by this command.
 '''
 
 PART_OF_SPEECH_SUBTASKS = {

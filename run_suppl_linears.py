@@ -92,14 +92,10 @@ for config in CONFIGS:
     command = ['python3', 'run_exp_train_probe.py']
     command += ['--linear']
     command += ['--cache']
-    command += ['--representation-model', config.model]
-    command += ['--representation-layer', str(config.layer)]
+    command += ['--model', config.model]
+    command += ['--layer', str(config.layer)]
     command += ['--project-to', str(config.dimension)]
     command += ['--wandb-group', 'linear']
-    command += [
-        '--wandb-name',
-        f'{config.model}{config.layer}-{config.dimension}d-{config.task}'
-    ]
 
     # Task-dependent runtime settings.
     if config.task not in (DEP, DEPC):

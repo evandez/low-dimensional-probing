@@ -11,19 +11,29 @@ from typing import Dict
 from ldp import datasets
 from ldp.parse import splits
 from ldp.tasks import pos
-from ldp.utils import logging
+from ldp.utils import env, logging
 
 import torch
 import wandb
 from torch import cuda
 
-parser = argparse.ArgumentParser()
-parser.add_argument('data_dir', type=pathlib.Path, help='data directory')
-parser.add_argument('--representation-model',
+parser = argparse.ArgumentParser(description='run inlp')
+parser.add_argument('task',
+                    choices=('pos', 'pos-verb', 'pos-noun'),
+                    help='task to run inlp on')
+parser.add_argument(
+    '--data-dir',
+    type=pathlib.Path,
+    help='root dir containing data (default: project data dir)')
+parser.add_argument(
+    '--results-dir',
+    type=pathlib.Path,
+    help='root dir to write inlp results (default: project results dir)')
+parser.add_argument('--model',
                     choices=('elmo', 'bert', 'bert-random'),
                     default='bert',
                     help='representations to probe (default: bert)')
-parser.add_argument('--representation-layer',
+parser.add_argument('--layer',
                     type=int,
                     default=0,
                     help='representation layer (default: 0)')
@@ -61,10 +71,6 @@ parser.add_argument('--wandb-group',
                     help='experiment group (default: inlp)')
 parser.add_argument('--wandb-name',
                     help='experiment name (default: generated)')
-parser.add_argument('--model-path',
-                    type=pathlib.Path,
-                    default='results/probes/inlp',
-                    help='directory to write nullspace projection.')
 parser.add_argument(
     '--representations-key',
     default=datasets.DEFAULT_H5_REPRESENTATIONS_KEY,
@@ -74,15 +80,19 @@ parser.add_argument('--features-key',
                     help='key for features dataset in h5 file (default: tags)')
 args = parser.parse_args()
 
+task = args.task
+model = args.model
+layer = args.layer
+
 wandb.init(project='ldp',
-           name=args.wandb_name,
+           name=args.wandb_name or f'{task}-{model}-l{layer}',
            group=args.wandb_group,
            reinit=True,
            config={
-               'task': 'pos',
+               'task': task,
                'representations': {
-                   'model': args.representation_model,
-                   'layer': args.representation_layer,
+                   'model': args.model,
+                   'layer': args.layer,
                },
                'projection': {
                    'dimension': args.project_to,
@@ -104,13 +114,14 @@ log = logging.getLogger(__name__)
 device = args.device or 'cuda' if cuda.is_available() else 'cpu'
 log.info('using %s', device)
 
-args.model_path.parent.mkdir(parents=True, exist_ok=True)
+data_root = args.data_dir or env.data_dir()
+data_dir = data_root / 'ptb3/collated' / task / model / str(layer)
 
-representation_model = args.representation_model
-representation_layer = args.representation_layer
-data_root = args.data_dir / representation_model / str(representation_layer)
+results_root = args.results_dir or env.results_dir()
+results_dir = results_root / 'inlp' / task
+results_dir.mkdir(exist_ok=True, parents=True)
+
 cache = device if args.cache else None
-
 data: Dict[str, datasets.CollatedTaskDataset] = {}
 for split in splits.STANDARD_SPLITS:
     split_path = data_root / f'{split}.h5'
@@ -140,6 +151,7 @@ nullspace = pos.inlp(
     also_log_to_wandb=True,
 )
 
-log.info('saving projection to %s', args.model_path)
-torch.save(nullspace, args.model_path)
-wandb.save(str(args.model_path))
+nullspace_file = results_dir / 'nullspace.pth'
+log.info('saving projection to %s', nullspace_file)
+torch.save(nullspace, nullspace_file)
+wandb.save(str(nullspace_file))
