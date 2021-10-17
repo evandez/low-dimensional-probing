@@ -74,7 +74,7 @@ parser.add_argument('--features-key',
                     help='key for features dataset in h5 file (default: tags)')
 args = parser.parse_args()
 
-wandb.init(project='lodimp',
+wandb.init(project='ldp',
            name=args.wandb_name,
            group=args.wandb_group,
            reinit=True,

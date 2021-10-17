@@ -90,7 +90,7 @@ model = args.model
 layer = args.layer
 project_to = args.project_to
 
-wandb.init(project='lodimp',
+wandb.init(project='ldp',
            name=args.wandb_name or task,
            group=args.wandb_group,
            config={

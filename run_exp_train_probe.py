@@ -118,7 +118,7 @@ project_to = args.project_to
 
 # Configure wandb immediately.
 wandb.init(
-    project='lodimp',
+    project='ldp',
     name=args.wandb_name or
     f'{model}-l{layer}-{"full" if project_to is None else f"r{project_to}"}',
     group=args.wandb_group or task,

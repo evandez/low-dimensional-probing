@@ -311,7 +311,7 @@ class SyntaxGymEvaluator:
             yield self.item(item)
 
 
-wandb.init(project='lodimp', name=args.wandb_name, group=args.wandb_group)
+wandb.init(project='ldp', name=args.wandb_name, group=args.wandb_group)
 
 logging.configure()
 log = logging.getLogger(__name__)
