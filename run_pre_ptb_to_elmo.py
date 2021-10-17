@@ -7,7 +7,7 @@ import tempfile
 from typing import List
 
 from ldp.parse import splits
-from ldp.utils import logging
+from ldp.utils import env, logging
 
 from torch import cuda
 
@@ -28,12 +28,13 @@ OPTIONS_URL = f'{ELMO_URL}/{ELMO_MODEL}/{OPTIONS_FILE}'
 
 parser = argparse.ArgumentParser(description='pre-embed sentences with elmo',
                                  epilog=EPILOG)
-parser.add_argument('data_dir',
-                    type=pathlib.Path,
-                    help='dir containing ptb .conll(x) files')
+parser.add_argument(
+    '--data-dir',
+    type=pathlib.Path,
+    help='dir containing ptb3 .conll(x) files (default: project data dir)')
 parser.add_argument('--out-dir',
                     type=pathlib.Path,
-                    help='output dir (default: data_dir)')
+                    help='output dir (default: same as data dir)')
 parser.add_argument('--word-column',
                     type=int,
                     default=1,
@@ -48,7 +49,7 @@ args = parser.parse_args()
 logging.configure()
 log = logging.getLogger(__name__)
 
-data_dir = args.data_dir
+data_dir = args.data_dir or (env.data_dir() / 'ptb3')
 if not data_dir.exists():
     raise FileNotFoundError(f'data dir {data_dir} not found')
 out_dir = args.out_dir or data_dir

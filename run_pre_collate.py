@@ -6,7 +6,7 @@ import pathlib
 from ldp import datasets, tasks
 from ldp.parse import ptb, representations, splits
 from ldp.tasks import dep, dlp, pos
-from ldp.utils import logging
+from ldp.utils import env, logging
 
 EPILOG = '''\
 This command reads representations and linguistic annotations from disk,
@@ -56,10 +56,14 @@ parser.add_argument('task',
                              tasks.DEPENDENCY_LABEL_PREDICTION,
                              tasks.DEPENDENCY_EDGE_PREDICTION),
                     help='task to collate reps for')
-parser.add_argument('data_dir', type=pathlib.Path, help='data dir')
-parser.add_argument('--out-dir',
-                    type=pathlib.Path,
-                    help='output dir (default: data_dir / "collated" / task)')
+parser.add_argument(
+    '--data-dir',
+    type=pathlib.Path,
+    help='dir containing ptb3 files and reps (default: project data dir)')
+parser.add_argument(
+    '--out-dir',
+    type=pathlib.Path,
+    help='dir to write collated data (default: data_dir / "collated" / task)')
 parser.add_argument('--representation-model',
                     choices=REPRESENTATION_MODELS,
                     default=ELMO,
@@ -91,7 +95,7 @@ if args.task == tasks.PART_OF_SPEECH_TAGGING:
 elif args.subtask:
     raise ValueError('cannot set --subtask when task != "pos"')
 
-data_dir = args.data_dir
+data_dir = args.data_dir or (env.data_dir() / 'ptb3/collated' / args.task)
 if not data_dir.exists():
     raise ValueError(f'data dir not found: {data_dir}')
 

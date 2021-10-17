@@ -6,7 +6,7 @@ import shutil
 from typing import List
 
 from ldp.parse import splits
-from ldp.utils import logging
+from ldp.utils import env, logging
 
 import h5py
 import numpy as np
@@ -16,9 +16,10 @@ from torch import cuda
 from tqdm.auto import tqdm
 
 parser = argparse.ArgumentParser(description='pre-embed sentences with bert')
-parser.add_argument('data_dir',
-                    type=pathlib.Path,
-                    help='dir containing .conll(x) files')
+parser.add_argument(
+    '--data-dir',
+    type=pathlib.Path,
+    help='dir containing ptb3 conll(x) files (default: project data dir)')
 parser.add_argument('--out-dir',
                     type=pathlib.Path,
                     help='output dir (default: data_dir)')
@@ -39,7 +40,7 @@ parser.add_argument('--splits',
 parser.add_argument('--device', help='use this device (default: guessed)')
 args = parser.parse_args()
 
-data_dir = args.data_dir
+data_dir = args.data_dir or (env.data_dir() / 'ptb3')
 if not data_dir.exists():
     raise FileNotFoundError(f'data dir {data_dir} not found')
 out_dir = args.out_dir or data_dir
