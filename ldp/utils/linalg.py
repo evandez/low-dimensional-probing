@@ -66,3 +66,18 @@ def rowspace(matrix: torch.Tensor) -> torch.Tensor:
         orth = linalg.orth(matrix.t().detach().cpu().numpy())
         basis = matrix.new_tensor(orth)
     return basis.mm(basis.t())
+
+
+def nullspace(matrix: torch.Tensor) -> torch.Tensor:
+    """Compute the nullspace of the given matrix.
+
+    Args:
+        matrix (torch.Tensor): Shape (m, n) matrix to compute nullspace for.
+
+    Returns:
+        torch.Tensor: Shape (n, n) projection onto the nullspace.
+
+    """
+    rs = rowspace(matrix)
+    eye = torch.eye(len(rs), device=matrix.device)
+    return eye - rs

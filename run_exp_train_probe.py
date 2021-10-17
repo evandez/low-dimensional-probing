@@ -12,7 +12,7 @@ from ldp import datasets, tasks
 from ldp.models import probes, projections
 from ldp.parse import splits
 from ldp.tasks import dep, dlp, pos
-from ldp.utils import env, linalg, logging
+from ldp.utils import env, logging
 
 import torch
 import wandb
@@ -233,15 +233,17 @@ log.info('saving probe to %s', probe_file)
 torch.save(probe, probe_file)
 wandb.save(str(probe_file))
 
+proj_file = args.results_dir / 'projection.pth'
+log.info('saving projection to %s', proj_file)
+torch.save(probe.project, proj_file)
+wandb.save(str(proj_file))
+
 # For convenience, compute POS nullspaces for downstream testing.
 if task == tasks.PART_OF_SPEECH_TAGGING and probe.project is not None:
     log.info('task is pos, so computing projection nullspace')
     projection = probe.project
     assert isinstance(projection, projections.Projection)
-    rowspace = linalg.rowspace(projection.project.weight.data)
-    nullspace = projections.Projection(*rowspace.shape)
-    eye = torch.eye(len(rowspace), device=device)
-    nullspace.project.weight.data[:] = eye - rowspace
+    nullspace = projection.nullspace()
 
     nullspace_file = results_dir / 'nullspace.pth'
     log.info('saving nullspace to %s', nullspace_file)

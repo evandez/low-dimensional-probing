@@ -1,6 +1,8 @@
 """Defines linear projections."""
 from typing import Optional, Tuple
 
+from ldp.utils import linalg
+
 import torch
 from torch import nn
 
@@ -72,6 +74,13 @@ class Projection(nn.Module):
                 inputs = self.compose(inputs)
 
         return self.project(inputs)
+
+    def nullspace(self) -> 'Projection':
+        """Return a projection on the nullspace of this projection."""
+        nullspace = linalg.nullspace(self.project.weight.data)
+        projection = Projection(*nullspace.shape)
+        projection.project.weight.data[:] = nullspace
+        return projection
 
 
 class PairwiseProjection(nn.Module):

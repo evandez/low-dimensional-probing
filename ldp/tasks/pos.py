@@ -416,7 +416,7 @@ def inlp(train_dataset: datasets.TaskDataset,
 
     def get_nullspace_projection() -> torch.Tensor:
         """Return the current nullspace projection."""
-        return eye - linalg.rowspace(sum(rowspaces, zero))
+        return linalg.nullspace(sum(rowspaces, zero))
 
     for attempt in range(attempts):
         nullspace = None

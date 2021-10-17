@@ -12,7 +12,7 @@ PROJ_FEATURES = 50
 
 @pytest.fixture
 def proj():
-    """Returns a projetion for testing."""
+    """Return a projetion for testing."""
     return projections.Projection(IN_FEATURES, PROJ_FEATURES)
 
 
@@ -69,9 +69,16 @@ def test_projection_forward_bad_in_features(proj):
         proj(inputs)
 
 
+def test_projection_nullspace(proj):
+    """Test Projection.nullspace returns projection with correct shape."""
+    actual = proj.nullspace()
+    assert actual.in_features == IN_FEATURES
+    assert actual.out_features == IN_FEATURES
+
+
 @pytest.fixture
 def pairwise_proj(proj):
-    """Returns a PairwiseProjection for testing."""
+    """Return a PairwiseProjection for testing."""
     return projections.PairwiseProjection(
         proj,
         right=projections.Projection(IN_FEATURES, PROJ_FEATURES),

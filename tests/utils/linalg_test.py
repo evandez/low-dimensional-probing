@@ -35,3 +35,15 @@ def test_rowspace_close_to_zero():
     matrix = torch.ones(10, 10) / 1e10
     actual = linalg.rowspace(matrix)
     assert actual.equal(torch.zeros_like(actual))
+
+
+def test_nullspace():
+    """Test nullspace returns projection onto nullspace."""
+    matrix = torch.tensor([[3., 1., 0.], [0., 2., 0.], [1., 0., 0.]])
+
+    expected = torch.zeros(3, 3)
+    expected[-1, -1] = 1
+
+    actual = linalg.nullspace(matrix)
+    assert actual.allclose(expected, atol=1e-6)
+    assert actual.mm(actual).allclose(actual, atol=1e-6)
