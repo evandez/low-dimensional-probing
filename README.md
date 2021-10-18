@@ -1,17 +1,19 @@
 
 # Low-Dimensional Probing of Word Representations
 
+Code from the CoNLL 2021 paper:
+
+[**The Low-Dimensional Linear Geometry of Contextualized Word Representations**](https://arxiv.org/abs/2105.07109).
+<br>[Evan Hernandez](https://evandez.com), [Jacob Andreas](https://www.mit.edu/~jda/)
+<br>Proceedings of the 25th Conference on Computational Language Learning, November 2021.
+
+## Summary
+
 Word representations encode linguistic features about the underlying words. For example, probe models can predict a word's part of speech or its dependency relationships in a sentence given only the representation as input.
 
 However, probe accuracy only speaks to the existence of the important in the representation. **We study how representations geometrically encode linguistic features.** Specifically, we find low-dimensional subspaces that encode part of speech and dependency relationships. We also show these subspaces are not necessarily axis-aligned, but sometimes have heirarchical structure, and we show they are causally related to the model's predictions.
 
 <img src="www/main-figure.png" alt="main figure">
-
-For further details, please see the paper:
-
-[**The Low-Dimensional Linear Geometry of Contextualized Word Representations**](https://arxiv.org/abs/2105.07109).
-<br>[Evan Hernandez](https://evandez.com), [Jacob Andreas](https://www.mit.edu/~jda/)
-<br>Proceedings of the 25th Conference on Computational Language Learning, November 2021.
 
 ## Installation
 
