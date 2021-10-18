@@ -5,7 +5,7 @@ Code from the CoNLL 2021 paper:
 
 [**The Low-Dimensional Linear Geometry of Contextualized Word Representations**](https://arxiv.org/abs/2105.07109).
 <br>[Evan Hernandez](https://evandez.com), [Jacob Andreas](https://www.mit.edu/~jda/)
-<br>Proceedings of the 25th Conference on Computational Language Learning, November 2021.
+<br>Proceedings of the 25th Conference on Computational Natural Language Learning, November 2021.
 
 ## Summary
 
